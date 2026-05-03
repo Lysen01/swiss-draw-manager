@@ -538,7 +538,7 @@ function getMaxRoundsByFormat(format, playersCount) {
     if (playersCount < 2) {
       return 0;
     }
-    return playersCount % 2 === 0 ? playersCount - 1 : playersCount;
+    return playersCount - 1;
   }
 
   return 15;
