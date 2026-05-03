@@ -50,8 +50,31 @@
                 <option value="round_robin">Кругова система</option>
               </select>
             </label>
+            <label>
+              Дата проведення
+              <input id="tournamentDate" type="date" />
+            </label>
+            <label>
+              Контроль часу
+              <input id="tournamentTimeControl" type="text" placeholder="Наприклад: 10+5" />
+            </label>
+            <label>
+              Фото турніру
+              <input id="tournamentPhoto" type="file" accept="image/*" />
+            </label>
+            <label class="check-inline check-inline--row">
+              <input id="tournamentRemovePhoto" type="checkbox" />
+              Видалити фото турніру
+            </label>
             <button type="submit">Застосувати</button>
           </form>
+          <div id="tournamentSettingsPreview" class="tournament-settings-preview" hidden>
+            <img id="tournamentSettingsPhoto" alt="Фото турніру" hidden />
+            <div class="tournament-settings-preview__meta">
+              <div id="tournamentSettingsDate" class="meta"></div>
+              <div id="tournamentSettingsControl" class="meta"></div>
+            </div>
+          </div>
         </section>
 
         <section class="card" data-tour-view="setup">

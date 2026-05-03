@@ -19,6 +19,14 @@ const els = {
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
   tournamentFormat: document.getElementById("tournamentFormat"),
+  tournamentDate: document.getElementById("tournamentDate"),
+  tournamentTimeControl: document.getElementById("tournamentTimeControl"),
+  tournamentPhoto: document.getElementById("tournamentPhoto"),
+  tournamentRemovePhoto: document.getElementById("tournamentRemovePhoto"),
+  tournamentSettingsPreview: document.getElementById("tournamentSettingsPreview"),
+  tournamentSettingsPhoto: document.getElementById("tournamentSettingsPhoto"),
+  tournamentSettingsDate: document.getElementById("tournamentSettingsDate"),
+  tournamentSettingsControl: document.getElementById("tournamentSettingsControl"),
   dbPlayerSelect: document.getElementById("dbPlayerSelect"),
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
@@ -68,7 +76,7 @@ function bindEvents() {
     saveAndRender();
   });
 
-  els.settingsForm.addEventListener("submit", (event) => {
+  els.settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const t = state.currentTournament;
     if (t.status === "archived_view") {
@@ -94,11 +102,36 @@ function bindEvents() {
       return;
     }
 
+    const nextEventDate = normalizeBirthDate(els.tournamentDate.value);
+    const nextTimeControl = normalizeTimeControl(els.tournamentTimeControl.value);
+    const removePhoto = els.tournamentRemovePhoto.checked;
+    const photoFile = els.tournamentPhoto.files?.[0] || null;
+    let photoDataUrl = null;
+
+    if (photoFile) {
+      if (photoFile.size > 3 * 1024 * 1024) {
+        alert("Фото турніру занадто велике. Оберіть файл до 3 MB.");
+        return;
+      }
+      photoDataUrl = await readFileAsDataUrl(photoFile);
+    }
+
     t.name = els.tournamentName.value.trim() || "Турнір";
     t.roundsCount = nextRounds;
     t.format = nextFormat;
+    t.eventDate = nextEventDate;
+    t.timeControl = nextTimeControl;
+
+    if (photoDataUrl) {
+      t.photoDataUrl = photoDataUrl;
+    } else if (removePhoto) {
+      t.photoDataUrl = null;
+    }
+
     normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
+    els.tournamentRemovePhoto.checked = false;
+    els.tournamentPhoto.value = "";
     saveAndRender();
   });
 
@@ -301,6 +334,9 @@ function createDefaultTournament() {
     id: crypto.randomUUID(),
     name: "Дитяча шашкова ліга",
     format: "swiss",
+    eventDate: "",
+    timeControl: "",
+    photoDataUrl: null,
     roundsCount: 5,
     currentRound: 0,
     status: "active",
@@ -316,6 +352,9 @@ function normalizeTournament(tournament) {
     id: tournament.id || crypto.randomUUID(),
     name: tournament.name || "Турнір",
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
+    eventDate: normalizeBirthDate(tournament.eventDate),
+    timeControl: normalizeTimeControl(tournament.timeControl),
+    photoDataUrl: typeof tournament.photoDataUrl === "string" && tournament.photoDataUrl ? tournament.photoDataUrl : null,
     roundsCount: Number(tournament.roundsCount) || 5,
     currentRound: Number(tournament.currentRound) || 0,
     status: tournament.status || "active",
@@ -491,6 +530,10 @@ function formatLabel(format) {
   return format === "round_robin" ? "Кругова система" : "Швейцарська система";
 }
 
+function normalizeTimeControl(value) {
+  return String(value || "").trim().slice(0, 60);
+}
+
 function render() {
   renderTabs();
   renderTournamentTab();
@@ -515,7 +558,15 @@ function renderTournamentTab() {
   els.tournamentName.value = t.name;
   els.roundsCount.value = t.roundsCount;
   els.tournamentFormat.value = t.format;
-  els.roundMeta.textContent = `${t.name} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount}${archiveView ? " | Архів (read-only)" : ""}`;
+  els.tournamentDate.value = normalizeBirthDate(t.eventDate);
+  els.tournamentTimeControl.value = normalizeTimeControl(t.timeControl);
+  els.tournamentRemovePhoto.checked = false;
+
+  const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "дата не вказана";
+  const timeControlText = t.timeControl || "не вказано";
+  els.roundMeta.textContent = `${t.name} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText}${archiveView ? " | Архів (read-only)" : ""}`;
+
+  renderTournamentSettingsPreview();
 
   renderBaseSelect();
   els.generateRoundBtn.disabled = archiveView;
@@ -529,6 +580,30 @@ function renderTournamentTab() {
   renderTournamentPlayers();
   renderRounds();
   renderStandings();
+}
+
+function renderTournamentSettingsPreview() {
+  const t = state.currentTournament;
+  const hasPhoto = Boolean(t.photoDataUrl);
+  const hasDate = Boolean(t.eventDate);
+  const hasControl = Boolean(t.timeControl);
+  const hasAnyMeta = hasPhoto || hasDate || hasControl;
+
+  els.tournamentSettingsPreview.hidden = !hasAnyMeta;
+  if (!hasAnyMeta) {
+    return;
+  }
+
+  if (hasPhoto) {
+    els.tournamentSettingsPhoto.src = t.photoDataUrl;
+    els.tournamentSettingsPhoto.hidden = false;
+  } else {
+    els.tournamentSettingsPhoto.src = "";
+    els.tournamentSettingsPhoto.hidden = true;
+  }
+
+  els.tournamentSettingsDate.textContent = `Дата: ${hasDate ? formatDateOnly(t.eventDate) : "не вказана"}`;
+  els.tournamentSettingsControl.textContent = `Контроль часу: ${hasControl ? t.timeControl : "не вказано"}`;
 }
 
 function renderTournamentSubtabs() {
@@ -792,6 +867,7 @@ function renderArchiveTab() {
           </div>
         </div>
         <div class="archive-meta">${formatDate(t.finishedAt)} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}</div>
+        <div class="archive-meta">Дата: ${t.eventDate ? formatDateOnly(t.eventDate) : "не вказана"} | Контроль: ${escapeHtml(t.timeControl || "не вказано")}</div>
         <div class="archive-meta">Топ-3: ${top || "-"}</div>
         ${isOpen ? buildArchivePreviewHtml(t) : ""}
       </article>`;
@@ -819,6 +895,7 @@ function buildArchivePreviewHtml(archived) {
     <hr />
     <h3>${escapeHtml(archived.name)} — підсумкова таблиця</h3>
     <div class="archive-meta">${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}</div>
+    <div class="archive-meta">Дата: ${archived.eventDate ? formatDateOnly(archived.eventDate) : "не вказана"} | Контроль: ${escapeHtml(archived.timeControl || "не вказано")}</div>
     <div class="toolbar" style="margin-top:8px;">
       <button type="button" data-action="close-archive-preview" data-tournament-id="${archived.id}">Закрити перегляд</button>
     </div>
@@ -1896,6 +1973,19 @@ function formatDate(iso) {
     return new Intl.DateTimeFormat("uk-UA", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
   } catch {
     return iso;
+  }
+}
+
+function formatDateOnly(isoDate) {
+  if (!isoDate) {
+    return "-";
+  }
+
+  const safe = `${isoDate}T00:00:00`;
+  try {
+    return new Intl.DateTimeFormat("uk-UA", { dateStyle: "medium" }).format(new Date(safe));
+  } catch {
+    return isoDate;
   }
 }
 

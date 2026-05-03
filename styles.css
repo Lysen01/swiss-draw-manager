@@ -356,6 +356,36 @@ button.danger {
   margin: 0;
 }
 
+.check-inline--row {
+  min-height: 44px;
+  justify-content: flex-start;
+}
+
+.tournament-settings-preview {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tournament-settings-preview img {
+  width: 68px;
+  height: 68px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid #c9d5ea;
+  background: #edf3fc;
+}
+
+.tournament-settings-preview__meta {
+  display: grid;
+  gap: 4px;
+}
+
 .player-cell {
   display: flex;
   align-items: center;
