@@ -415,10 +415,6 @@ button.danger {
   white-space: nowrap;
 }
 
-.base-io-toolbar {
-  margin-top: 10px;
-}
-
 .edit-hint {
   margin-top: 10px;
   padding: 10px 12px;
@@ -430,12 +426,8 @@ button.danger {
   line-height: 1.35;
 }
 
-.base-io-toolbar button {
-  min-height: 42px;
-}
-
 #basePlayersList .table {
-  min-width: 1420px;
+  min-width: 1260px;
   width: max-content;
   table-layout: fixed;
 }
@@ -507,11 +499,6 @@ button.danger {
 
 #basePlayersList .table th:nth-child(12),
 #basePlayersList .table td:nth-child(12) {
-  width: 340px;
-}
-
-#basePlayersList .table th:nth-child(13),
-#basePlayersList .table td:nth-child(13) {
   width: 150px;
 }
 
@@ -535,12 +522,6 @@ button.danger {
   justify-content: center;
   border-radius: 8px;
   box-shadow: none;
-}
-
-.last-tournament {
-  max-width: 340px;
-  white-space: normal;
-  line-height: 1.25;
 }
 
 @media (max-width: 1200px) {

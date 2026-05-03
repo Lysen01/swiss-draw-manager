@@ -38,9 +38,6 @@ const els = {
   basePlayerSubmitBtn: document.getElementById("basePlayerSubmitBtn"),
   basePlayerCancelEditBtn: document.getElementById("basePlayerCancelEditBtn"),
   baseEditHint: document.getElementById("baseEditHint"),
-  exportBaseBtn: document.getElementById("exportBaseBtn"),
-  importBaseBtn: document.getElementById("importBaseBtn"),
-  importBaseFile: document.getElementById("importBaseFile"),
   basePlayersList: document.getElementById("basePlayersList"),
   archiveList: document.getElementById("archiveList"),
   archivePreview: document.getElementById("archivePreview"),
@@ -121,24 +118,6 @@ function bindEvents() {
 
   els.basePlayerCancelEditBtn.addEventListener("click", () => {
     resetBasePlayerForm();
-  });
-
-  els.exportBaseBtn.addEventListener("click", () => {
-    exportPlayerBase();
-  });
-
-  els.importBaseBtn.addEventListener("click", () => {
-    els.importBaseFile.click();
-  });
-
-  els.importBaseFile.addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    await importPlayerBase(file);
-    event.target.value = "";
   });
 
   els.basePlayersList.addEventListener("click", (event) => {
@@ -723,11 +702,6 @@ function renderBasePlayersTab() {
     .slice()
     .sort((a, b) => b.rating - a.rating)
     .map((p, idx) => {
-      const last = p.history.slice().sort((x, y) => new Date(y.finishedAt) - new Date(x.finishedAt))[0];
-      const lastText = last
-        ? `${escapeHtml(last.tournamentName)} (${formatDate(last.finishedAt)})`
-        : "-";
-
       return `
       <tr>
         <td>${idx + 1}</td>
@@ -741,7 +715,6 @@ function renderBasePlayersTab() {
         <td>${p.stats.games}</td>
         <td>${p.stats.wins}/${p.stats.draws}/${p.stats.losses}</td>
         <td>${p.stats.totalScore.toFixed(1)}</td>
-        <td class="last-tournament">${lastText}</td>
         <td>
           <div class="row-actions">
             <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
@@ -769,11 +742,10 @@ function renderBasePlayersTab() {
           <th>Партії</th>
           <th>W/D/L</th>
           <th>Очки</th>
-          <th>Останній турнір</th>
           <th>Дії</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="13">База порожня.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="12">База порожня.</td></tr>'}</tbody>
     </table>`;
 }
 
@@ -1132,93 +1104,6 @@ function removeTournamentPlayer(playerId) {
   normalizeRoundsCountForCurrentFormat(t);
   t.updatedAt = new Date().toISOString();
   saveAndRender();
-}
-
-function exportPlayerBase() {
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    version: 1,
-    playerBase: state.playerBase,
-    tournamentsArchive: state.tournamentsArchive,
-  };
-
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `swiss-player-base-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function importPlayerBase(file) {
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    const importedBase = Array.isArray(data.playerBase) ? data.playerBase : [];
-    const importedArchive = Array.isArray(data.tournamentsArchive) ? data.tournamentsArchive : [];
-
-    const mergedBase = mergePlayerBases(state.playerBase, importedBase);
-    const mergedArchive = mergeTournamentArchives(state.tournamentsArchive, importedArchive);
-
-    state.playerBase = mergedBase.map(normalizeBasePlayer);
-    state.tournamentsArchive = mergedArchive.map(normalizeArchivedTournament);
-    recalcAllBaseStats();
-    saveAndRender();
-    alert("Імпорт виконано успішно.");
-  } catch {
-    alert("Не вдалося імпортувати файл. Перевірте, що це правильний JSON-експорт.");
-  }
-}
-
-function mergePlayerBases(existing, incoming) {
-  const map = new Map();
-
-  for (const p of existing) {
-    map.set(p.id, normalizeBasePlayer(p));
-  }
-
-  for (const p of incoming) {
-    const np = normalizeBasePlayer(p);
-    if (!map.has(np.id)) {
-      map.set(np.id, np);
-      continue;
-    }
-
-    const cur = map.get(np.id);
-    cur.rating = Math.max(cur.rating, np.rating);
-    cur.history = dedupeByTournamentId([...(cur.history || []), ...(np.history || [])]);
-    cur.stats = cur.stats || emptyStats();
-  }
-
-  return [...map.values()];
-}
-
-function mergeTournamentArchives(existing, incoming) {
-  const map = new Map();
-  for (const t of existing) {
-    map.set(t.id, normalizeArchivedTournament(t));
-  }
-
-  for (const t of incoming) {
-    const nt = normalizeArchivedTournament(t);
-    map.set(nt.id, nt);
-  }
-
-  return [...map.values()];
-}
-
-function dedupeByTournamentId(history) {
-  const map = new Map();
-  for (const h of history || []) {
-    if (!h.tournamentId) {
-      continue;
-    }
-    map.set(h.tournamentId, h);
-  }
-  return [...map.values()];
 }
 
 function addDemoPlayers() {
