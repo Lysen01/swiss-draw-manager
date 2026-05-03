@@ -158,7 +158,9 @@ function bindEvents() {
 
   const syncTournamentDateDraft = () => {
     ensureTournamentSettingsDraftForCurrentTournament();
-    tournamentSettingsDraft.eventDate = els.tournamentDate.value;
+    const normalizedDate = normalizeBirthDate(els.tournamentDate.value);
+    tournamentSettingsDraft.eventDate = normalizedDate;
+    state.currentTournament.eventDate = normalizedDate;
   };
   els.tournamentDate.addEventListener("input", syncTournamentDateDraft);
   els.tournamentDate.addEventListener("change", syncTournamentDateDraft);
@@ -671,7 +673,7 @@ function renderTournamentTab() {
   els.tournamentFormat.value = draft.format;
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
-  els.tournamentDate.value = draft.eventDate || "";
+  els.tournamentDate.value = normalizeBirthDate(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
@@ -740,7 +742,7 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.name = els.tournamentName.value.trim();
   tournamentSettingsDraft.format = els.tournamentFormat.value === "round_robin" ? "round_robin" : "swiss";
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
-  tournamentSettingsDraft.eventDate = els.tournamentDate.value || "";
+  tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
   tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
 
