@@ -358,6 +358,13 @@ button.danger {
               Кількість турів
               <input id="roundsCount" type="number" min="1" max="15" required />
             </label>
+            <label>
+              Формат турніру
+              <select id="tournamentFormat">
+                <option value="swiss">Швейцарська система</option>
+                <option value="round_robin">Кругова система</option>
+              </select>
+            </label>
             <button type="submit">Застосувати</button>
           </form>
         </section>
@@ -428,6 +435,7 @@ const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 
 const state = normalizeState(loadRawState());
 recalcAllBaseStats();
+normalizeRoundsCountForCurrentFormat(state.currentTournament);
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -439,6 +447,7 @@ const els = {
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
+  tournamentFormat: document.getElementById("tournamentFormat"),
   playerForm: document.getElementById("playerForm"),
   playerName: document.getElementById("playerName"),
   playerRating: document.getElementById("playerRating"),
@@ -477,13 +486,28 @@ function bindEvents() {
     event.preventDefault();
     const t = state.currentTournament;
     const nextRounds = Number(els.roundsCount.value);
+    const nextFormat = els.tournamentFormat.value;
+
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
       return;
     }
 
+    if (nextFormat !== t.format && t.currentRound > 0) {
+      alert("Після старту турніру не можна змінити формат.");
+      return;
+    }
+
+    const maxRounds = getMaxRoundsByFormat(nextFormat, t.players.length);
+    if (nextFormat === "round_robin" && maxRounds > 0 && nextRounds > maxRounds) {
+      alert(`Для кругової системи з ${t.players.length} гравцями максимум ${maxRounds} турів.`);
+      return;
+    }
+
     t.name = els.tournamentName.value.trim() || "Турнір";
     t.roundsCount = nextRounds;
+    t.format = nextFormat;
+    normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
     saveAndRender();
   });
@@ -537,6 +561,28 @@ function bindEvents() {
 
     if (action === "delete-base-player") {
       deleteBasePlayer(playerId);
+    }
+
+    if (action === "edit-base-player") {
+      editBasePlayer(playerId);
+    }
+  });
+
+  els.playersList.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    const playerId = btn.dataset.playerId;
+    const action = btn.dataset.action;
+
+    if (action === "edit-tour-player") {
+      editTournamentPlayer(playerId);
+    }
+
+    if (action === "remove-tour-player") {
+      removeTournamentPlayer(playerId);
     }
   });
 
@@ -607,6 +653,7 @@ function normalizeState(raw) {
     migrated.currentTournament = {
       id: crypto.randomUUID(),
       name: raw.tournamentName || "Мігрований турнір",
+      format: "swiss",
       roundsCount: Number(raw.roundsCount) || 5,
       currentRound: Number(raw.currentRound) || 0,
       status: "active",
@@ -654,6 +701,7 @@ function createDefaultTournament() {
   return {
     id: crypto.randomUUID(),
     name: "Дитяча шашкова ліга",
+    format: "swiss",
     roundsCount: 5,
     currentRound: 0,
     status: "active",
@@ -668,6 +716,7 @@ function normalizeTournament(tournament) {
   const t = {
     id: tournament.id || crypto.randomUUID(),
     name: tournament.name || "Турнір",
+    format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     roundsCount: Number(tournament.roundsCount) || 5,
     currentRound: Number(tournament.currentRound) || 0,
     status: tournament.status || "active",
@@ -777,6 +826,28 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount) {
   };
 }
 
+function getMaxRoundsByFormat(format, playersCount) {
+  if (format === "round_robin") {
+    if (playersCount < 2) {
+      return 0;
+    }
+    return playersCount % 2 === 0 ? playersCount - 1 : playersCount;
+  }
+
+  return 15;
+}
+
+function normalizeRoundsCountForCurrentFormat(tournament) {
+  const maxRounds = getMaxRoundsByFormat(tournament.format, tournament.players.length);
+  if (maxRounds > 0 && tournament.roundsCount > maxRounds) {
+    tournament.roundsCount = maxRounds;
+  }
+}
+
+function formatLabel(format) {
+  return format === "round_robin" ? "Кругова система" : "Швейцарська система";
+}
+
 function render() {
   renderTabs();
   renderTournamentTab();
@@ -799,7 +870,8 @@ function renderTournamentTab() {
 
   els.tournamentName.value = t.name;
   els.roundsCount.value = t.roundsCount;
-  els.roundMeta.textContent = `${t.name} | Тур ${t.currentRound} з ${t.roundsCount}`;
+  els.tournamentFormat.value = t.format;
+  els.roundMeta.textContent = `${t.name} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount}`;
 
   renderBaseSelect();
   renderTournamentPlayers();
@@ -825,7 +897,9 @@ function renderBaseSelect() {
 }
 
 function renderTournamentPlayers() {
-  const sorted = [...state.currentTournament.players].sort((a, b) => b.rating - a.rating);
+  const t = state.currentTournament;
+  const sorted = [...t.players].sort((a, b) => b.rating - a.rating);
+  const editable = t.currentRound === 0;
 
   const rows = sorted
     .map(
@@ -836,6 +910,12 @@ function renderTournamentPlayers() {
         <td>${p.rating}</td>
         <td>${p.score.toFixed(1)}</td>
         <td>${p.hadBye ? "Так" : "Ні"}</td>
+        <td>
+          <div class="toolbar">
+            <button type="button" data-action="edit-tour-player" data-player-id="${p.id}" ${editable ? "" : "disabled"}>Редагувати</button>
+            <button type="button" data-action="remove-tour-player" data-player-id="${p.id}" class="danger" ${editable ? "" : "disabled"}>Видалити</button>
+          </div>
+        </td>
       </tr>`
     )
     .join("");
@@ -849,6 +929,7 @@ function renderTournamentPlayers() {
           <th>Рейтинг</th>
           <th>Очки</th>
           <th>BYE</th>
+          <th>Дії</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -981,6 +1062,7 @@ function renderBasePlayersTab() {
         <td>${lastText}</td>
         <td>
           <div class="toolbar">
+            <button type="button" data-action="edit-base-player" data-player-id="${p.id}">Редагувати</button>
             <button type="button" data-action="add-to-tournament" data-player-id="${p.id}">В турнір</button>
             <button type="button" data-action="delete-base-player" data-player-id="${p.id}" class="danger">Видалити</button>
           </div>
@@ -1092,6 +1174,7 @@ function addTournamentPlayer(basePlayerId, name, rating) {
   }
 
   t.players.push(createTournamentPlayer(name, rating, basePlayerId, t.players.length));
+  normalizeRoundsCountForCurrentFormat(t);
   t.updatedAt = new Date().toISOString();
   saveAndRender();
 }
@@ -1123,6 +1206,132 @@ function deleteBasePlayer(playerId) {
     }
   }
 
+  saveAndRender();
+}
+
+function editBasePlayer(playerId) {
+  const base = state.playerBase.find((p) => p.id === playerId);
+  if (!base) {
+    return;
+  }
+
+  const nextName = prompt("Нове ім'я гравця:", base.name);
+  if (nextName === null) {
+    return;
+  }
+
+  const trimmedName = nextName.trim();
+  if (!trimmedName) {
+    alert("Ім'я не може бути порожнім.");
+    return;
+  }
+
+  if (state.playerBase.some((p) => p.id !== base.id && p.name.toLowerCase() === trimmedName.toLowerCase())) {
+    alert("Гравець з таким ім'ям уже є в базі.");
+    return;
+  }
+
+  const nextRatingRaw = prompt("Новий рейтинг:", String(base.rating));
+  if (nextRatingRaw === null) {
+    return;
+  }
+
+  const nextRating = Number(nextRatingRaw);
+  if (!Number.isFinite(nextRating) || nextRating < 0) {
+    alert("Рейтинг має бути невід'ємним числом.");
+    return;
+  }
+
+  base.name = trimmedName;
+  base.rating = Math.round(nextRating);
+
+  syncBasePlayerChangesToCurrentTournament(base.id);
+  saveAndRender();
+}
+
+function syncBasePlayerChangesToCurrentTournament(basePlayerId) {
+  const t = state.currentTournament;
+  const base = state.playerBase.find((p) => p.id === basePlayerId);
+  if (!base) {
+    return;
+  }
+
+  const linked = t.players.filter((p) => p.basePlayerId === basePlayerId);
+  for (const tp of linked) {
+    tp.name = base.name;
+    if (t.currentRound === 0) {
+      tp.rating = base.rating;
+    }
+  }
+}
+
+function editTournamentPlayer(playerId) {
+  const t = state.currentTournament;
+  if (t.currentRound > 0) {
+    alert("Після старту турніру редагування учасників вимкнене.");
+    return;
+  }
+
+  const player = t.players.find((p) => p.id === playerId);
+  if (!player) {
+    return;
+  }
+
+  const nextName = prompt("Нове ім'я гравця:", player.name);
+  if (nextName === null) {
+    return;
+  }
+
+  const trimmedName = nextName.trim();
+  if (!trimmedName) {
+    alert("Ім'я не може бути порожнім.");
+    return;
+  }
+
+  const nextRatingRaw = prompt("Новий рейтинг:", String(player.rating));
+  if (nextRatingRaw === null) {
+    return;
+  }
+
+  const nextRating = Number(nextRatingRaw);
+  if (!Number.isFinite(nextRating) || nextRating < 0) {
+    alert("Рейтинг має бути невід'ємним числом.");
+    return;
+  }
+
+  player.name = trimmedName;
+  player.rating = Math.round(nextRating);
+
+  if (player.basePlayerId) {
+    const base = state.playerBase.find((bp) => bp.id === player.basePlayerId);
+    if (base) {
+      base.name = player.name;
+      base.rating = player.rating;
+    }
+  }
+
+  saveAndRender();
+}
+
+function removeTournamentPlayer(playerId) {
+  const t = state.currentTournament;
+  if (t.currentRound > 0) {
+    alert("Після старту турніру видалення учасників вимкнене.");
+    return;
+  }
+
+  const player = t.players.find((p) => p.id === playerId);
+  if (!player) {
+    return;
+  }
+
+  if (!confirm(`Видалити ${player.name} з поточного турніру?`)) {
+    return;
+  }
+
+  t.players = t.players.filter((p) => p.id !== playerId);
+  normalizeRoundsCountForCurrentFormat(t);
+  t.updatedAt = new Date().toISOString();
   saveAndRender();
 }
 
@@ -1158,6 +1367,7 @@ function addDemoPlayers() {
     t.players.push(createTournamentPlayer(name, rating, base.id, t.players.length));
   }
 
+  normalizeRoundsCountForCurrentFormat(t);
   saveAndRender();
 }
 
@@ -1180,7 +1390,24 @@ function generateNextRound() {
   }
 
   const nextRoundNumber = t.currentRound + 1;
-  const pairings = swissPairRound(t, nextRoundNumber);
+  let pairings = [];
+
+  if (t.format === "round_robin") {
+    const maxRounds = getMaxRoundsByFormat("round_robin", t.players.length);
+    if (maxRounds === 0) {
+      alert("Для кругової системи потрібно щонайменше 2 гравці.");
+      return;
+    }
+
+    if (nextRoundNumber > maxRounds) {
+      alert(`Для цього складу кругової системи максимум ${maxRounds} турів.`);
+      return;
+    }
+
+    pairings = roundRobinPairRound(t, nextRoundNumber);
+  } else {
+    pairings = swissPairRound(t, nextRoundNumber);
+  }
 
   t.rounds.push({ round: nextRoundNumber, pairings });
   t.currentRound = nextRoundNumber;
@@ -1218,6 +1445,91 @@ function swissPairRound(tournament, roundNumber) {
 
   applyPendingMetadata(tournament, pairings);
   return pairings;
+}
+
+function roundRobinPairRound(tournament, roundNumber) {
+  const ids = [...tournament.players]
+    .sort((a, b) => b.rating - a.rating)
+    .map((p) => p.id);
+
+  const rounds = buildRoundRobinSchedule(ids);
+  const roundPairs = rounds[roundNumber - 1] || [];
+  const pairings = [];
+
+  for (const pair of roundPairs) {
+    if (pair.whiteId === null || pair.blackId === null) {
+      const byeId = pair.whiteId || pair.blackId;
+      if (!byeId) {
+        continue;
+      }
+
+      const byePlayer = tournament.players.find((p) => p.id === byeId);
+      if (!byePlayer) {
+        continue;
+      }
+
+      byePlayer.hadBye = true;
+      byePlayer.score += 1;
+      byePlayer.resultsByRound[roundNumber] = "BYE";
+
+      pairings.push({
+        board: pairings.length + 1,
+        whiteId: byePlayer.id,
+        blackId: null,
+        result: "1-0 BYE",
+      });
+      continue;
+    }
+
+    pairings.push({
+      board: pairings.length + 1,
+      whiteId: pair.whiteId,
+      blackId: pair.blackId,
+      result: "pending",
+    });
+  }
+
+  applyPendingMetadata(tournament, pairings);
+  return pairings;
+}
+
+function buildRoundRobinSchedule(playerIds) {
+  if (playerIds.length < 2) {
+    return [];
+  }
+
+  const arr = [...playerIds];
+  if (arr.length % 2 === 1) {
+    arr.push(null);
+  }
+
+  const rounds = [];
+  const n = arr.length;
+  const roundsTotal = n - 1;
+
+  for (let round = 0; round < roundsTotal; round += 1) {
+    const pairs = [];
+
+    for (let i = 0; i < n / 2; i += 1) {
+      const a = arr[i];
+      const b = arr[n - 1 - i];
+
+      const evenRound = round % 2 === 0;
+      const whiteId = evenRound ? a : b;
+      const blackId = evenRound ? b : a;
+
+      pairs.push({ whiteId, blackId });
+    }
+
+    rounds.push(pairs);
+
+    const fixed = arr[0];
+    const moving = arr.slice(1);
+    moving.unshift(moving.pop());
+    arr.splice(0, arr.length, fixed, ...moving);
+  }
+
+  return rounds;
 }
 
 function comparePlayersForPairing(a, b) {
