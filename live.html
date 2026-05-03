@@ -663,7 +663,7 @@ button.danger {
             </label>
             <label>
               Дата проведення
-              <input id="tournamentDate" type="date" />
+              <input id="tournamentDate" type="text" placeholder="дд.мм.рррр" inputmode="numeric" />
             </label>
             <label>
               Контроль часу
@@ -885,6 +885,7 @@ function bindEvents() {
     const manualRounds = Number(draft.roundsCount);
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
     const nextRounds = nextFormat === "round_robin" ? requiredRoundRobinRounds : manualRounds;
+    const nextEventDate = normalizeBirthDate(draft.eventDateInput);
 
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
@@ -908,10 +909,15 @@ function bindEvents() {
       }
     }
 
+    if (draft.eventDateInput && !nextEventDate) {
+      alert("Дата проведення має бути у форматі дд.мм.рррр.");
+      return;
+    }
+
     t.name = draft.name || "Турнір";
     t.roundsCount = nextRounds;
     t.format = nextFormat;
-    t.eventDate = normalizeBirthDate(draft.eventDate);
+    t.eventDate = nextEventDate;
     t.timeControl = draft.timeControl;
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
@@ -947,9 +953,13 @@ function bindEvents() {
 
   const syncTournamentDateDraft = () => {
     ensureTournamentSettingsDraftForCurrentTournament();
-    const normalizedDate = normalizeBirthDate(els.tournamentDate.value);
+    const raw = String(els.tournamentDate.value || "").trim();
+    tournamentSettingsDraft.eventDateInput = raw;
+    const normalizedDate = normalizeBirthDate(raw);
     tournamentSettingsDraft.eventDate = normalizedDate;
-    state.currentTournament.eventDate = normalizedDate;
+    if (normalizedDate) {
+      state.currentTournament.eventDate = normalizedDate;
+    }
   };
   els.tournamentDate.addEventListener("input", syncTournamentDateDraft);
   els.tournamentDate.addEventListener("change", syncTournamentDateDraft);
@@ -1381,7 +1391,35 @@ function normalizeBirthDate(value) {
     return "";
   }
   const text = String(value).trim();
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text;
+  }
+
+  const match = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!match) {
+    return "";
+  }
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
+    return "";
+  }
+  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+    return "";
+  }
+
+  const iso = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+  const check = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(check.getTime())) {
+    return "";
+  }
+  if (check.getUTCFullYear() !== year || check.getUTCMonth() + 1 !== month || check.getUTCDate() !== day) {
+    return "";
+  }
+
+  return iso;
 }
 
 function getMaxRoundsByFormat(format, playersCount) {
@@ -1462,7 +1500,7 @@ function renderTournamentTab() {
   els.tournamentFormat.value = draft.format;
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
-  els.tournamentDate.value = normalizeBirthDate(draft.eventDate || t.eventDate);
+  els.tournamentDate.value = draft.eventDateInput || formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
@@ -1501,12 +1539,14 @@ function renderRoundsRuleHint() {
 }
 
 function createTournamentSettingsDraft(tournament) {
+  const normalizedEventDate = normalizeBirthDate(tournament.eventDate);
   return {
     tournamentId: tournament.id,
     name: tournament.name || "Турнір",
     roundsCount: Number(tournament.roundsCount) || 1,
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
-    eventDate: tournament.eventDate || "",
+    eventDate: normalizedEventDate,
+    eventDateInput: formatDateForInput(normalizedEventDate),
     timeControl: normalizeTimeControl(tournament.timeControl),
     removePhoto: false,
     pendingPhotoDataUrl: null,
@@ -1531,7 +1571,8 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.name = els.tournamentName.value.trim();
   tournamentSettingsDraft.format = els.tournamentFormat.value === "round_robin" ? "round_robin" : "swiss";
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
-  tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
+  tournamentSettingsDraft.eventDateInput = String(els.tournamentDate.value || "").trim();
+  tournamentSettingsDraft.eventDate = normalizeBirthDate(tournamentSettingsDraft.eventDateInput);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
   tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
 
@@ -2954,10 +2995,10 @@ function deleteArchivedTournament(tournamentId) {
 function createNewTournamentFlow() {
   const t = state.currentTournament;
 
-  if (t.players.length > 0) {
-    const shouldSave = confirm("Зберегти поточний турнір в архів перед створенням нового?");
-    if (shouldSave) {
-      archiveCurrentTournament({ notify: false });
+  if (t.players.length > 0 || t.currentRound > 0) {
+    const ok = confirm("Створити новий турнір? Незавершений поточний турнір НЕ потрапить в архів.");
+    if (!ok) {
+      return;
     }
   }
 
@@ -3017,6 +3058,16 @@ function formatDateOnly(isoDate) {
   } catch {
     return isoDate;
   }
+}
+
+function formatDateForInput(isoDate) {
+  const normalized = normalizeBirthDate(isoDate);
+  if (!normalized) {
+    return "";
+  }
+
+  const [year, month, day] = normalized.split("-");
+  return `${day}.${month}.${year}`;
 }
 
 function escapeHtml(value) {
