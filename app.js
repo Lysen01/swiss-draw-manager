@@ -98,7 +98,7 @@ function bindEvents() {
     const manualRounds = Number(draft.roundsCount);
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
     const nextRounds = nextFormat === "round_robin" ? requiredRoundRobinRounds : manualRounds;
-    const nextEventDate = normalizeBirthDate(draft.eventDateInput);
+    const nextEventDate = normalizeBirthDate(draft.eventDate);
 
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
@@ -120,11 +120,6 @@ function bindEvents() {
         alert("Для швейцарської системи має бути щонайменше 1 тур.");
         return;
       }
-    }
-
-    if (draft.eventDateInput && !nextEventDate) {
-      alert("Оберіть коректну дату з календаря.");
-      return;
     }
 
     t.name = draft.name || "Турнір";
@@ -167,11 +162,9 @@ function bindEvents() {
   const syncTournamentDateDraft = () => {
     ensureTournamentSettingsDraftForCurrentTournament();
     const raw = String(els.tournamentDate.value || "").trim();
-    tournamentSettingsDraft.eventDateInput = normalizeBirthDate(raw);
-    const normalizedDate = normalizeBirthDate(raw);
-    tournamentSettingsDraft.eventDate = normalizedDate;
-    if (normalizedDate) {
-      state.currentTournament.eventDate = normalizedDate;
+    tournamentSettingsDraft.eventDate = normalizeBirthDate(raw);
+    if (tournamentSettingsDraft.eventDate) {
+      state.currentTournament.eventDate = tournamentSettingsDraft.eventDate;
     }
   };
   els.tournamentDate.addEventListener("input", syncTournamentDateDraft);
@@ -735,7 +728,7 @@ function renderTournamentTab() {
   els.tournamentFormat.value = draft.format;
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
-  els.tournamentDate.value = formatDateForInput(draft.eventDateInput || draft.eventDate || t.eventDate);
+  els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
@@ -781,7 +774,6 @@ function createTournamentSettingsDraft(tournament) {
     roundsCount: Number(tournament.roundsCount) || 1,
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizedEventDate,
-    eventDateInput: normalizedEventDate,
     timeControl: normalizeTimeControl(tournament.timeControl),
     removePhoto: false,
     pendingPhotoDataUrl: null,
@@ -806,8 +798,7 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.name = els.tournamentName.value.trim();
   tournamentSettingsDraft.format = els.tournamentFormat.value === "round_robin" ? "round_robin" : "swiss";
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
-  tournamentSettingsDraft.eventDateInput = normalizeBirthDate(els.tournamentDate.value);
-  tournamentSettingsDraft.eventDate = normalizeBirthDate(tournamentSettingsDraft.eventDateInput);
+  tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
   tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
 
