@@ -18,6 +18,7 @@ const els = {
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
+  roundsRuleHint: document.getElementById("roundsRuleHint"),
   tournamentFormat: document.getElementById("tournamentFormat"),
   tournamentDate: document.getElementById("tournamentDate"),
   tournamentTimeControl: document.getElementById("tournamentTimeControl"),
@@ -151,6 +152,7 @@ function bindEvents() {
     if (nextFormat === "round_robin") {
       els.roundsCount.value = requiredRoundRobinRounds;
       els.roundsCount.disabled = true;
+      renderRoundsRuleHint();
       return;
     }
 
@@ -158,6 +160,7 @@ function bindEvents() {
     if (Number(els.roundsCount.value) < 1) {
       els.roundsCount.value = Math.max(1, state.currentTournament.roundsCount || 5);
     }
+    renderRoundsRuleHint();
   });
 
   els.addFromBaseBtn.addEventListener("click", () => {
@@ -593,6 +596,7 @@ function renderTournamentTab() {
   els.roundsCount.value = t.roundsCount;
   els.tournamentFormat.value = t.format;
   els.roundsCount.disabled = t.format === "round_robin" || archiveView;
+  renderRoundsRuleHint();
   els.tournamentDate.value = normalizeBirthDate(t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(t.timeControl);
   els.tournamentRemovePhoto.checked = false;
@@ -615,6 +619,18 @@ function renderTournamentTab() {
   renderTournamentPlayers();
   renderRounds();
   renderStandings();
+}
+
+function renderRoundsRuleHint() {
+  const t = state.currentTournament;
+  if (t.format !== "round_robin") {
+    els.roundsRuleHint.textContent = "Для швейцарської системи кількість турів задається вручну.";
+    return;
+  }
+
+  const playersCount = t.players.length;
+  const roundsCount = getMaxRoundsByFormat("round_robin", playersCount);
+  els.roundsRuleHint.textContent = `Кругова: ${playersCount} гравців -> ${roundsCount} турів.`;
 }
 
 function renderTournamentSettingsPreview() {
