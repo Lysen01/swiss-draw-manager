@@ -554,6 +554,8 @@ function renderStandings() {
     return b.rating - a.rating;
   });
 
+  const placeById = Object.fromEntries(enriched.map((p, idx) => [p.id, idx + 1]));
+
   const rows = enriched
     .map(
       (p, i) => `
@@ -561,7 +563,7 @@ function renderStandings() {
         <td>${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${p.rating}</td>
-        ${buildRoundCells(p)}
+        ${buildRoundCells(p, placeById)}
         <td>${p.score.toFixed(1)}</td>
         <td>${p.buchholz.toFixed(1)}</td>
         <td>${p.sb.toFixed(2)}</td>
@@ -611,7 +613,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function buildRoundCells(player) {
+function buildRoundCells(player, placeById) {
   let html = "";
 
   for (let roundNo = 1; roundNo <= state.roundsCount; roundNo += 1) {
@@ -635,9 +637,11 @@ function buildRoundCells(player) {
     const isWhite = game.whiteId === player.id;
     const oppId = isWhite ? game.blackId : game.whiteId;
     const opponent = state.players.find((p) => p.id === oppId);
-    const oppNo = opponent?.startNo || "?";
+    const oppNo = placeById[oppId] || "?";
     const color = isWhite ? "w" : "b";
-    const tooltip = opponent ? `Суперник: ${opponent.name}` : "Суперник невідомий";
+    const tooltip = opponent
+      ? `Суперник: ${opponent.name} (місце ${oppNo})`
+      : "Суперник невідомий";
 
     let result = "*";
     const r = player.resultsByRound[roundNo];
