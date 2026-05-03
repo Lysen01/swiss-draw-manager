@@ -475,6 +475,7 @@ function renderRounds() {
 
   const blocks = roundsWithIndex
     .map(({ round, index }) => {
+      const roundLocked = round.round < state.currentRound;
       const pairs = round.pairings
         .map((pair) => {
           const white = state.players.find((p) => p.id === pair.whiteId);
@@ -490,10 +491,10 @@ function renderRounds() {
 
           return `
             <div class="pair-card">
-              <div class="pair-head">Дошка ${pair.board}<span>${round.round} тур</span></div>
+              <div class="pair-head">Дошка ${pair.board}<span>${round.round} тур${roundLocked ? " | зафіксовано" : ""}</span></div>
               <div><strong>Білі:</strong> ${escapeHtml(white.name)} vs <strong>Чорні:</strong> ${escapeHtml(black.name)}</div>
               <div style="margin-top:8px;">
-                <select data-round-idx="${index}" data-board="${pair.board}">
+                <select data-round-idx="${index}" data-board="${pair.board}" ${roundLocked ? "disabled" : ""}>
                   <option value="pending" ${pair.result === "pending" ? "selected" : ""}>Результат не внесено</option>
                   <option value="1-0" ${pair.result === "1-0" ? "selected" : ""}>1-0</option>
                   <option value="0-1" ${pair.result === "0-1" ? "selected" : ""}>0-1</option>
@@ -636,6 +637,7 @@ function buildRoundCells(player) {
     const opponent = state.players.find((p) => p.id === oppId);
     const oppNo = opponent?.startNo || "?";
     const color = isWhite ? "w" : "b";
+    const tooltip = opponent ? `Суперник: ${opponent.name}` : "Суперник невідомий";
 
     let result = "*";
     const r = player.resultsByRound[roundNo];
@@ -647,7 +649,7 @@ function buildRoundCells(player) {
       result = "0";
     }
 
-    html += `<td><span class="round-chip">${oppNo}${color} ${result}</span></td>`;
+    html += `<td><span class="round-chip" title="${escapeHtml(tooltip)}">${oppNo}${color} ${result}</span></td>`;
   }
 
   return html;

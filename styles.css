@@ -87,6 +87,12 @@ button {
   font: inherit;
 }
 
+select:disabled {
+  background: #eef3fb;
+  color: #5f6d86;
+  cursor: not-allowed;
+}
+
 button {
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
   color: #fff;
