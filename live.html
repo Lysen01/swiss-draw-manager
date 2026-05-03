@@ -488,6 +488,10 @@ function bindEvents() {
   els.settingsForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const t = state.currentTournament;
+    if (t.status === "archived_view") {
+      alert("У режимі перегляду архіву редагування вимкнене.");
+      return;
+    }
     const nextRounds = Number(els.roundsCount.value);
     const nextFormat = els.tournamentFormat.value;
 
@@ -912,13 +916,20 @@ function renderTabs() {
 
 function renderTournamentTab() {
   const t = state.currentTournament;
+  const archiveView = t.status === "archived_view";
 
   els.tournamentName.value = t.name;
   els.roundsCount.value = t.roundsCount;
   els.tournamentFormat.value = t.format;
-  els.roundMeta.textContent = `${t.name} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount}`;
+  els.roundMeta.textContent = `${t.name} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount}${archiveView ? " | Архів (read-only)" : ""}`;
 
   renderBaseSelect();
+  els.generateRoundBtn.disabled = archiveView;
+  els.finishTournamentBtn.disabled = archiveView;
+  els.seedDemoBtn.disabled = archiveView;
+  if (archiveView) {
+    els.addFromBaseBtn.disabled = true;
+  }
   renderTournamentPlayers();
   renderRounds();
   renderStandings();
@@ -983,6 +994,7 @@ function renderTournamentPlayers() {
 
 function renderRounds() {
   const t = state.currentTournament;
+  const archiveView = t.status === "archived_view";
 
   if (t.rounds.length === 0) {
     els.pairings.innerHTML = '<div class="pair-card">Ще немає згенерованих турів.</div>';
@@ -995,28 +1007,35 @@ function renderRounds() {
 
   const blocks = roundsWithIndex
     .map(({ round, index }) => {
-      const roundLocked = round.round < t.currentRound;
+      const roundLocked = archiveView || round.round < t.currentRound;
       const pairs = round.pairings
         .map((pair) => {
           const white = t.players.find((p) => p.id === pair.whiteId);
           const black = pair.blackId ? t.players.find((p) => p.id === pair.blackId) : null;
-
-          if (!white) {
-            return "";
-          }
+          const whiteName = white ? white.name : `ID:${String(pair.whiteId || "-").slice(0, 8)}`;
+          const blackName = black ? black.name : pair.blackId ? `ID:${String(pair.blackId).slice(0, 8)}` : null;
 
           if (!black) {
             return `
               <div class="pair-card">
                 <div class="pair-head">Дошка ${pair.board} <span>BYE</span></div>
-                <div>${escapeHtml(white.name)} отримав(ла) BYE (1 очко)</div>
+                <div>${escapeHtml(whiteName)} отримав(ла) BYE (1 очко)</div>
+              </div>`;
+          }
+
+          if (archiveView) {
+            return `
+              <div class="pair-card">
+                <div class="pair-head">Дошка ${pair.board}<span>${round.round} тур | архів</span></div>
+                <div><strong>Білі:</strong> ${escapeHtml(whiteName)} vs <strong>Чорні:</strong> ${escapeHtml(blackName)}</div>
+                <div style="margin-top:8px;"><strong>Результат:</strong> ${escapeHtml(formatResultLabel(pair.result))}</div>
               </div>`;
           }
 
           return `
             <div class="pair-card">
               <div class="pair-head">Дошка ${pair.board}<span>${round.round} тур${roundLocked ? " | зафіксовано" : ""}</span></div>
-              <div><strong>Білі:</strong> ${escapeHtml(white.name)} vs <strong>Чорні:</strong> ${escapeHtml(black.name)}</div>
+              <div><strong>Білі:</strong> ${escapeHtml(whiteName)} vs <strong>Чорні:</strong> ${escapeHtml(blackName)}</div>
               <div style="margin-top:8px;">
                 <select data-round-idx="${index}" data-board="${pair.board}" ${roundLocked ? "disabled" : ""}>
                   <option value="pending" ${pair.result === "pending" ? "selected" : ""}>Результат не внесено</option>
@@ -2216,7 +2235,7 @@ function loadTournamentFromArchive(tournamentId) {
   }
 
   state.currentTournament = cloneTournament(archived);
-  state.currentTournament.status = "active";
+  state.currentTournament.status = "archived_view";
   state.currentTournament.updatedAt = new Date().toISOString();
   state.activeTab = "tournament";
   saveAndRender();
@@ -2271,6 +2290,13 @@ function formatDate(iso) {
   } catch {
     return iso;
   }
+}
+
+function formatResultLabel(result) {
+  if (result === "pending") {
+    return "не внесено";
+  }
+  return result;
 }
 
 function escapeHtml(value) {
