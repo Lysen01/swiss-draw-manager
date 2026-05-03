@@ -1,6 +1,7 @@
 const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const MAX_TOURNAMENT_PHOTO_BYTES = 15 * 1024 * 1024;
+const MAX_TOURNAMENT_PHOTO_STORE_BYTES = 1_600_000;
 
 const state = normalizeState(loadRawState());
 recalcAllBaseStats();
@@ -130,7 +131,7 @@ function bindEvents() {
       if (!isValidTournamentPhotoFile(selectedPhotoFile)) {
         return;
       }
-      nextPhotoDataUrl = await readFileAsDataUrl(selectedPhotoFile);
+      nextPhotoDataUrl = await readTournamentPhotoDataUrl(selectedPhotoFile);
     }
 
     if (nextPhotoDataUrl) {
@@ -187,7 +188,7 @@ function bindEvents() {
       tournamentSettingsDraft.pendingPhotoDataUrl = null;
       return;
     }
-    tournamentSettingsDraft.pendingPhotoDataUrl = await readFileAsDataUrl(photoFile);
+    tournamentSettingsDraft.pendingPhotoDataUrl = await readTournamentPhotoDataUrl(photoFile);
     tournamentSettingsDraft.removePhoto = false;
     els.tournamentRemovePhoto.checked = false;
   });
@@ -1247,6 +1248,60 @@ function readFileAsDataUrl(file) {
   });
 }
 
+async function readTournamentPhotoDataUrl(file) {
+  const rawDataUrl = await readFileAsDataUrl(file);
+  return optimizeImageDataUrl(rawDataUrl, {
+    maxSide: 1280,
+    qualityStart: 0.86,
+    qualityMin: 0.52,
+    targetBytes: MAX_TOURNAMENT_PHOTO_STORE_BYTES,
+  });
+}
+
+function optimizeImageDataUrl(dataUrl, options) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = options.maxSide || 1280;
+      const ratio = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      const width = Math.max(1, Math.round(img.naturalWidth * ratio));
+      const height = Math.max(1, Math.round(img.naturalHeight * ratio));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      let quality = options.qualityStart || 0.86;
+      const qualityMin = options.qualityMin || 0.52;
+      const targetBytes = options.targetBytes || MAX_TOURNAMENT_PHOTO_STORE_BYTES;
+      let output = canvas.toDataURL("image/jpeg", quality);
+
+      while (estimateDataUrlBytes(output) > targetBytes && quality > qualityMin) {
+        quality = Math.max(qualityMin, quality - 0.08);
+        output = canvas.toDataURL("image/jpeg", quality);
+      }
+
+      resolve(output);
+    };
+
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+function estimateDataUrlBytes(dataUrl) {
+  const commaIdx = dataUrl.indexOf(",");
+  const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+  return Math.floor((base64.length * 3) / 4);
+}
+
 function viewBasePlayerHistory(playerId) {
   const base = state.playerBase.find((p) => p.id === playerId);
   if (!base) {
@@ -2129,8 +2184,27 @@ function cloneTournament(tournament) {
 }
 
 function saveAndRender() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      alert("Браузерне сховище переповнене. Зменште розмір/кількість фото і спробуйте знову.");
+    } else {
+      alert("Не вдалося зберегти зміни в браузері. Спробуйте ще раз.");
+    }
+    console.error(error);
+  }
   render();
+}
+
+function isQuotaExceededError(error) {
+  return Boolean(
+    error &&
+      (error.name === "QuotaExceededError" ||
+        error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+        error.code === 22 ||
+        error.code === 1014)
+  );
 }
 
 function formatDate(iso) {
