@@ -64,6 +64,7 @@ function bindEvents() {
       return;
     }
 
+    captureTournamentSettingsDraftFromForm();
     state.activeTab = btn.dataset.tab;
     saveAndRender();
   });
@@ -74,6 +75,7 @@ function bindEvents() {
       return;
     }
 
+    captureTournamentSettingsDraftFromForm();
     state.tournamentView = btn.dataset.tournamentView === "play" ? "play" : "setup";
     saveAndRender();
   });
@@ -204,6 +206,7 @@ function bindEvents() {
   });
 
   els.addFromBaseBtn.addEventListener("click", () => {
+    captureTournamentSettingsDraftFromForm();
     addPlayerFromBaseSelect();
   });
 
@@ -212,6 +215,7 @@ function bindEvents() {
   });
 
   els.seedDemoBtn.addEventListener("click", () => {
+    captureTournamentSettingsDraftFromForm();
     addDemoPlayers();
   });
 
@@ -220,6 +224,7 @@ function bindEvents() {
   });
 
   els.resetBtn.addEventListener("click", () => {
+    captureTournamentSettingsDraftFromForm();
     createNewTournamentFlow();
   });
 
@@ -264,6 +269,7 @@ function bindEvents() {
       return;
     }
 
+    captureTournamentSettingsDraftFromForm();
     const playerId = btn.dataset.playerId;
     const action = btn.dataset.action;
 
@@ -699,6 +705,25 @@ function ensureTournamentSettingsDraftForCurrentTournament() {
   }
 
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+}
+
+function captureTournamentSettingsDraftFromForm() {
+  if (state.activeTab !== "tournament") {
+    return;
+  }
+
+  ensureTournamentSettingsDraftForCurrentTournament();
+
+  tournamentSettingsDraft.name = els.tournamentName.value.trim();
+  tournamentSettingsDraft.format = els.tournamentFormat.value === "round_robin" ? "round_robin" : "swiss";
+  tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
+  tournamentSettingsDraft.eventDate = els.tournamentDate.value || "";
+  tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
+  tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
+
+  if (tournamentSettingsDraft.removePhoto) {
+    tournamentSettingsDraft.pendingPhotoDataUrl = null;
+  }
 }
 
 function renderTournamentSettingsPreview() {
