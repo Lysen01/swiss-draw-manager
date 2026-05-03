@@ -265,6 +265,27 @@ button.danger {
   flex-wrap: wrap;
 }
 
+.subtabs {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.subtab-btn {
+  background: #edf3fe;
+  color: #20437b;
+  border: 1px solid #c6d6f2;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.subtab-btn.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  border-color: transparent;
+}
+
 .tab-btn {
   background: #dfe8f7;
   color: #1f2f4e;
@@ -290,6 +311,10 @@ button.danger {
 
 .card.full {
   grid-column: 1 / -1;
+}
+
+.tour-view-hidden {
+  display: none;
 }
 
 .scroll.tall {
@@ -574,7 +599,14 @@ button.danger {
 
     <main>
       <section id="tab-tournament" class="layout tab-panel active">
-        <section class="card">
+        <section class="card full">
+          <div id="tournamentSubtabs" class="subtabs">
+            <button class="subtab-btn active" type="button" data-tournament-view="setup">Налаштування турніру</button>
+            <button class="subtab-btn" type="button" data-tournament-view="play">Проведення турніру</button>
+          </div>
+        </section>
+
+        <section class="card" data-tour-view="setup">
           <h2>Налаштування турніру</h2>
           <form id="settingsForm" class="grid-form">
             <label>
@@ -596,7 +628,7 @@ button.danger {
           </form>
         </section>
 
-        <section class="card">
+        <section class="card" data-tour-view="setup">
           <h2>Учасники</h2>
           <p class="meta">Учасників можна додати тільки з бази гравців.</p>
 
@@ -613,7 +645,7 @@ button.danger {
           <div id="playersList" class="scroll"></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tour-view="play">
           <h2>Раунди</h2>
           <div class="toolbar">
             <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
@@ -622,7 +654,7 @@ button.danger {
           <div id="pairings" class="scroll"></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tour-view="play">
           <h2>Таблиця</h2>
           <div id="standings" class="scroll"></div>
         </section>
@@ -710,6 +742,8 @@ const els = {
     players: document.getElementById("tab-players"),
     archive: document.getElementById("tab-archive"),
   },
+  tournamentSubtabs: document.getElementById("tournamentSubtabs"),
+  tournamentViewPanels: document.querySelectorAll("[data-tour-view]"),
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
@@ -750,6 +784,16 @@ function bindEvents() {
     }
 
     state.activeTab = btn.dataset.tab;
+    saveAndRender();
+  });
+
+  els.tournamentSubtabs.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-tournament-view]");
+    if (!btn) {
+      return;
+    }
+
+    state.tournamentView = btn.dataset.tournamentView === "play" ? "play" : "setup";
     saveAndRender();
   });
 
@@ -910,6 +954,7 @@ function normalizeState(raw) {
   if (raw.currentTournament && Array.isArray(raw.playerBase) && Array.isArray(raw.tournamentsArchive)) {
     const normalized = {
       activeTab: raw.activeTab || "tournament",
+      tournamentView: raw.tournamentView === "play" ? "play" : "setup",
       archivePreviewTournamentId: raw.archivePreviewTournamentId || null,
       playerBase: raw.playerBase.map(normalizeBasePlayer),
       currentTournament: normalizeTournament(raw.currentTournament),
@@ -972,6 +1017,7 @@ function normalizeState(raw) {
 function createDefaultState() {
   return {
     activeTab: "tournament",
+    tournamentView: "setup",
     archivePreviewTournamentId: null,
     playerBase: [],
     currentTournament: createDefaultTournament(),
@@ -1207,9 +1253,23 @@ function renderTournamentTab() {
   if (archiveView) {
     els.addFromBaseBtn.disabled = true;
   }
+
+  renderTournamentSubtabs();
   renderTournamentPlayers();
   renderRounds();
   renderStandings();
+}
+
+function renderTournamentSubtabs() {
+  const activeView = state.tournamentView === "play" ? "play" : "setup";
+
+  for (const btn of els.tournamentSubtabs.querySelectorAll(".subtab-btn")) {
+    btn.classList.toggle("active", btn.dataset.tournamentView === activeView);
+  }
+
+  for (const panel of els.tournamentViewPanels) {
+    panel.classList.toggle("tour-view-hidden", panel.dataset.tourView !== activeView);
+  }
 }
 
 function renderBaseSelect() {

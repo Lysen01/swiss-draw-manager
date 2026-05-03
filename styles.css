@@ -255,6 +255,27 @@ button.danger {
   flex-wrap: wrap;
 }
 
+.subtabs {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.subtab-btn {
+  background: #edf3fe;
+  color: #20437b;
+  border: 1px solid #c6d6f2;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.subtab-btn.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  border-color: transparent;
+}
+
 .tab-btn {
   background: #dfe8f7;
   color: #1f2f4e;
@@ -280,6 +301,10 @@ button.danger {
 
 .card.full {
   grid-column: 1 / -1;
+}
+
+.tour-view-hidden {
+  display: none;
 }
 
 .scroll.tall {

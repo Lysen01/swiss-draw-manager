@@ -25,7 +25,14 @@
 
     <main>
       <section id="tab-tournament" class="layout tab-panel active">
-        <section class="card">
+        <section class="card full">
+          <div id="tournamentSubtabs" class="subtabs">
+            <button class="subtab-btn active" type="button" data-tournament-view="setup">Налаштування турніру</button>
+            <button class="subtab-btn" type="button" data-tournament-view="play">Проведення турніру</button>
+          </div>
+        </section>
+
+        <section class="card" data-tour-view="setup">
           <h2>Налаштування турніру</h2>
           <form id="settingsForm" class="grid-form">
             <label>
@@ -47,7 +54,7 @@
           </form>
         </section>
 
-        <section class="card">
+        <section class="card" data-tour-view="setup">
           <h2>Учасники</h2>
           <p class="meta">Учасників можна додати тільки з бази гравців.</p>
 
@@ -64,7 +71,7 @@
           <div id="playersList" class="scroll"></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tour-view="play">
           <h2>Раунди</h2>
           <div class="toolbar">
             <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
@@ -73,7 +80,7 @@
           <div id="pairings" class="scroll"></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-tour-view="play">
           <h2>Таблиця</h2>
           <div id="standings" class="scroll"></div>
         </section>

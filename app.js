@@ -13,6 +13,8 @@ const els = {
     players: document.getElementById("tab-players"),
     archive: document.getElementById("tab-archive"),
   },
+  tournamentSubtabs: document.getElementById("tournamentSubtabs"),
+  tournamentViewPanels: document.querySelectorAll("[data-tour-view]"),
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
@@ -53,6 +55,16 @@ function bindEvents() {
     }
 
     state.activeTab = btn.dataset.tab;
+    saveAndRender();
+  });
+
+  els.tournamentSubtabs.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-tournament-view]");
+    if (!btn) {
+      return;
+    }
+
+    state.tournamentView = btn.dataset.tournamentView === "play" ? "play" : "setup";
     saveAndRender();
   });
 
@@ -213,6 +225,7 @@ function normalizeState(raw) {
   if (raw.currentTournament && Array.isArray(raw.playerBase) && Array.isArray(raw.tournamentsArchive)) {
     const normalized = {
       activeTab: raw.activeTab || "tournament",
+      tournamentView: raw.tournamentView === "play" ? "play" : "setup",
       archivePreviewTournamentId: raw.archivePreviewTournamentId || null,
       playerBase: raw.playerBase.map(normalizeBasePlayer),
       currentTournament: normalizeTournament(raw.currentTournament),
@@ -275,6 +288,7 @@ function normalizeState(raw) {
 function createDefaultState() {
   return {
     activeTab: "tournament",
+    tournamentView: "setup",
     archivePreviewTournamentId: null,
     playerBase: [],
     currentTournament: createDefaultTournament(),
@@ -510,9 +524,23 @@ function renderTournamentTab() {
   if (archiveView) {
     els.addFromBaseBtn.disabled = true;
   }
+
+  renderTournamentSubtabs();
   renderTournamentPlayers();
   renderRounds();
   renderStandings();
+}
+
+function renderTournamentSubtabs() {
+  const activeView = state.tournamentView === "play" ? "play" : "setup";
+
+  for (const btn of els.tournamentSubtabs.querySelectorAll(".subtab-btn")) {
+    btn.classList.toggle("active", btn.dataset.tournamentView === activeView);
+  }
+
+  for (const panel of els.tournamentViewPanels) {
+    panel.classList.toggle("tour-view-hidden", panel.dataset.tourView !== activeView);
+  }
 }
 
 function renderBaseSelect() {
