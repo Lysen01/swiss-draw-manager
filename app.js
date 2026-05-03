@@ -40,7 +40,6 @@ const els = {
   baseEditHint: document.getElementById("baseEditHint"),
   basePlayersList: document.getElementById("basePlayersList"),
   archiveList: document.getElementById("archiveList"),
-  archivePreview: document.getElementById("archivePreview"),
 };
 
 bindEvents();
@@ -181,15 +180,7 @@ function bindEvents() {
       deleteArchivedTournament(tournamentId);
     }
 
-  });
-
-  els.archivePreview.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-action]");
-    if (!btn) {
-      return;
-    }
-
-    if (btn.dataset.action === "close-archive-preview") {
+    if (action === "close-archive-preview") {
       state.archivePreviewTournamentId = null;
       saveAndRender();
     }
@@ -752,7 +743,6 @@ function renderBasePlayersTab() {
 function renderArchiveTab() {
   if (state.tournamentsArchive.length === 0) {
     els.archiveList.innerHTML = '<div class="archive-card">Архів поки порожній.</div>';
-    els.archivePreview.innerHTML = "";
     return;
   }
 
@@ -762,6 +752,7 @@ function renderArchiveTab() {
     .map((t) => {
       const standings = getStandings(t).slice(0, 3);
       const top = standings.map((p, i) => `${i + 1}. ${escapeHtml(p.name)} (${p.score.toFixed(1)})`).join(" | ");
+      const isOpen = state.archivePreviewTournamentId === t.id;
 
       return `
       <article class="archive-card">
@@ -774,13 +765,12 @@ function renderArchiveTab() {
         </div>
         <div class="archive-meta">${formatDate(t.finishedAt)} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}</div>
         <div class="archive-meta">Топ-3: ${top || "-"}</div>
+        ${isOpen ? buildArchivePreviewHtml(t) : ""}
       </article>`;
     })
     .join("");
 
   els.archiveList.innerHTML = blocks;
-
-  renderArchivePreview();
 }
 
 function openArchivePreview(tournamentId) {
@@ -794,25 +784,15 @@ function openArchivePreview(tournamentId) {
   saveAndRender();
 }
 
-function renderArchivePreview() {
-  if (!state.archivePreviewTournamentId) {
-    els.archivePreview.innerHTML = "";
-    return;
-  }
-
-  const archived = state.tournamentsArchive.find((t) => t.id === state.archivePreviewTournamentId);
-  if (!archived) {
-    els.archivePreview.innerHTML = "";
-    return;
-  }
-
+function buildArchivePreviewHtml(archived) {
   const standingsTable = buildStandingsTableHtml(archived, { showRoundDetails: false });
 
-  els.archivePreview.innerHTML = `
+  return `
+    <hr />
     <h3>${escapeHtml(archived.name)} — підсумкова таблиця</h3>
     <div class="archive-meta">${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}</div>
     <div class="toolbar" style="margin-top:8px;">
-      <button type="button" data-action="close-archive-preview">Закрити перегляд</button>
+      <button type="button" data-action="close-archive-preview" data-tournament-id="${archived.id}">Закрити перегляд</button>
     </div>
     <div class="scroll" style="margin-top:10px;">${standingsTable}</div>
   `;
