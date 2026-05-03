@@ -865,8 +865,10 @@ function bindEvents() {
       alert("У режимі перегляду архіву редагування вимкнене.");
       return;
     }
-    const nextRounds = Number(els.roundsCount.value);
     const nextFormat = els.tournamentFormat.value;
+    const manualRounds = Number(els.roundsCount.value);
+    const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
+    const nextRounds = nextFormat === "round_robin" ? requiredRoundRobinRounds : manualRounds;
 
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
@@ -878,10 +880,16 @@ function bindEvents() {
       return;
     }
 
-    const maxRounds = getMaxRoundsByFormat(nextFormat, t.players.length);
-    if (nextFormat === "round_robin" && maxRounds > 0 && nextRounds > maxRounds) {
-      alert(`Для кругової системи з ${t.players.length} гравцями максимум ${maxRounds} турів.`);
-      return;
+    if (nextFormat === "swiss") {
+      const maxRounds = getMaxRoundsByFormat(nextFormat, t.players.length);
+      if (maxRounds > 0 && nextRounds > maxRounds) {
+        alert(`Для швейцарської системи максимум ${maxRounds} турів.`);
+        return;
+      }
+      if (nextRounds < 1) {
+        alert("Для швейцарської системи має бути щонайменше 1 тур.");
+        return;
+      }
     }
 
     const nextEventDate = normalizeBirthDate(els.tournamentDate.value);
@@ -915,6 +923,23 @@ function bindEvents() {
     els.tournamentRemovePhoto.checked = false;
     els.tournamentPhoto.value = "";
     saveAndRender();
+  });
+
+  els.tournamentFormat.addEventListener("change", () => {
+    const nextFormat = els.tournamentFormat.value;
+    const playersCount = state.currentTournament.players.length;
+    const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", playersCount);
+
+    if (nextFormat === "round_robin") {
+      els.roundsCount.value = requiredRoundRobinRounds;
+      els.roundsCount.disabled = true;
+      return;
+    }
+
+    els.roundsCount.disabled = false;
+    if (Number(els.roundsCount.value) < 1) {
+      els.roundsCount.value = Math.max(1, state.currentTournament.roundsCount || 5);
+    }
   });
 
   els.addFromBaseBtn.addEventListener("click", () => {
@@ -1302,7 +1327,16 @@ function getMaxRoundsByFormat(format, playersCount) {
 }
 
 function normalizeRoundsCountForCurrentFormat(tournament) {
-  const maxRounds = getMaxRoundsByFormat(tournament.format, tournament.players.length);
+  if (tournament.format === "round_robin") {
+    tournament.roundsCount = getMaxRoundsByFormat("round_robin", tournament.players.length);
+    return;
+  }
+
+  const maxRounds = getMaxRoundsByFormat("swiss", tournament.players.length);
+  if (!Number.isFinite(tournament.roundsCount) || tournament.roundsCount < 1) {
+    tournament.roundsCount = 1;
+    return;
+  }
   if (maxRounds > 0 && tournament.roundsCount > maxRounds) {
     tournament.roundsCount = maxRounds;
   }
@@ -1340,6 +1374,7 @@ function renderTournamentTab() {
   els.tournamentName.value = t.name;
   els.roundsCount.value = t.roundsCount;
   els.tournamentFormat.value = t.format;
+  els.roundsCount.disabled = t.format === "round_robin" || archiveView;
   els.tournamentDate.value = normalizeBirthDate(t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(t.timeControl);
   els.tournamentRemovePhoto.checked = false;
