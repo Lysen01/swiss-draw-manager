@@ -607,15 +607,25 @@ function normalizeBirthDate(value) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
     return text;
   }
-
-  const match = text.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (!match) {
+  const parts = text.match(/\d+/g);
+  if (!parts || parts.length < 3) {
     return "";
   }
 
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
+  let day;
+  let month;
+  let year;
+
+  if (parts[0].length === 4) {
+    year = Number(parts[0]);
+    month = Number(parts[1]);
+    day = Number(parts[2]);
+  } else {
+    day = Number(parts[0]);
+    month = Number(parts[1]);
+    year = Number(parts[2]);
+  }
+
   if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
     return "";
   }
