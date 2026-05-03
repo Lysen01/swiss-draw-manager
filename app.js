@@ -743,10 +743,10 @@ function renderBasePlayersTab() {
         <td class="last-tournament">${lastText}</td>
         <td>
           <div class="row-actions">
-            <button class="icon-btn" type="button" title="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">E</button>
-            <button class="icon-btn" type="button" title="Історія" data-action="view-base-history" data-player-id="${p.id}">H</button>
-            <button class="icon-btn" type="button" title="Додати в турнір" data-action="add-to-tournament" data-player-id="${p.id}">+</button>
-            <button class="icon-btn danger" type="button" title="Видалити" data-action="delete-base-player" data-player-id="${p.id}">X</button>
+            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
+            <button class="icon-btn" type="button" title="Історія" aria-label="Історія" data-action="view-base-history" data-player-id="${p.id}">⏱</button>
+            <button class="icon-btn" type="button" title="Додати в турнір" aria-label="Додати в турнір" data-action="add-to-tournament" data-player-id="${p.id}">＋</button>
+            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
           </div>
         </td>
       </tr>`;

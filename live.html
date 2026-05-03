@@ -416,30 +416,91 @@ button.danger {
 }
 
 #basePlayersList .table {
-  min-width: 0;
-  width: 100%;
-  table-layout: auto;
+  min-width: 1420px;
+  width: max-content;
+  table-layout: fixed;
 }
 
 #basePlayersList .table th {
   font-size: 13px;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 #basePlayersList .table td {
   font-size: 13px;
   vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#basePlayersList .table th:last-child,
-#basePlayersList .table td:last-child {
-  width: 170px;
+#basePlayersList {
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+#basePlayersList .table th:nth-child(1),
+#basePlayersList .table td:nth-child(1) {
+  width: 44px;
+}
+
+#basePlayersList .table th:nth-child(2),
+#basePlayersList .table td:nth-child(2) {
+  width: 58px;
+}
+
+#basePlayersList .table th:nth-child(3),
+#basePlayersList .table td:nth-child(3) {
+  width: 130px;
+}
+
+#basePlayersList .table th:nth-child(4),
+#basePlayersList .table td:nth-child(4) {
+  width: 120px;
+}
+
+#basePlayersList .table th:nth-child(5),
+#basePlayersList .table td:nth-child(5) {
+  width: 86px;
+}
+
+#basePlayersList .table th:nth-child(6),
+#basePlayersList .table td:nth-child(6) {
+  width: 94px;
+}
+
+#basePlayersList .table th:nth-child(7),
+#basePlayersList .table td:nth-child(7) {
+  width: 110px;
+}
+
+#basePlayersList .table th:nth-child(8),
+#basePlayersList .table td:nth-child(8),
+#basePlayersList .table th:nth-child(9),
+#basePlayersList .table td:nth-child(9),
+#basePlayersList .table th:nth-child(10),
+#basePlayersList .table td:nth-child(10),
+#basePlayersList .table th:nth-child(11),
+#basePlayersList .table td:nth-child(11) {
+  width: 86px;
+}
+
+#basePlayersList .table th:nth-child(12),
+#basePlayersList .table td:nth-child(12) {
+  width: 340px;
+}
+
+#basePlayersList .table th:nth-child(13),
+#basePlayersList .table td:nth-child(13) {
+  width: 150px;
 }
 
 .row-actions {
   display: flex;
   gap: 6px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .icon-btn {
@@ -453,10 +514,12 @@ button.danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
+  box-shadow: none;
 }
 
 .last-tournament {
-  max-width: 300px;
+  max-width: 340px;
   white-space: normal;
   line-height: 1.25;
 }
@@ -1353,10 +1416,10 @@ function renderBasePlayersTab() {
         <td class="last-tournament">${lastText}</td>
         <td>
           <div class="row-actions">
-            <button class="icon-btn" type="button" title="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">E</button>
-            <button class="icon-btn" type="button" title="Історія" data-action="view-base-history" data-player-id="${p.id}">H</button>
-            <button class="icon-btn" type="button" title="Додати в турнір" data-action="add-to-tournament" data-player-id="${p.id}">+</button>
-            <button class="icon-btn danger" type="button" title="Видалити" data-action="delete-base-player" data-player-id="${p.id}">X</button>
+            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
+            <button class="icon-btn" type="button" title="Історія" aria-label="Історія" data-action="view-base-history" data-player-id="${p.id}">⏱</button>
+            <button class="icon-btn" type="button" title="Додати в турнір" aria-label="Додати в турнір" data-action="add-to-tournament" data-player-id="${p.id}">＋</button>
+            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
           </div>
         </td>
       </tr>`;
