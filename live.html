@@ -794,6 +794,7 @@ const state = normalizeState(loadRawState());
 recalcAllBaseStats();
 normalizeRoundsCountForCurrentFormat(state.currentTournament);
 let editingBasePlayerId = null;
+let tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -869,12 +870,14 @@ function bindEvents() {
   els.settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const t = state.currentTournament;
+    ensureTournamentSettingsDraftForCurrentTournament();
+    const draft = tournamentSettingsDraft;
     if (t.status === "archived_view") {
       alert("У режимі перегляду архіву редагування вимкнене.");
       return;
     }
-    const nextFormat = els.tournamentFormat.value;
-    const manualRounds = Number(els.roundsCount.value);
+    const nextFormat = draft.format;
+    const manualRounds = Number(draft.roundsCount);
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
     const nextRounds = nextFormat === "round_robin" ? requiredRoundRobinRounds : manualRounds;
 
@@ -900,46 +903,80 @@ function bindEvents() {
       }
     }
 
-    const nextEventDate = normalizeBirthDate(els.tournamentDate.value);
-    const nextTimeControl = normalizeTimeControl(els.tournamentTimeControl.value);
-    const removePhoto = els.tournamentRemovePhoto.checked;
-    const photoFile = els.tournamentPhoto.files?.[0] || null;
-    let photoDataUrl = null;
-
-    if (photoFile) {
-      if (photoFile.size > 3 * 1024 * 1024) {
-        alert("Фото турніру занадто велике. Оберіть файл до 3 MB.");
-        return;
-      }
-      photoDataUrl = await readFileAsDataUrl(photoFile);
-    }
-
-    t.name = els.tournamentName.value.trim() || "Турнір";
+    t.name = draft.name || "Турнір";
     t.roundsCount = nextRounds;
     t.format = nextFormat;
-    t.eventDate = nextEventDate;
-    t.timeControl = nextTimeControl;
+    t.eventDate = draft.eventDate;
+    t.timeControl = draft.timeControl;
 
-    if (photoDataUrl) {
-      t.photoDataUrl = photoDataUrl;
-    } else if (removePhoto) {
+    if (draft.pendingPhotoDataUrl) {
+      t.photoDataUrl = draft.pendingPhotoDataUrl;
+    } else if (draft.removePhoto) {
       t.photoDataUrl = null;
     }
 
     normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
-    els.tournamentRemovePhoto.checked = false;
-    els.tournamentPhoto.value = "";
+    tournamentSettingsDraft = createTournamentSettingsDraft(t);
     saveAndRender();
   });
 
+  els.tournamentName.addEventListener("input", () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
+    tournamentSettingsDraft.name = els.tournamentName.value.trim();
+  });
+
+  els.roundsCount.addEventListener("input", () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
+    tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
+  });
+
+  els.tournamentDate.addEventListener("change", () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
+    tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
+  });
+
+  els.tournamentTimeControl.addEventListener("input", () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
+    tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
+  });
+
+  els.tournamentRemovePhoto.addEventListener("change", () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
+    tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
+    if (tournamentSettingsDraft.removePhoto) {
+      tournamentSettingsDraft.pendingPhotoDataUrl = null;
+    }
+  });
+
+  els.tournamentPhoto.addEventListener("change", async () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
+    const photoFile = els.tournamentPhoto.files?.[0] || null;
+    if (!photoFile) {
+      tournamentSettingsDraft.pendingPhotoDataUrl = null;
+      return;
+    }
+    if (photoFile.size > 3 * 1024 * 1024) {
+      alert("Фото турніру занадто велике. Оберіть файл до 3 MB.");
+      els.tournamentPhoto.value = "";
+      tournamentSettingsDraft.pendingPhotoDataUrl = null;
+      return;
+    }
+    tournamentSettingsDraft.pendingPhotoDataUrl = await readFileAsDataUrl(photoFile);
+    tournamentSettingsDraft.removePhoto = false;
+    els.tournamentRemovePhoto.checked = false;
+  });
+
   els.tournamentFormat.addEventListener("change", () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
     const nextFormat = els.tournamentFormat.value;
     const playersCount = state.currentTournament.players.length;
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", playersCount);
+    tournamentSettingsDraft.format = nextFormat === "round_robin" ? "round_robin" : "swiss";
 
     if (nextFormat === "round_robin") {
       els.roundsCount.value = requiredRoundRobinRounds;
+      tournamentSettingsDraft.roundsCount = requiredRoundRobinRounds;
       els.roundsCount.disabled = true;
       renderRoundsRuleHint();
       return;
@@ -949,6 +986,7 @@ function bindEvents() {
     if (Number(els.roundsCount.value) < 1) {
       els.roundsCount.value = Math.max(1, state.currentTournament.roundsCount || 5);
     }
+    tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
     renderRoundsRuleHint();
   });
 
@@ -1380,15 +1418,21 @@ function renderTabs() {
 function renderTournamentTab() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
+  ensureTournamentSettingsDraftForCurrentTournament();
+  const draft = tournamentSettingsDraft;
+  if (draft.format === "round_robin") {
+    draft.roundsCount = getMaxRoundsByFormat("round_robin", t.players.length);
+  }
 
-  els.tournamentName.value = t.name;
-  els.roundsCount.value = t.roundsCount;
-  els.tournamentFormat.value = t.format;
-  els.roundsCount.disabled = t.format === "round_robin" || archiveView;
+  els.tournamentName.value = draft.name;
+  els.roundsCount.value = draft.roundsCount;
+  els.tournamentFormat.value = draft.format;
+  els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
-  els.tournamentDate.value = normalizeBirthDate(t.eventDate);
-  els.tournamentTimeControl.value = normalizeTimeControl(t.timeControl);
-  els.tournamentRemovePhoto.checked = false;
+  els.tournamentDate.value = normalizeBirthDate(draft.eventDate);
+  els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
+  els.tournamentRemovePhoto.checked = draft.removePhoto;
+  els.tournamentPhoto.value = "";
 
   const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "дата не вказана";
   const timeControlText = t.timeControl || "не вказано";
@@ -1411,15 +1455,37 @@ function renderTournamentTab() {
 }
 
 function renderRoundsRuleHint() {
-  const t = state.currentTournament;
-  if (t.format !== "round_robin") {
+  ensureTournamentSettingsDraftForCurrentTournament();
+  const draft = tournamentSettingsDraft;
+  if (draft.format !== "round_robin") {
     els.roundsRuleHint.textContent = "Для швейцарської системи кількість турів задається вручну.";
     return;
   }
 
-  const playersCount = t.players.length;
+  const playersCount = state.currentTournament.players.length;
   const roundsCount = getMaxRoundsByFormat("round_robin", playersCount);
   els.roundsRuleHint.textContent = `Кругова: ${playersCount} гравців -> ${roundsCount} турів.`;
+}
+
+function createTournamentSettingsDraft(tournament) {
+  return {
+    tournamentId: tournament.id,
+    name: tournament.name || "Турнір",
+    roundsCount: Number(tournament.roundsCount) || 1,
+    format: tournament.format === "round_robin" ? "round_robin" : "swiss",
+    eventDate: normalizeBirthDate(tournament.eventDate),
+    timeControl: normalizeTimeControl(tournament.timeControl),
+    removePhoto: false,
+    pendingPhotoDataUrl: null,
+  };
+}
+
+function ensureTournamentSettingsDraftForCurrentTournament() {
+  if (tournamentSettingsDraft && tournamentSettingsDraft.tournamentId === state.currentTournament.id) {
+    return;
+  }
+
+  tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
 }
 
 function renderTournamentSettingsPreview() {
