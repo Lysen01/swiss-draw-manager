@@ -82,6 +82,7 @@ function bindEvents() {
 
   els.settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    captureTournamentSettingsDraftFromForm();
     const t = state.currentTournament;
     ensureTournamentSettingsDraftForCurrentTournament();
     const draft = tournamentSettingsDraft;
@@ -122,8 +123,18 @@ function bindEvents() {
     t.eventDate = normalizeBirthDate(draft.eventDate);
     t.timeControl = draft.timeControl;
 
-    if (draft.pendingPhotoDataUrl) {
-      t.photoDataUrl = draft.pendingPhotoDataUrl;
+    let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
+    const selectedPhotoFile = els.tournamentPhoto.files?.[0] || null;
+    if (!nextPhotoDataUrl && selectedPhotoFile) {
+      if (selectedPhotoFile.size > 3 * 1024 * 1024) {
+        alert("Фото турніру занадто велике. Оберіть файл до 3 MB.");
+        return;
+      }
+      nextPhotoDataUrl = await readFileAsDataUrl(selectedPhotoFile);
+    }
+
+    if (nextPhotoDataUrl) {
+      t.photoDataUrl = nextPhotoDataUrl;
     } else if (draft.removePhoto) {
       t.photoDataUrl = null;
     }
