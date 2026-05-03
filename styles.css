@@ -387,6 +387,24 @@ button.danger {
   background: #fff;
 }
 
+.base-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.base-field__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3f4d68;
+  letter-spacing: 0.01em;
+}
+
+.base-field input,
+.base-field select {
+  min-height: 44px;
+}
+
 .base-form-row--actions .check-inline {
   min-height: 42px;
   padding: 0 4px;

@@ -397,6 +397,24 @@ button.danger {
   background: #fff;
 }
 
+.base-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.base-field__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3f4d68;
+  letter-spacing: 0.01em;
+}
+
+.base-field input,
+.base-field select {
+  min-height: 44px;
+}
+
 .base-form-row--actions .check-inline {
   min-height: 42px;
   padding: 0 4px;
@@ -622,24 +640,42 @@ button.danger {
           <h2>База гравців</h2>
           <form id="basePlayerForm" class="base-form">
             <div class="base-form-row">
-              <input id="basePlayerLastName" type="text" placeholder="Прізвище" required />
-              <input id="basePlayerFirstName" type="text" placeholder="Ім'я" required />
-              <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
-              <select id="basePlayerRank">
-                <option value="б/р">б/р</option>
-                <option value="юнацький">юнацький</option>
-                <option value="3">3</option>
-                <option value="2">2</option>
-                <option value="1">1</option>
-                <option value="кмс">кмс</option>
-                <option value="мс">мс</option>
-                <option value="гр">гр</option>
-              </select>
-              <input id="basePlayerBirthDate" type="date" />
+              <label class="base-field">
+                <span class="base-field__label">Прізвище</span>
+                <input id="basePlayerLastName" type="text" placeholder="Прізвище" required />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Ім'я</span>
+                <input id="basePlayerFirstName" type="text" placeholder="Ім'я" required />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Рейтинг</span>
+                <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Спорт. звання</span>
+                <select id="basePlayerRank">
+                  <option value="б/р">б/р</option>
+                  <option value="юнацький">юнацький</option>
+                  <option value="3">3</option>
+                  <option value="2">2</option>
+                  <option value="1">1</option>
+                  <option value="кмс">кмс</option>
+                  <option value="мс">мс</option>
+                  <option value="гр">гр</option>
+                </select>
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Дата народження</span>
+                <input id="basePlayerBirthDate" type="date" />
+              </label>
             </div>
 
             <div class="base-form-row base-form-row--actions">
-              <input id="basePlayerPhoto" type="file" accept="image/*" />
+              <label class="base-field">
+                <span class="base-field__label">Фото гравця</span>
+                <input id="basePlayerPhoto" type="file" accept="image/*" />
+              </label>
               <label class="check-inline">
                 <input id="basePlayerRemovePhoto" type="checkbox" />
                 Видалити фото
