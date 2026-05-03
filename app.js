@@ -73,6 +73,7 @@ function addPlayer(name, rating) {
     id: crypto.randomUUID(),
     name,
     rating: Number.isFinite(rating) ? rating : 0,
+    startNo: state.players.length + 1,
     score: 0,
     hadBye: false,
     opponents: [],
@@ -109,6 +110,7 @@ function addDemoPlayers() {
       id: crypto.randomUUID(),
       name,
       rating,
+      startNo: state.players.length + 1,
       score: 0,
       hadBye: false,
       opponents: [],
@@ -527,6 +529,8 @@ function isLastRoundComplete() {
 }
 
 function renderStandings() {
+  ensureStartNumbers();
+
   const enriched = state.players.map((p) => ({
     ...p,
     buchholz: getBuchholz(p),
@@ -555,13 +559,16 @@ function renderStandings() {
       <tr>
         <td>${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
+        <td>${p.rating}</td>
+        ${buildRoundCells(p)}
         <td>${p.score.toFixed(1)}</td>
         <td>${p.buchholz.toFixed(1)}</td>
         <td>${p.sb.toFixed(2)}</td>
-        <td>${p.rating}</td>
       </tr>`
     )
     .join("");
+
+  const roundHeaders = Array.from({ length: state.roundsCount }, (_, idx) => `<th>R${idx + 1}</th>`).join("");
 
   els.standings.innerHTML = `
     <table class="table">
@@ -569,10 +576,11 @@ function renderStandings() {
         <tr>
           <th>Місце</th>
           <th>Гравець</th>
+          <th>Рейтинг</th>
+          ${roundHeaders}
           <th>Очки</th>
           <th>Buchholz</th>
           <th>SB</th>
-          <th>Рейтинг</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -600,4 +608,64 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function buildRoundCells(player) {
+  let html = "";
+
+  for (let roundNo = 1; roundNo <= state.roundsCount; roundNo += 1) {
+    const round = state.rounds.find((r) => r.round === roundNo);
+    if (!round) {
+      html += '<td><span class="round-chip chip-empty">-</span></td>';
+      continue;
+    }
+
+    const game = round.pairings.find((pair) => pair.whiteId === player.id || pair.blackId === player.id);
+    if (!game) {
+      html += '<td><span class="round-chip chip-empty">-</span></td>';
+      continue;
+    }
+
+    if (!game.blackId) {
+      html += '<td><span class="round-chip chip-bye">BYE</span></td>';
+      continue;
+    }
+
+    const isWhite = game.whiteId === player.id;
+    const oppId = isWhite ? game.blackId : game.whiteId;
+    const opponent = state.players.find((p) => p.id === oppId);
+    const oppNo = opponent?.startNo || "?";
+    const color = isWhite ? "w" : "b";
+
+    let result = "*";
+    const r = player.resultsByRound[roundNo];
+    if (r === "W") {
+      result = "1";
+    } else if (r === "D") {
+      result = "0.5";
+    } else if (r === "L") {
+      result = "0";
+    }
+
+    html += `<td><span class="round-chip">${oppNo}${color} ${result}</span></td>`;
+  }
+
+  return html;
+}
+
+function ensureStartNumbers() {
+  let changed = false;
+  const byRating = [...state.players].sort((a, b) => b.rating - a.rating);
+
+  for (let i = 0; i < byRating.length; i += 1) {
+    const p = byRating[i];
+    if (!Number.isInteger(p.startNo)) {
+      p.startNo = i + 1;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
 }
