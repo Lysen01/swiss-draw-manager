@@ -643,10 +643,12 @@ function renderRounds() {
 
 function renderStandings() {
   const t = state.currentTournament;
-  els.standings.innerHTML = buildStandingsTableHtml(t);
+  const showRoundDetails = t.status !== "archived_view";
+  els.standings.innerHTML = buildStandingsTableHtml(t, { showRoundDetails });
 }
 
-function buildStandingsTableHtml(tournament) {
+function buildStandingsTableHtml(tournament, options = {}) {
+  const { showRoundDetails = true } = options;
   ensureStartNumbers(tournament);
 
   const enriched = getStandings(tournament);
@@ -659,7 +661,7 @@ function buildStandingsTableHtml(tournament) {
         <td>${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${p.rating}</td>
-        ${buildRoundCells(tournament, p, placeById)}
+        ${showRoundDetails ? buildRoundCells(tournament, p, placeById) : ""}
         <td>${p.score.toFixed(1)}</td>
         <td>${p.buchholz.toFixed(1)}</td>
         <td>${p.sb.toFixed(2)}</td>
@@ -667,7 +669,9 @@ function buildStandingsTableHtml(tournament) {
     )
     .join("");
 
-  const roundHeaders = Array.from({ length: tournament.roundsCount }, (_, idx) => `<th>R${idx + 1}</th>`).join("");
+  const roundHeaders = showRoundDetails
+    ? Array.from({ length: tournament.roundsCount }, (_, idx) => `<th>R${idx + 1}</th>`).join("")
+    : "";
 
   return `
     <table class="table">
@@ -796,7 +800,7 @@ function renderArchivePreview() {
     return;
   }
 
-  const standingsTable = buildStandingsTableHtml(archived);
+  const standingsTable = buildStandingsTableHtml(archived, { showRoundDetails: false });
 
   els.archivePreview.innerHTML = `
     <h3>${escapeHtml(archived.name)} — підсумкова таблиця</h3>
