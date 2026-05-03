@@ -413,6 +413,11 @@ button.danger {
             <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
             <button type="submit">Додати в базу</button>
           </form>
+          <div class="toolbar" style="margin-top: 8px">
+            <button id="exportBaseBtn" type="button">Експорт бази (JSON)</button>
+            <button id="importBaseBtn" type="button">Імпорт бази</button>
+            <input id="importBaseFile" type="file" accept="application/json" hidden />
+          </div>
           <div id="basePlayersList" class="scroll tall"></div>
         </section>
       </section>
@@ -464,6 +469,9 @@ const els = {
   basePlayerForm: document.getElementById("basePlayerForm"),
   basePlayerName: document.getElementById("basePlayerName"),
   basePlayerRating: document.getElementById("basePlayerRating"),
+  exportBaseBtn: document.getElementById("exportBaseBtn"),
+  importBaseBtn: document.getElementById("importBaseBtn"),
+  importBaseFile: document.getElementById("importBaseFile"),
   basePlayersList: document.getElementById("basePlayersList"),
   archiveList: document.getElementById("archiveList"),
 };
@@ -546,6 +554,24 @@ function bindEvents() {
     els.basePlayerName.focus();
   });
 
+  els.exportBaseBtn.addEventListener("click", () => {
+    exportPlayerBase();
+  });
+
+  els.importBaseBtn.addEventListener("click", () => {
+    els.importBaseFile.click();
+  });
+
+  els.importBaseFile.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    await importPlayerBase(file);
+    event.target.value = "";
+  });
+
   els.basePlayersList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -565,6 +591,10 @@ function bindEvents() {
 
     if (action === "edit-base-player") {
       editBasePlayer(playerId);
+    }
+
+    if (action === "view-base-history") {
+      viewBasePlayerHistory(playerId);
     }
   });
 
@@ -1063,6 +1093,7 @@ function renderBasePlayersTab() {
         <td>
           <div class="toolbar">
             <button type="button" data-action="edit-base-player" data-player-id="${p.id}">Редагувати</button>
+            <button type="button" data-action="view-base-history" data-player-id="${p.id}">Історія</button>
             <button type="button" data-action="add-to-tournament" data-player-id="${p.id}">В турнір</button>
             <button type="button" data-action="delete-base-player" data-player-id="${p.id}" class="danger">Видалити</button>
           </div>
@@ -1249,6 +1280,26 @@ function editBasePlayer(playerId) {
   saveAndRender();
 }
 
+function viewBasePlayerHistory(playerId) {
+  const base = state.playerBase.find((p) => p.id === playerId);
+  if (!base) {
+    return;
+  }
+
+  if (!base.history.length) {
+    alert(`${base.name}: поки немає історії зіграних турнірів.`);
+    return;
+  }
+
+  const ordered = base.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+  const lines = ordered.map((h) => {
+    const opponents = (h.opponents || []).length ? h.opponents.join(", ") : "без суперників";
+    return `• ${h.tournamentName} | ${formatDate(h.finishedAt)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | суперники: ${opponents}`;
+  });
+
+  alert(`${base.name}\n\n${lines.join("\n")}`);
+}
+
 function syncBasePlayerChangesToCurrentTournament(basePlayerId) {
   const t = state.currentTournament;
   const base = state.playerBase.find((p) => p.id === basePlayerId);
@@ -1333,6 +1384,93 @@ function removeTournamentPlayer(playerId) {
   normalizeRoundsCountForCurrentFormat(t);
   t.updatedAt = new Date().toISOString();
   saveAndRender();
+}
+
+function exportPlayerBase() {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    playerBase: state.playerBase,
+    tournamentsArchive: state.tournamentsArchive,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `swiss-player-base-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function importPlayerBase(file) {
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const importedBase = Array.isArray(data.playerBase) ? data.playerBase : [];
+    const importedArchive = Array.isArray(data.tournamentsArchive) ? data.tournamentsArchive : [];
+
+    const mergedBase = mergePlayerBases(state.playerBase, importedBase);
+    const mergedArchive = mergeTournamentArchives(state.tournamentsArchive, importedArchive);
+
+    state.playerBase = mergedBase.map(normalizeBasePlayer);
+    state.tournamentsArchive = mergedArchive.map(normalizeArchivedTournament);
+    recalcAllBaseStats();
+    saveAndRender();
+    alert("Імпорт виконано успішно.");
+  } catch {
+    alert("Не вдалося імпортувати файл. Перевірте, що це правильний JSON-експорт.");
+  }
+}
+
+function mergePlayerBases(existing, incoming) {
+  const map = new Map();
+
+  for (const p of existing) {
+    map.set(p.id, normalizeBasePlayer(p));
+  }
+
+  for (const p of incoming) {
+    const np = normalizeBasePlayer(p);
+    if (!map.has(np.id)) {
+      map.set(np.id, np);
+      continue;
+    }
+
+    const cur = map.get(np.id);
+    cur.rating = Math.max(cur.rating, np.rating);
+    cur.history = dedupeByTournamentId([...(cur.history || []), ...(np.history || [])]);
+    cur.stats = cur.stats || emptyStats();
+  }
+
+  return [...map.values()];
+}
+
+function mergeTournamentArchives(existing, incoming) {
+  const map = new Map();
+  for (const t of existing) {
+    map.set(t.id, normalizeArchivedTournament(t));
+  }
+
+  for (const t of incoming) {
+    const nt = normalizeArchivedTournament(t);
+    map.set(nt.id, nt);
+  }
+
+  return [...map.values()];
+}
+
+function dedupeByTournamentId(history) {
+  const map = new Map();
+  for (const h of history || []) {
+    if (!h.tournamentId) {
+      continue;
+    }
+    map.set(h.tournamentId, h);
+  }
+  return [...map.values()];
 }
 
 function addDemoPlayers() {
@@ -1935,6 +2073,7 @@ function applyTournamentResultsToPlayerBase(tournamentSnapshot) {
       losses,
       bye,
       rounds: tournamentSnapshot.currentRound,
+      opponents: collectOpponentsForPlayer(tournamentSnapshot, tp.id),
     };
 
     const existingIdx = base.history.findIndex((h) => h.tournamentId === tournamentSnapshot.id);
@@ -1979,6 +2118,27 @@ function countPlayerStats(tPlayer) {
     losses,
     bye,
   };
+}
+
+function collectOpponentsForPlayer(tournament, playerId) {
+  const result = [];
+
+  for (const round of tournament.rounds || []) {
+    const game = (round.pairings || []).find((p) => p.whiteId === playerId || p.blackId === playerId);
+    if (!game || !game.blackId) {
+      continue;
+    }
+
+    const oppId = game.whiteId === playerId ? game.blackId : game.whiteId;
+    const opp = tournament.players.find((p) => p.id === oppId);
+    if (!opp) {
+      continue;
+    }
+
+    result.push(`R${round.round}: ${opp.name}`);
+  }
+
+  return result;
 }
 
 function recalcAllBaseStats() {

@@ -91,6 +91,11 @@
             <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
             <button type="submit">Додати в базу</button>
           </form>
+          <div class="toolbar" style="margin-top: 8px">
+            <button id="exportBaseBtn" type="button">Експорт бази (JSON)</button>
+            <button id="importBaseBtn" type="button">Імпорт бази</button>
+            <input id="importBaseFile" type="file" accept="application/json" hidden />
+          </div>
           <div id="basePlayersList" class="scroll tall"></div>
         </section>
       </section>
