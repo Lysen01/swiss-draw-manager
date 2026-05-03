@@ -245,3 +245,77 @@ button.danger {
     grid-template-columns: 1fr;
   }
 }
+
+.tabs {
+  max-width: 1120px;
+  margin: 0 auto 10px;
+  padding: 0 20px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  background: #dfe8f7;
+  color: #1f2f4e;
+  border: 1px solid #c8d5eb;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-weight: 700;
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  border-color: transparent;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: grid;
+}
+
+.card.full {
+  grid-column: 1 / -1;
+}
+
+.scroll.tall {
+  max-height: 520px;
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+}
+
+.archive-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fbfdff;
+}
+
+.archive-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.archive-meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+#dbPlayerSelect {
+  min-width: 280px;
+  background: #fff;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

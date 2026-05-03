@@ -17,48 +17,82 @@
       </div>
     </header>
 
-    <main class="layout">
-      <section class="card">
-        <h2>Налаштування турніру</h2>
-        <form id="settingsForm" class="grid-form">
-          <label>
-            Назва турніру
-            <input id="tournamentName" type="text" value="Дитяча шашкова ліга" required />
-          </label>
-          <label>
-            Кількість турів
-            <input id="roundsCount" type="number" min="1" max="15" value="5" required />
-          </label>
-          <button type="submit">Застосувати</button>
-        </form>
+    <nav class="tabs" id="tabsNav">
+      <button class="tab-btn active" data-tab="tournament" type="button">Турнір</button>
+      <button class="tab-btn" data-tab="players" type="button">База гравців</button>
+      <button class="tab-btn" data-tab="archive" type="button">Архів турнірів</button>
+    </nav>
+
+    <main>
+      <section id="tab-tournament" class="layout tab-panel active">
+        <section class="card">
+          <h2>Налаштування турніру</h2>
+          <form id="settingsForm" class="grid-form">
+            <label>
+              Назва турніру
+              <input id="tournamentName" type="text" required />
+            </label>
+            <label>
+              Кількість турів
+              <input id="roundsCount" type="number" min="1" max="15" required />
+            </label>
+            <button type="submit">Застосувати</button>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Учасники</h2>
+          <form id="playerForm" class="inline-form">
+            <input id="playerName" type="text" placeholder="Ім'я гравця" required />
+            <input id="playerRating" type="number" min="0" max="4000" placeholder="Рейтинг" required />
+            <button type="submit">Додати</button>
+          </form>
+
+          <div class="inline-form" style="margin-top: 8px">
+            <select id="dbPlayerSelect"></select>
+            <button id="addFromBaseBtn" type="button">Додати з бази</button>
+          </div>
+
+          <div class="toolbar">
+            <button id="seedDemoBtn" type="button">Демо-учасники</button>
+            <button id="saveTournamentBtn" type="button">Зберегти в архів</button>
+            <button id="resetBtn" type="button" class="danger">Новий турнір</button>
+          </div>
+          <div id="playersList" class="scroll"></div>
+        </section>
+
+        <section class="card">
+          <h2>Раунди</h2>
+          <div class="toolbar">
+            <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
+          </div>
+          <div id="roundMeta" class="meta"></div>
+          <div id="pairings" class="scroll"></div>
+        </section>
+
+        <section class="card">
+          <h2>Таблиця</h2>
+          <div id="standings" class="scroll"></div>
+        </section>
       </section>
 
-      <section class="card">
-        <h2>Учасники</h2>
-        <form id="playerForm" class="inline-form">
-          <input id="playerName" type="text" placeholder="Ім'я гравця" required />
-          <input id="playerRating" type="number" min="0" max="4000" placeholder="Рейтинг" required />
-          <button type="submit">Додати</button>
-        </form>
-        <div class="toolbar">
-          <button id="seedDemoBtn" type="button">Демо-учасники</button>
-          <button id="resetBtn" type="button" class="danger">Скинути турнір</button>
-        </div>
-        <div id="playersList" class="scroll"></div>
+      <section id="tab-players" class="layout tab-panel">
+        <section class="card full">
+          <h2>База гравців</h2>
+          <form id="basePlayerForm" class="inline-form">
+            <input id="basePlayerName" type="text" placeholder="Ім'я гравця" required />
+            <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
+            <button type="submit">Додати в базу</button>
+          </form>
+          <div id="basePlayersList" class="scroll tall"></div>
+        </section>
       </section>
 
-      <section class="card">
-        <h2>Раунди</h2>
-        <div class="toolbar">
-          <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
-        </div>
-        <div id="roundMeta" class="meta"></div>
-        <div id="pairings" class="scroll"></div>
-      </section>
-
-      <section class="card">
-        <h2>Таблиця</h2>
-        <div id="standings" class="scroll"></div>
+      <section id="tab-archive" class="layout tab-panel">
+        <section class="card full">
+          <h2>Архів турнірів</h2>
+          <div id="archiveList" class="stack"></div>
+        </section>
       </section>
     </main>
 
