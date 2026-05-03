@@ -16,9 +16,6 @@ const els = {
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
   tournamentFormat: document.getElementById("tournamentFormat"),
-  playerForm: document.getElementById("playerForm"),
-  playerName: document.getElementById("playerName"),
-  playerRating: document.getElementById("playerRating"),
   dbPlayerSelect: document.getElementById("dbPlayerSelect"),
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
@@ -27,10 +24,11 @@ const els = {
   pairings: document.getElementById("pairings"),
   standings: document.getElementById("standings"),
   seedDemoBtn: document.getElementById("seedDemoBtn"),
-  saveTournamentBtn: document.getElementById("saveTournamentBtn"),
+  finishTournamentBtn: document.getElementById("finishTournamentBtn"),
   resetBtn: document.getElementById("resetBtn"),
   basePlayerForm: document.getElementById("basePlayerForm"),
-  basePlayerName: document.getElementById("basePlayerName"),
+  basePlayerLastName: document.getElementById("basePlayerLastName"),
+  basePlayerFirstName: document.getElementById("basePlayerFirstName"),
   basePlayerRating: document.getElementById("basePlayerRating"),
   exportBaseBtn: document.getElementById("exportBaseBtn"),
   importBaseBtn: document.getElementById("importBaseBtn"),
@@ -83,13 +81,6 @@ function bindEvents() {
     saveAndRender();
   });
 
-  els.playerForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    addPlayerFromManual(els.playerName.value.trim(), Number(els.playerRating.value));
-    els.playerForm.reset();
-    els.playerName.focus();
-  });
-
   els.addFromBaseBtn.addEventListener("click", () => {
     addPlayerFromBaseSelect();
   });
@@ -102,8 +93,8 @@ function bindEvents() {
     addDemoPlayers();
   });
 
-  els.saveTournamentBtn.addEventListener("click", () => {
-    archiveCurrentTournament({ notify: true });
+  els.finishTournamentBtn.addEventListener("click", () => {
+    finishCurrentTournament();
   });
 
   els.resetBtn.addEventListener("click", () => {
@@ -112,9 +103,13 @@ function bindEvents() {
 
   els.basePlayerForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    createBasePlayer(els.basePlayerName.value.trim(), Number(els.basePlayerRating.value));
+    createBasePlayer(
+      els.basePlayerLastName.value.trim(),
+      els.basePlayerFirstName.value.trim(),
+      Number(els.basePlayerRating.value)
+    );
     els.basePlayerForm.reset();
-    els.basePlayerName.focus();
+    els.basePlayerLastName.focus();
   });
 
   els.exportBaseBtn.addEventListener("click", () => {
@@ -238,7 +233,8 @@ function normalizeState(raw) {
 
     const baseMap = new Map();
     for (const p of raw.players) {
-      const base = createBasePlayerRecord(p.name, Number(p.rating) || 0);
+      const split = splitFullName(p.name);
+      const base = createBasePlayerRecord(split.lastName, split.firstName, Number(p.rating) || 0);
       baseMap.set(p.id, base.id);
       migrated.playerBase.push(base);
     }
@@ -353,9 +349,11 @@ function normalizeArchivedTournament(tournament) {
 }
 
 function normalizeBasePlayer(player) {
+  const parsed = splitFullName(player.name || "");
   return {
     id: player.id || crypto.randomUUID(),
-    name: player.name || "Без імені",
+    firstName: player.firstName || parsed.firstName || "імені",
+    lastName: player.lastName || parsed.lastName || "Без",
     rating: Number(player.rating) || 0,
     createdAt: player.createdAt || new Date().toISOString(),
     history: Array.isArray(player.history) ? player.history : [],
@@ -381,22 +379,24 @@ function ensureTournamentPlayersLinkedToBase(tournament, basePlayers) {
       continue;
     }
 
-    const found = basePlayers.find((bp) => bp.name.toLowerCase() === p.name.toLowerCase());
+    const found = basePlayers.find((bp) => getBaseFullName(bp).toLowerCase() === p.name.toLowerCase());
     if (found) {
       p.basePlayerId = found.id;
       continue;
     }
 
-    const created = createBasePlayerRecord(p.name, p.rating);
+    const split = splitFullName(p.name);
+    const created = createBasePlayerRecord(split.lastName, split.firstName, p.rating);
     basePlayers.push(created);
     p.basePlayerId = created.id;
   }
 }
 
-function createBasePlayerRecord(name, rating) {
+function createBasePlayerRecord(lastName, firstName, rating) {
   return {
     id: crypto.randomUUID(),
-    name,
+    firstName,
+    lastName,
     rating,
     createdAt: new Date().toISOString(),
     history: [],
@@ -417,6 +417,24 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount) {
     colors: [],
     resultsByRound: {},
   };
+}
+
+function splitFullName(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return { lastName: "", firstName: "" };
+  }
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return { lastName: parts[0], firstName: "" };
+  }
+
+  return { lastName: parts[0], firstName: parts.slice(1).join(" ") };
+}
+
+function getBaseFullName(basePlayer) {
+  return `${basePlayer.lastName || ""} ${basePlayer.firstName || ""}`.trim();
 }
 
 function getMaxRoundsByFormat(format, playersCount) {
@@ -482,7 +500,7 @@ function renderBaseSelect() {
   const options = state.playerBase
     .slice()
     .sort((a, b) => b.rating - a.rating)
-    .map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${p.rating})</option>`)
+    .map((p) => `<option value="${p.id}">${escapeHtml(getBaseFullName(p))} (${p.rating})</option>`)
     .join("");
 
   els.dbPlayerSelect.innerHTML = options;
@@ -646,7 +664,8 @@ function renderBasePlayersTab() {
       return `
       <tr>
         <td>${idx + 1}</td>
-        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(p.lastName || "")}</td>
+        <td>${escapeHtml(p.firstName || "")}</td>
         <td>${p.rating}</td>
         <td>${p.stats.tournaments}</td>
         <td>${p.stats.games}</td>
@@ -670,7 +689,8 @@ function renderBasePlayersTab() {
       <thead>
         <tr>
           <th>#</th>
-          <th>Гравець</th>
+          <th>Прізвище</th>
+          <th>Ім'я</th>
           <th>Рейт.</th>
           <th>Турніри</th>
           <th>Партії</th>
@@ -680,7 +700,7 @@ function renderBasePlayersTab() {
           <th>Дії</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="9">База порожня.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="10">База порожня.</td></tr>'}</tbody>
     </table>`;
 }
 
@@ -715,26 +735,6 @@ function renderArchiveTab() {
   els.archiveList.innerHTML = blocks;
 }
 
-function addPlayerFromManual(name, rating) {
-  if (!name) {
-    return;
-  }
-
-  const t = state.currentTournament;
-  if (t.currentRound > 0) {
-    alert("Не можна додавати гравців після старту турніру.");
-    return;
-  }
-
-  let basePlayer = state.playerBase.find((p) => p.name.toLowerCase() === name.toLowerCase());
-  if (!basePlayer) {
-    basePlayer = createBasePlayerRecord(name, Number.isFinite(rating) ? rating : 0);
-    state.playerBase.push(basePlayer);
-  }
-
-  addTournamentPlayer(basePlayer.id, name, Number.isFinite(rating) ? rating : 0);
-}
-
 function addPlayerFromBaseSelect() {
   const baseId = els.dbPlayerSelect.value;
   if (!baseId) {
@@ -756,7 +756,7 @@ function addBasePlayerToTournament(basePlayerId) {
     return;
   }
 
-  addTournamentPlayer(basePlayer.id, basePlayer.name, basePlayer.rating);
+  addTournamentPlayer(basePlayer.id, getBaseFullName(basePlayer), basePlayer.rating);
 }
 
 function addTournamentPlayer(basePlayerId, name, rating) {
@@ -773,17 +773,21 @@ function addTournamentPlayer(basePlayerId, name, rating) {
   saveAndRender();
 }
 
-function createBasePlayer(name, rating) {
-  if (!name) {
+function createBasePlayer(lastName, firstName, rating) {
+  if (!lastName || !firstName) {
     return;
   }
 
-  if (state.playerBase.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
-    alert("Гравець з таким ім'ям уже є в базі.");
+  if (
+    state.playerBase.some(
+      (p) => p.lastName.toLowerCase() === lastName.toLowerCase() && p.firstName.toLowerCase() === firstName.toLowerCase()
+    )
+  ) {
+    alert("Гравець з таким прізвищем та ім'ям уже є в базі.");
     return;
   }
 
-  state.playerBase.push(createBasePlayerRecord(name, Number.isFinite(rating) ? rating : 0));
+  state.playerBase.push(createBasePlayerRecord(lastName, firstName, Number.isFinite(rating) ? rating : 0));
   saveAndRender();
 }
 
@@ -809,19 +813,32 @@ function editBasePlayer(playerId) {
     return;
   }
 
-  const nextName = prompt("Нове ім'я гравця:", base.name);
-  if (nextName === null) {
+  const nextLastName = prompt("Нове прізвище:", base.lastName || "");
+  if (nextLastName === null) {
     return;
   }
 
-  const trimmedName = nextName.trim();
-  if (!trimmedName) {
-    alert("Ім'я не може бути порожнім.");
+  const nextFirstName = prompt("Нове ім'я:", base.firstName || "");
+  if (nextFirstName === null) {
     return;
   }
 
-  if (state.playerBase.some((p) => p.id !== base.id && p.name.toLowerCase() === trimmedName.toLowerCase())) {
-    alert("Гравець з таким ім'ям уже є в базі.");
+  const trimmedLastName = nextLastName.trim();
+  const trimmedFirstName = nextFirstName.trim();
+  if (!trimmedLastName || !trimmedFirstName) {
+    alert("Прізвище та ім'я не можуть бути порожніми.");
+    return;
+  }
+
+  if (
+    state.playerBase.some(
+      (p) =>
+        p.id !== base.id &&
+        p.lastName.toLowerCase() === trimmedLastName.toLowerCase() &&
+        p.firstName.toLowerCase() === trimmedFirstName.toLowerCase()
+    )
+  ) {
+    alert("Гравець з таким прізвищем та ім'ям уже є в базі.");
     return;
   }
 
@@ -836,7 +853,8 @@ function editBasePlayer(playerId) {
     return;
   }
 
-  base.name = trimmedName;
+  base.lastName = trimmedLastName;
+  base.firstName = trimmedFirstName;
   base.rating = Math.round(nextRating);
 
   syncBasePlayerChangesToCurrentTournament(base.id);
@@ -848,9 +866,10 @@ function viewBasePlayerHistory(playerId) {
   if (!base) {
     return;
   }
+  const fullName = getBaseFullName(base);
 
   if (!base.history.length) {
-    alert(`${base.name}: поки немає історії зіграних турнірів.`);
+    alert(`${fullName}: поки немає історії зіграних турнірів.`);
     return;
   }
 
@@ -860,7 +879,7 @@ function viewBasePlayerHistory(playerId) {
     return `• ${h.tournamentName} | ${formatDate(h.finishedAt)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | суперники: ${opponents}`;
   });
 
-  alert(`${base.name}\n\n${lines.join("\n")}`);
+  alert(`${fullName}\n\n${lines.join("\n")}`);
 }
 
 function syncBasePlayerChangesToCurrentTournament(basePlayerId) {
@@ -872,7 +891,7 @@ function syncBasePlayerChangesToCurrentTournament(basePlayerId) {
 
   const linked = t.players.filter((p) => p.basePlayerId === basePlayerId);
   for (const tp of linked) {
-    tp.name = base.name;
+    tp.name = getBaseFullName(base);
     if (t.currentRound === 0) {
       tp.rating = base.rating;
     }
@@ -919,7 +938,9 @@ function editTournamentPlayer(playerId) {
   if (player.basePlayerId) {
     const base = state.playerBase.find((bp) => bp.id === player.basePlayerId);
     if (base) {
-      base.name = player.name;
+      const split = splitFullName(player.name);
+      base.lastName = split.lastName || base.lastName;
+      base.firstName = split.firstName || base.firstName;
       base.rating = player.rating;
     }
   }
@@ -1044,28 +1065,30 @@ function addDemoPlayers() {
   }
 
   const demo = [
-    ["Артем", 1650],
-    ["Олексій", 1590],
-    ["Софія", 1585],
-    ["Марко", 1540],
-    ["Іван", 1525],
-    ["Вікторія", 1510],
-    ["Ярина", 1490],
-    ["Дмитро", 1460],
-    ["Лев", 1440],
-    ["Анна", 1430],
-    ["Максим", 1400],
-    ["Поліна", 1380],
+    ["Коваль", "Артем", 1650],
+    ["Іванчук", "Олексій", 1590],
+    ["Мельник", "Софія", 1585],
+    ["Литвин", "Марко", 1540],
+    ["Петренко", "Іван", 1525],
+    ["Шевчук", "Вікторія", 1510],
+    ["Клименко", "Ярина", 1490],
+    ["Савчук", "Дмитро", 1460],
+    ["Бойко", "Лев", 1440],
+    ["Гончар", "Анна", 1430],
+    ["Паламар", "Максим", 1400],
+    ["Ткаченко", "Поліна", 1380],
   ];
 
-  for (const [name, rating] of demo) {
-    let base = state.playerBase.find((p) => p.name.toLowerCase() === name.toLowerCase());
+  for (const [lastName, firstName, rating] of demo) {
+    let base = state.playerBase.find(
+      (p) => p.lastName.toLowerCase() === lastName.toLowerCase() && p.firstName.toLowerCase() === firstName.toLowerCase()
+    );
     if (!base) {
-      base = createBasePlayerRecord(name, rating);
+      base = createBasePlayerRecord(lastName, firstName, rating);
       state.playerBase.push(base);
     }
 
-    t.players.push(createTournamentPlayer(name, rating, base.id, t.players.length));
+    t.players.push(createTournamentPlayer(getBaseFullName(base), rating, base.id, t.players.length));
   }
 
   normalizeRoundsCountForCurrentFormat(t);
@@ -1602,6 +1625,32 @@ function archiveCurrentTournament({ notify }) {
   return true;
 }
 
+function finishCurrentTournament() {
+  const t = state.currentTournament;
+  if (t.players.length === 0) {
+    alert("У турнірі немає учасників.");
+    return;
+  }
+
+  if (t.currentRound === 0) {
+    if (!confirm("Турнір ще без турів. Все одно завершити і перенести в архів?")) {
+      return;
+    }
+  }
+
+  if (t.currentRound > 0 && !isLastRoundComplete(t)) {
+    if (!confirm("У поточному турі є невнесені результати. Завершити турнір все одно?")) {
+      return;
+    }
+  }
+
+  archiveCurrentTournament({ notify: false });
+  state.currentTournament = createDefaultTournament();
+  state.activeTab = "tournament";
+  saveAndRender();
+  alert("Турнір завершено і перенесено в архів.");
+}
+
 function applyTournamentResultsToPlayerBase(tournamentSnapshot) {
   const standings = getStandings(tournamentSnapshot);
   const placeById = Object.fromEntries(standings.map((p, idx) => [p.id, idx + 1]));
@@ -1614,11 +1663,12 @@ function applyTournamentResultsToPlayerBase(tournamentSnapshot) {
     }
 
     if (!base) {
-      base = state.playerBase.find((bp) => bp.name.toLowerCase() === tp.name.toLowerCase());
+      base = state.playerBase.find((bp) => getBaseFullName(bp).toLowerCase() === tp.name.toLowerCase());
     }
 
     if (!base) {
-      base = createBasePlayerRecord(tp.name, tp.rating);
+      const split = splitFullName(tp.name);
+      base = createBasePlayerRecord(split.lastName, split.firstName, tp.rating);
       state.playerBase.push(base);
     }
 

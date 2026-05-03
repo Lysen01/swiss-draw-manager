@@ -49,11 +49,7 @@
 
         <section class="card">
           <h2>Учасники</h2>
-          <form id="playerForm" class="inline-form">
-            <input id="playerName" type="text" placeholder="Ім'я гравця" required />
-            <input id="playerRating" type="number" min="0" max="4000" placeholder="Рейтинг" required />
-            <button type="submit">Додати</button>
-          </form>
+          <p class="meta">Учасників можна додати тільки з бази гравців.</p>
 
           <div class="inline-form" style="margin-top: 8px">
             <select id="dbPlayerSelect"></select>
@@ -62,7 +58,7 @@
 
           <div class="toolbar">
             <button id="seedDemoBtn" type="button">Демо-учасники</button>
-            <button id="saveTournamentBtn" type="button">Зберегти в архів</button>
+            <button id="finishTournamentBtn" type="button">Завершити турнір</button>
             <button id="resetBtn" type="button" class="danger">Новий турнір</button>
           </div>
           <div id="playersList" class="scroll"></div>
@@ -87,7 +83,8 @@
         <section class="card full">
           <h2>База гравців</h2>
           <form id="basePlayerForm" class="inline-form">
-            <input id="basePlayerName" type="text" placeholder="Ім'я гравця" required />
+            <input id="basePlayerLastName" type="text" placeholder="Прізвище" required />
+            <input id="basePlayerFirstName" type="text" placeholder="Ім'я" required />
             <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
             <button type="submit">Додати в базу</button>
           </form>
