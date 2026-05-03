@@ -352,6 +352,36 @@ button.danger {
   font-size: 14px;
 }
 
+.archive-media {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  margin-bottom: 6px;
+}
+
+.archive-photo {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #c9d5ea;
+  background: #eef3fb;
+}
+
+.archive-photo-placeholder {
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  border: 1px solid #c9d5ea;
+  background: #eef3fb;
+  color: #6b7891;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 #dbPlayerSelect {
   min-width: 280px;
   background: #fff;
@@ -1879,8 +1909,19 @@ function renderArchiveTab() {
             <button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>
           </div>
         </div>
-        <div class="archive-meta">${formatDate(t.finishedAt)} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}</div>
-        <div class="archive-meta">Дата: ${t.eventDate ? formatDateOnly(t.eventDate) : "не вказана"} | Контроль: ${escapeHtml(t.timeControl || "не вказано")}</div>
+        <div class="archive-meta">Завершено: ${formatDate(t.finishedAt)} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}</div>
+        <div class="archive-media">
+          ${
+            t.photoDataUrl
+              ? `<img class="archive-photo" src="${t.photoDataUrl}" alt="Фото ${escapeHtml(t.name)}" />`
+              : '<span class="archive-photo-placeholder">Фото</span>'
+          }
+          <div>
+            <div class="archive-meta"><strong>Турнір:</strong> ${escapeHtml(t.name)}</div>
+            <div class="archive-meta"><strong>Дата:</strong> ${t.eventDate ? formatDateOnly(t.eventDate) : "не вказана"}</div>
+            <div class="archive-meta"><strong>Контроль:</strong> ${escapeHtml(t.timeControl || "не вказано")}</div>
+          </div>
+        </div>
         <div class="archive-meta">Топ-3: ${top || "-"}</div>
         ${isOpen ? buildArchivePreviewHtml(t) : ""}
       </article>`;
@@ -1908,7 +1949,17 @@ function buildArchivePreviewHtml(archived) {
     <hr />
     <h3>${escapeHtml(archived.name)} — підсумкова таблиця</h3>
     <div class="archive-meta">${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}</div>
-    <div class="archive-meta">Дата: ${archived.eventDate ? formatDateOnly(archived.eventDate) : "не вказана"} | Контроль: ${escapeHtml(archived.timeControl || "не вказано")}</div>
+    <div class="archive-media" style="margin-top:8px;">
+      ${
+        archived.photoDataUrl
+          ? `<img class="archive-photo" src="${archived.photoDataUrl}" alt="Фото ${escapeHtml(archived.name)}" />`
+          : '<span class="archive-photo-placeholder">Фото</span>'
+      }
+      <div>
+        <div class="archive-meta"><strong>Дата:</strong> ${archived.eventDate ? formatDateOnly(archived.eventDate) : "не вказана"}</div>
+        <div class="archive-meta"><strong>Контроль:</strong> ${escapeHtml(archived.timeControl || "не вказано")}</div>
+      </div>
+    </div>
     <div class="toolbar" style="margin-top:8px;">
       <button type="button" data-action="close-archive-preview" data-tournament-id="${archived.id}">Закрити перегляд</button>
     </div>
@@ -2817,7 +2868,6 @@ function archiveCurrentTournament({ notify }) {
 
   const snapshot = cloneTournament(t);
   snapshot.finishedAt = new Date().toISOString();
-  snapshot.photoDataUrl = null;
 
   const idx = state.tournamentsArchive.findIndex((x) => x.id === snapshot.id);
   if (idx >= 0) {
