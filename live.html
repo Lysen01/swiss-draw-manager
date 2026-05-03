@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swiss Draw Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --ink: #15233c;
+  --muted: #5e6b82;
+  --brand: #0b5bd3;
+  --brand-2: #0f76e8;
+  --danger: #c72d2d;
+  --line: #d9e0ec;
+  --shadow: 0 16px 40px rgba(13, 29, 54, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Manrope, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at top right, #dde9ff 0%, #f5f7fb 38%) fixed;
+}
+
+.hero {
+  padding: 32px 20px 16px;
+}
+
+.hero__inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+.hero p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.layout {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 20px 32px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.card h2 {
+  margin-top: 0;
+}
+
+.grid-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-form label,
+.inline-form input {
+  font-size: 14px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+input,
+select,
+button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+button {
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+.inline-form,
+.toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.scroll {
+  margin-top: 12px;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  font-size: 14px;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: #eef3fc;
+  z-index: 1;
+}
+
+.pair-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  margin: 8px;
+}
+
+.pair-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.footer {
+  text-align: center;
+  color: var(--muted);
+  padding: 12px 20px 24px;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-form {
+    grid-template-columns: 1fr;
+  }
+}
+    </style>
+  </head>
+  <body>
+  <body>
+    <header class="hero">
+      <div class="hero__inner">
+        <h1>Swiss Draw Manager</h1>
+        <p>Швейцарська система жеребкування для дитячих та аматорських турнірів</p>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Налаштування турніру</h2>
+        <form id="settingsForm" class="grid-form">
+          <label>
+            Назва турніру
+            <input id="tournamentName" type="text" value="Дитяча шашкова ліга" required />
+          </label>
+          <label>
+            Кількість турів
+            <input id="roundsCount" type="number" min="1" max="15" value="5" required />
+          </label>
+          <button type="submit">Застосувати</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Учасники</h2>
+        <form id="playerForm" class="inline-form">
+          <input id="playerName" type="text" placeholder="Ім'я гравця" required />
+          <input id="playerRating" type="number" min="0" max="4000" placeholder="Рейтинг" required />
+          <button type="submit">Додати</button>
+        </form>
+        <div class="toolbar">
+          <button id="seedDemoBtn" type="button">Демо-учасники</button>
+          <button id="resetBtn" type="button" class="danger">Скинути турнір</button>
+        </div>
+        <div id="playersList" class="scroll"></div>
+      </section>
+
+      <section class="card">
+        <h2>Раунди</h2>
+        <div class="toolbar">
+          <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
+        </div>
+        <div id="roundMeta" class="meta"></div>
+        <div id="pairings" class="scroll"></div>
+      </section>
+
+      <section class="card">
+        <h2>Таблиця</h2>
+        <div id="standings" class="scroll"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Локально збережується у браузері (localStorage)</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+    <script>
+const STORAGE_KEY = "swiss-manager-v1";
+
+const state = loadState() || {
+  tournamentName: "Дитяча шашкова ліга",
+  roundsCount: 5,
+  currentRound: 0,
+  players: [],
+  rounds: [],
+};
+
+const els = {
+  settingsForm: document.getElementById("settingsForm"),
+  tournamentName: document.getElementById("tournamentName"),
+  roundsCount: document.getElementById("roundsCount"),
+  playerForm: document.getElementById("playerForm"),
+  playerName: document.getElementById("playerName"),
+  playerRating: document.getElementById("playerRating"),
+  playersList: document.getElementById("playersList"),
+  generateRoundBtn: document.getElementById("generateRoundBtn"),
+  roundMeta: document.getElementById("roundMeta"),
+  pairings: document.getElementById("pairings"),
+  standings: document.getElementById("standings"),
+  seedDemoBtn: document.getElementById("seedDemoBtn"),
+  resetBtn: document.getElementById("resetBtn"),
+};
+
+bindEvents();
+render();
+
+function bindEvents() {
+  els.settingsForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    state.tournamentName = els.tournamentName.value.trim();
+    state.roundsCount = Number(els.roundsCount.value);
+    saveAndRender();
+  });
+
+  els.playerForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    addPlayer(els.playerName.value.trim(), Number(els.playerRating.value));
+    els.playerForm.reset();
+    els.playerName.focus();
+  });
+
+  els.generateRoundBtn.addEventListener("click", () => {
+    generateNextRound();
+  });
+
+  els.seedDemoBtn.addEventListener("click", () => {
+    addDemoPlayers();
+  });
+
+  els.resetBtn.addEventListener("click", () => {
+    if (!confirm("Скинути турнір повністю?")) {
+      return;
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  });
+}
+
+function addPlayer(name, rating) {
+  if (!name) {
+    return;
+  }
+
+  if (state.currentRound > 0) {
+    alert("Не можна додавати гравців після старту турніру.");
+    return;
+  }
+
+  state.players.push({
+    id: crypto.randomUUID(),
+    name,
+    rating: Number.isFinite(rating) ? rating : 0,
+    score: 0,
+    hadBye: false,
+    opponents: [],
+    colors: [],
+    resultsByRound: {},
+  });
+
+  saveAndRender();
+}
+
+function addDemoPlayers() {
+  if (state.players.length > 0 || state.currentRound > 0) {
+    alert("Демо можна завантажити лише в порожній турнір.");
+    return;
+  }
+
+  const demo = [
+    ["Артем", 1650],
+    ["Олексій", 1590],
+    ["Софія", 1585],
+    ["Марко", 1540],
+    ["Іван", 1525],
+    ["Вікторія", 1510],
+    ["Ярина", 1490],
+    ["Дмитро", 1460],
+    ["Лев", 1440],
+    ["Анна", 1430],
+    ["Максим", 1400],
+    ["Поліна", 1380],
+  ];
+
+  for (const [name, rating] of demo) {
+    state.players.push({
+      id: crypto.randomUUID(),
+      name,
+      rating,
+      score: 0,
+      hadBye: false,
+      opponents: [],
+      colors: [],
+      resultsByRound: {},
+    });
+  }
+
+  saveAndRender();
+}
+
+function generateNextRound() {
+  if (state.players.length < 2) {
+    alert("Потрібно щонайменше 2 гравці.");
+    return;
+  }
+
+  if (state.currentRound >= state.roundsCount) {
+    alert("Досягнуто максимальної кількості турів.");
+    return;
+  }
+
+  const nextRoundNumber = state.currentRound + 1;
+  const pairings = swissPairRound(state.players, nextRoundNumber);
+
+  state.rounds.push({ round: nextRoundNumber, pairings });
+  state.currentRound = nextRoundNumber;
+
+  saveAndRender();
+}
+
+function swissPairRound(players, roundNumber) {
+  const sorted = [...players].sort(comparePlayersForPairing);
+  const unpaired = [...sorted];
+  const pairings = [];
+
+  if (unpaired.length % 2 === 1) {
+    const byePlayer = chooseByePlayer(unpaired);
+    byePlayer.hadBye = true;
+    byePlayer.score += 1;
+    byePlayer.resultsByRound[roundNumber] = "BYE";
+    pairings.push({
+      board: pairings.length + 1,
+      whiteId: byePlayer.id,
+      blackId: null,
+      result: "1-0 BYE",
+    });
+    unpaired.splice(unpaired.findIndex((p) => p.id === byePlayer.id), 1);
+  }
+
+  while (unpaired.length > 0) {
+    const p1 = unpaired.shift();
+    let idx = findBestOpponentIndex(p1, unpaired);
+
+    if (idx === -1) {
+      idx = 0;
+    }
+
+    const p2 = unpaired.splice(idx, 1)[0];
+    const colors = assignColors(p1, p2);
+
+    pairings.push({
+      board: pairings.length + 1,
+      whiteId: colors.white.id,
+      blackId: colors.black.id,
+      result: "pending",
+    });
+  }
+
+  applyPendingMetadata(pairings);
+  return pairings;
+}
+
+function comparePlayersForPairing(a, b) {
+  if (b.score !== a.score) {
+    return b.score - a.score;
+  }
+  return b.rating - a.rating;
+}
+
+function chooseByePlayer(players) {
+  const candidates = [...players]
+    .filter((p) => !p.hadBye)
+    .sort((a, b) => {
+      if (a.score !== b.score) {
+        return a.score - b.score;
+      }
+      return a.rating - b.rating;
+    });
+
+  return candidates[0] || players[players.length - 1];
+}
+
+function findBestOpponentIndex(player, candidates) {
+  let bestIndex = -1;
+  let bestScore = -Infinity;
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const c = candidates[i];
+    if (player.opponents.includes(c.id)) {
+      continue;
+    }
+
+    let score = 0;
+
+    score -= Math.abs(player.score - c.score) * 10;
+    score -= Math.abs(player.rating - c.rating) / 100;
+    score += colorCompatibility(player, c);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+
+  return bestIndex;
+}
+
+function colorCompatibility(a, b) {
+  const aPref = preferredColor(a);
+  const bPref = preferredColor(b);
+
+  if (aPref && bPref && aPref !== bPref) {
+    return 4;
+  }
+
+  if (aPref && bPref && aPref === bPref) {
+    return -3;
+  }
+
+  return 0;
+}
+
+function preferredColor(player) {
+  const whites = player.colors.filter((c) => c === "W").length;
+  const blacks = player.colors.filter((c) => c === "B").length;
+
+  if (whites - blacks >= 1) {
+    return "B";
+  }
+
+  if (blacks - whites >= 1) {
+    return "W";
+  }
+
+  return null;
+}
+
+function hasColorStreak(player, color) {
+  if (player.colors.length < 2) {
+    return false;
+  }
+
+  const lastTwo = player.colors.slice(-2);
+  return lastTwo[0] === color && lastTwo[1] === color;
+}
+
+function assignColors(a, b) {
+  const options = [
+    { white: a, black: b, score: scoreColorAssignment(a, b) },
+    { white: b, black: a, score: scoreColorAssignment(b, a) },
+  ];
+
+  options.sort((x, y) => y.score - x.score);
+  return { white: options[0].white, black: options[0].black };
+}
+
+function scoreColorAssignment(white, black) {
+  let score = 0;
+  const whitePref = preferredColor(white);
+  const blackPref = preferredColor(black);
+
+  if (whitePref === "W") {
+    score += 3;
+  }
+
+  if (blackPref === "B") {
+    score += 3;
+  }
+
+  if (hasColorStreak(white, "W")) {
+    score -= 6;
+  }
+
+  if (hasColorStreak(black, "B")) {
+    score -= 6;
+  }
+
+  return score;
+}
+
+function applyPendingMetadata(pairings) {
+  for (const pair of pairings) {
+    if (!pair.blackId) {
+      continue;
+    }
+
+    const white = state.players.find((p) => p.id === pair.whiteId);
+    const black = state.players.find((p) => p.id === pair.blackId);
+
+    white.opponents.push(black.id);
+    black.opponents.push(white.id);
+    white.colors.push("W");
+    black.colors.push("B");
+  }
+}
+
+function updateResult(roundIdx, board, value) {
+  const round = state.rounds[roundIdx];
+  const pairing = round.pairings.find((p) => p.board === board);
+
+  if (!pairing || !pairing.blackId) {
+    return;
+  }
+
+  rollbackResultIfNeeded(round.round, pairing);
+
+  pairing.result = value;
+
+  const white = state.players.find((p) => p.id === pairing.whiteId);
+  const black = state.players.find((p) => p.id === pairing.blackId);
+
+  if (value === "1-0") {
+    white.score += 1;
+    white.resultsByRound[round.round] = "W";
+    black.resultsByRound[round.round] = "L";
+  } else if (value === "0-1") {
+    black.score += 1;
+    black.resultsByRound[round.round] = "W";
+    white.resultsByRound[round.round] = "L";
+  } else if (value === "0.5-0.5") {
+    white.score += 0.5;
+    black.score += 0.5;
+    white.resultsByRound[round.round] = "D";
+    black.resultsByRound[round.round] = "D";
+  }
+
+  saveAndRender();
+}
+
+function rollbackResultIfNeeded(roundNumber, pairing) {
+  const white = state.players.find((p) => p.id === pairing.whiteId);
+  const black = state.players.find((p) => p.id === pairing.blackId);
+
+  if (pairing.result === "1-0") {
+    white.score -= 1;
+  }
+
+  if (pairing.result === "0-1") {
+    black.score -= 1;
+  }
+
+  if (pairing.result === "0.5-0.5") {
+    white.score -= 0.5;
+    black.score -= 0.5;
+  }
+
+  delete white.resultsByRound[roundNumber];
+  delete black.resultsByRound[roundNumber];
+}
+
+function getBuchholz(player) {
+  return player.opponents
+    .map((id) => state.players.find((p) => p.id === id))
+    .filter(Boolean)
+    .reduce((sum, p) => sum + p.score, 0);
+}
+
+function getSonnebornBerger(player) {
+  let total = 0;
+
+  for (const [roundNo, res] of Object.entries(player.resultsByRound)) {
+    if (res === "BYE") {
+      continue;
+    }
+
+    const round = state.rounds.find((r) => r.round === Number(roundNo));
+    if (!round) {
+      continue;
+    }
+
+    const game = round.pairings.find((p) => p.whiteId === player.id || p.blackId === player.id);
+    if (!game || !game.blackId) {
+      continue;
+    }
+
+    const oppId = game.whiteId === player.id ? game.blackId : game.whiteId;
+    const opp = state.players.find((p) => p.id === oppId);
+
+    if (!opp) {
+      continue;
+    }
+
+    if (res === "W") {
+      total += opp.score;
+    }
+
+    if (res === "D") {
+      total += opp.score / 2;
+    }
+  }
+
+  return total;
+}
+
+function render() {
+  els.tournamentName.value = state.tournamentName;
+  els.roundsCount.value = state.roundsCount;
+
+  renderPlayers();
+  renderRounds();
+  renderStandings();
+
+  els.roundMeta.textContent = `${state.tournamentName} | Тур ${state.currentRound} з ${state.roundsCount}`;
+}
+
+function renderPlayers() {
+  const sorted = [...state.players].sort((a, b) => b.rating - a.rating);
+
+  const rows = sorted
+    .map(
+      (p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${p.rating}</td>
+        <td>${p.score.toFixed(1)}</td>
+        <td>${p.hadBye ? "Так" : "Ні"}</td>
+      </tr>`
+    )
+    .join("");
+
+  els.playersList.innerHTML = `
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Гравець</th>
+          <th>Рейтинг</th>
+          <th>Очки</th>
+          <th>BYE</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderRounds() {
+  if (state.rounds.length === 0) {
+    els.pairings.innerHTML = '<div class="pair-card">Ще немає згенерованих турів.</div>';
+    return;
+  }
+
+  const blocks = state.rounds
+    .map((round, roundIdx) => {
+      const pairs = round.pairings
+        .map((pair) => {
+          const white = state.players.find((p) => p.id === pair.whiteId);
+          const black = pair.blackId ? state.players.find((p) => p.id === pair.blackId) : null;
+
+          if (!black) {
+            return `
+              <div class="pair-card">
+                <div class="pair-head">Дошка ${pair.board} <span>BYE</span></div>
+                <div>${escapeHtml(white.name)} отримав(ла) BYE (1 очко)</div>
+              </div>`;
+          }
+
+          return `
+            <div class="pair-card">
+              <div class="pair-head">Дошка ${pair.board}<span>${round.round} тур</span></div>
+              <div><strong>Білі:</strong> ${escapeHtml(white.name)} vs <strong>Чорні:</strong> ${escapeHtml(black.name)}</div>
+              <div style="margin-top:8px;">
+                <select data-round-idx="${roundIdx}" data-board="${pair.board}">
+                  <option value="pending" ${pair.result === "pending" ? "selected" : ""}>Результат не внесено</option>
+                  <option value="1-0" ${pair.result === "1-0" ? "selected" : ""}>1-0</option>
+                  <option value="0-1" ${pair.result === "0-1" ? "selected" : ""}>0-1</option>
+                  <option value="0.5-0.5" ${pair.result === "0.5-0.5" ? "selected" : ""}>0.5-0.5</option>
+                </select>
+              </div>
+            </div>`;
+        })
+        .join("");
+
+      return `<h3>Тур ${round.round}</h3>${pairs}`;
+    })
+    .join("");
+
+  els.pairings.innerHTML = blocks;
+
+  for (const select of els.pairings.querySelectorAll("select")) {
+    select.addEventListener("change", (event) => {
+      const roundIdx = Number(event.target.dataset.roundIdx);
+      const board = Number(event.target.dataset.board);
+      updateResult(roundIdx, board, event.target.value);
+    });
+  }
+}
+
+function renderStandings() {
+  const enriched = state.players.map((p) => ({
+    ...p,
+    buchholz: getBuchholz(p),
+    sb: getSonnebornBerger(p),
+  }));
+
+  enriched.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+
+    if (b.buchholz !== a.buchholz) {
+      return b.buchholz - a.buchholz;
+    }
+
+    if (b.sb !== a.sb) {
+      return b.sb - a.sb;
+    }
+
+    return b.rating - a.rating;
+  });
+
+  const rows = enriched
+    .map(
+      (p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${p.score.toFixed(1)}</td>
+        <td>${p.buchholz.toFixed(1)}</td>
+        <td>${p.sb.toFixed(2)}</td>
+        <td>${p.rating}</td>
+      </tr>`
+    )
+    .join("");
+
+  els.standings.innerHTML = `
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Місце</th>
+          <th>Гравець</th>
+          <th>Очки</th>
+          <th>Buchholz</th>
+          <th>SB</th>
+          <th>Рейтинг</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function saveAndRender() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  render();
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+    </script>
+  </body>
+</html>
