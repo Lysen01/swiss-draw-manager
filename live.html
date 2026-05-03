@@ -1721,7 +1721,7 @@ function startEditBasePlayer(playerId) {
   els.basePlayerSubmitBtn.textContent = "Зберегти зміни";
   els.basePlayerCancelEditBtn.hidden = false;
   els.baseEditHint.hidden = false;
-  els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Порядок полів: 1) Прізвище, 2) Ім'я, 3) Рейтинг, 4) Спортивне звання, 5) Дата народження, 6) Фото.`;
+  els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Поля: Прізвище, Ім'я, Рейтинг, Спортивне звання, Дата народження, Фото.`;
   els.basePlayerForm.scrollIntoView({ behavior: "smooth", block: "center" });
   els.basePlayerLastName.focus();
 }
