@@ -429,6 +429,17 @@ button.danger {
   margin-top: 10px;
 }
 
+.edit-hint {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #b7d2ff;
+  border-radius: 10px;
+  background: #eef5ff;
+  color: #1b3f7a;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .base-io-toolbar button {
   min-height: 42px;
 }
@@ -684,6 +695,7 @@ button.danger {
               <button id="basePlayerCancelEditBtn" type="button" hidden>Скасувати редагування</button>
             </div>
           </form>
+          <div id="baseEditHint" class="edit-hint" hidden></div>
           <div class="toolbar base-io-toolbar">
             <button id="exportBaseBtn" type="button">Експорт бази (JSON)</button>
             <button id="importBaseBtn" type="button">Імпорт бази</button>
@@ -746,6 +758,7 @@ const els = {
   basePlayerRemovePhoto: document.getElementById("basePlayerRemovePhoto"),
   basePlayerSubmitBtn: document.getElementById("basePlayerSubmitBtn"),
   basePlayerCancelEditBtn: document.getElementById("basePlayerCancelEditBtn"),
+  baseEditHint: document.getElementById("baseEditHint"),
   exportBaseBtn: document.getElementById("exportBaseBtn"),
   importBaseBtn: document.getElementById("importBaseBtn"),
   importBaseFile: document.getElementById("importBaseFile"),
@@ -1707,6 +1720,9 @@ function startEditBasePlayer(playerId) {
   els.basePlayerRemovePhoto.checked = false;
   els.basePlayerSubmitBtn.textContent = "Зберегти зміни";
   els.basePlayerCancelEditBtn.hidden = false;
+  els.baseEditHint.hidden = false;
+  els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Порядок полів: 1) Прізвище, 2) Ім'я, 3) Рейтинг, 4) Спортивне звання, 5) Дата народження, 6) Фото.`;
+  els.basePlayerForm.scrollIntoView({ behavior: "smooth", block: "center" });
   els.basePlayerLastName.focus();
 }
 
@@ -1717,6 +1733,8 @@ function resetBasePlayerForm() {
   els.basePlayerRemovePhoto.checked = false;
   els.basePlayerSubmitBtn.textContent = "Додати в базу";
   els.basePlayerCancelEditBtn.hidden = true;
+  els.baseEditHint.hidden = true;
+  els.baseEditHint.textContent = "";
 }
 
 function readFileAsDataUrl(file) {

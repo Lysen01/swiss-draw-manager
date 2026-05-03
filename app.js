@@ -37,6 +37,7 @@ const els = {
   basePlayerRemovePhoto: document.getElementById("basePlayerRemovePhoto"),
   basePlayerSubmitBtn: document.getElementById("basePlayerSubmitBtn"),
   basePlayerCancelEditBtn: document.getElementById("basePlayerCancelEditBtn"),
+  baseEditHint: document.getElementById("baseEditHint"),
   exportBaseBtn: document.getElementById("exportBaseBtn"),
   importBaseBtn: document.getElementById("importBaseBtn"),
   importBaseFile: document.getElementById("importBaseFile"),
@@ -998,6 +999,9 @@ function startEditBasePlayer(playerId) {
   els.basePlayerRemovePhoto.checked = false;
   els.basePlayerSubmitBtn.textContent = "Зберегти зміни";
   els.basePlayerCancelEditBtn.hidden = false;
+  els.baseEditHint.hidden = false;
+  els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Порядок полів: 1) Прізвище, 2) Ім'я, 3) Рейтинг, 4) Спортивне звання, 5) Дата народження, 6) Фото.`;
+  els.basePlayerForm.scrollIntoView({ behavior: "smooth", block: "center" });
   els.basePlayerLastName.focus();
 }
 
@@ -1008,6 +1012,8 @@ function resetBasePlayerForm() {
   els.basePlayerRemovePhoto.checked = false;
   els.basePlayerSubmitBtn.textContent = "Додати в базу";
   els.basePlayerCancelEditBtn.hidden = true;
+  els.baseEditHint.hidden = true;
+  els.baseEditHint.textContent = "";
 }
 
 function readFileAsDataUrl(file) {

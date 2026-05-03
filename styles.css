@@ -419,6 +419,17 @@ button.danger {
   margin-top: 10px;
 }
 
+.edit-hint {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #b7d2ff;
+  border-radius: 10px;
+  background: #eef5ff;
+  color: #1b3f7a;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .base-io-toolbar button {
   min-height: 42px;
 }
