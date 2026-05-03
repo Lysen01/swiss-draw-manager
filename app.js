@@ -35,6 +35,7 @@ const els = {
   importBaseFile: document.getElementById("importBaseFile"),
   basePlayersList: document.getElementById("basePlayersList"),
   archiveList: document.getElementById("archiveList"),
+  archivePreview: document.getElementById("archivePreview"),
 };
 
 bindEvents();
@@ -188,11 +189,24 @@ function bindEvents() {
     const action = btn.dataset.action;
 
     if (action === "open-archive") {
-      loadTournamentFromArchive(tournamentId);
+      openArchivePreview(tournamentId);
     }
 
     if (action === "delete-archive") {
       deleteArchivedTournament(tournamentId);
+    }
+
+  });
+
+  els.archivePreview.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    if (btn.dataset.action === "close-archive-preview") {
+      state.archivePreviewTournamentId = null;
+      saveAndRender();
     }
   });
 }
@@ -223,6 +237,7 @@ function normalizeState(raw) {
   if (raw.currentTournament && Array.isArray(raw.playerBase) && Array.isArray(raw.tournamentsArchive)) {
     const normalized = {
       activeTab: raw.activeTab || "tournament",
+      archivePreviewTournamentId: raw.archivePreviewTournamentId || null,
       playerBase: raw.playerBase.map(normalizeBasePlayer),
       currentTournament: normalizeTournament(raw.currentTournament),
       tournamentsArchive: raw.tournamentsArchive.map(normalizeArchivedTournament),
@@ -284,6 +299,7 @@ function normalizeState(raw) {
 function createDefaultState() {
   return {
     activeTab: "tournament",
+    archivePreviewTournamentId: null,
     playerBase: [],
     currentTournament: createDefaultTournament(),
     tournamentsArchive: [],
@@ -627,9 +643,13 @@ function renderRounds() {
 
 function renderStandings() {
   const t = state.currentTournament;
-  ensureStartNumbers(t);
+  els.standings.innerHTML = buildStandingsTableHtml(t);
+}
 
-  const enriched = getStandings(t);
+function buildStandingsTableHtml(tournament) {
+  ensureStartNumbers(tournament);
+
+  const enriched = getStandings(tournament);
   const placeById = Object.fromEntries(enriched.map((p, idx) => [p.id, idx + 1]));
 
   const rows = enriched
@@ -639,7 +659,7 @@ function renderStandings() {
         <td>${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${p.rating}</td>
-        ${buildRoundCells(t, p, placeById)}
+        ${buildRoundCells(tournament, p, placeById)}
         <td>${p.score.toFixed(1)}</td>
         <td>${p.buchholz.toFixed(1)}</td>
         <td>${p.sb.toFixed(2)}</td>
@@ -647,9 +667,9 @@ function renderStandings() {
     )
     .join("");
 
-  const roundHeaders = Array.from({ length: t.roundsCount }, (_, idx) => `<th>R${idx + 1}</th>`).join("");
+  const roundHeaders = Array.from({ length: tournament.roundsCount }, (_, idx) => `<th>R${idx + 1}</th>`).join("");
 
-  els.standings.innerHTML = `
+  return `
     <table class="table">
       <thead>
         <tr>
@@ -722,6 +742,7 @@ function renderBasePlayersTab() {
 function renderArchiveTab() {
   if (state.tournamentsArchive.length === 0) {
     els.archiveList.innerHTML = '<div class="archive-card">Архів поки порожній.</div>';
+    els.archivePreview.innerHTML = "";
     return;
   }
 
@@ -748,6 +769,43 @@ function renderArchiveTab() {
     .join("");
 
   els.archiveList.innerHTML = blocks;
+
+  renderArchivePreview();
+}
+
+function openArchivePreview(tournamentId) {
+  const archived = state.tournamentsArchive.find((t) => t.id === tournamentId);
+  if (!archived) {
+    return;
+  }
+
+  state.archivePreviewTournamentId = tournamentId;
+  state.activeTab = "archive";
+  saveAndRender();
+}
+
+function renderArchivePreview() {
+  if (!state.archivePreviewTournamentId) {
+    els.archivePreview.innerHTML = "";
+    return;
+  }
+
+  const archived = state.tournamentsArchive.find((t) => t.id === state.archivePreviewTournamentId);
+  if (!archived) {
+    els.archivePreview.innerHTML = "";
+    return;
+  }
+
+  const standingsTable = buildStandingsTableHtml(archived);
+
+  els.archivePreview.innerHTML = `
+    <h3>${escapeHtml(archived.name)} — підсумкова таблиця</h3>
+    <div class="archive-meta">${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}</div>
+    <div class="toolbar" style="margin-top:8px;">
+      <button type="button" data-action="close-archive-preview">Закрити перегляд</button>
+    </div>
+    <div class="scroll" style="margin-top:10px;">${standingsTable}</div>
+  `;
 }
 
 function addPlayerFromBaseSelect() {
@@ -1809,6 +1867,9 @@ function deleteArchivedTournament(tournamentId) {
   }
 
   state.tournamentsArchive = state.tournamentsArchive.filter((t) => t.id !== tournamentId);
+  if (state.archivePreviewTournamentId === tournamentId) {
+    state.archivePreviewTournamentId = null;
+  }
 
   for (const bp of state.playerBase) {
     bp.history = bp.history.filter((h) => h.tournamentId !== tournamentId);
