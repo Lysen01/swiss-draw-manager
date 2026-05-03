@@ -649,7 +649,7 @@ function buildRoundCells(player) {
       result = "0";
     }
 
-    html += `<td><span class="round-chip" title="${escapeHtml(tooltip)}">${oppNo}${color} ${result}</span></td>`;
+    html += `<td><span class="round-chip" data-tooltip="${escapeHtml(tooltip)}">${oppNo}${color} ${result}</span></td>`;
   }
 
   return html;
