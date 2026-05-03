@@ -406,7 +406,9 @@ button.danger {
 }
 
 #basePlayersList .table {
-  min-width: 1280px;
+  min-width: 0;
+  width: 100%;
+  table-layout: auto;
 }
 
 #basePlayersList .table th {
@@ -416,15 +418,37 @@ button.danger {
 
 #basePlayersList .table td {
   font-size: 13px;
+  vertical-align: middle;
 }
 
-#basePlayersList .toolbar {
-  flex-wrap: nowrap;
+#basePlayersList .table th:last-child,
+#basePlayersList .table td:last-child {
+  width: 170px;
 }
 
-#basePlayersList .toolbar button {
-  padding: 8px 10px;
-  font-size: 12px;
+.row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.last-tournament {
+  max-width: 300px;
+  white-space: normal;
+  line-height: 1.25;
 }
 
 @media (max-width: 1200px) {

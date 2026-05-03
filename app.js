@@ -740,13 +740,13 @@ function renderBasePlayersTab() {
         <td>${p.stats.games}</td>
         <td>${p.stats.wins}/${p.stats.draws}/${p.stats.losses}</td>
         <td>${p.stats.totalScore.toFixed(1)}</td>
-        <td>${lastText}</td>
+        <td class="last-tournament">${lastText}</td>
         <td>
-          <div class="toolbar">
-            <button type="button" data-action="edit-base-player" data-player-id="${p.id}">Редагувати</button>
-            <button type="button" data-action="view-base-history" data-player-id="${p.id}">Історія</button>
-            <button type="button" data-action="add-to-tournament" data-player-id="${p.id}">В турнір</button>
-            <button type="button" data-action="delete-base-player" data-player-id="${p.id}" class="danger">Видалити</button>
+          <div class="row-actions">
+            <button class="icon-btn" type="button" title="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">E</button>
+            <button class="icon-btn" type="button" title="Історія" data-action="view-base-history" data-player-id="${p.id}">H</button>
+            <button class="icon-btn" type="button" title="Додати в турнір" data-action="add-to-tournament" data-player-id="${p.id}">+</button>
+            <button class="icon-btn danger" type="button" title="Видалити" data-action="delete-base-player" data-player-id="${p.id}">X</button>
           </div>
         </td>
       </tr>`;
