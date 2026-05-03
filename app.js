@@ -123,7 +123,7 @@ function bindEvents() {
     }
 
     if (draft.eventDateInput && !nextEventDate) {
-      alert("Дата проведення має бути у форматі дд.мм.рррр.");
+      alert("Оберіть коректну дату з календаря.");
       return;
     }
 
@@ -167,7 +167,7 @@ function bindEvents() {
   const syncTournamentDateDraft = () => {
     ensureTournamentSettingsDraftForCurrentTournament();
     const raw = String(els.tournamentDate.value || "").trim();
-    tournamentSettingsDraft.eventDateInput = raw;
+    tournamentSettingsDraft.eventDateInput = normalizeBirthDate(raw);
     const normalizedDate = normalizeBirthDate(raw);
     tournamentSettingsDraft.eventDate = normalizedDate;
     if (normalizedDate) {
@@ -735,7 +735,7 @@ function renderTournamentTab() {
   els.tournamentFormat.value = draft.format;
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
-  els.tournamentDate.value = draft.eventDateInput || formatDateForInput(draft.eventDate || t.eventDate);
+  els.tournamentDate.value = formatDateForInput(draft.eventDateInput || draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
@@ -781,7 +781,7 @@ function createTournamentSettingsDraft(tournament) {
     roundsCount: Number(tournament.roundsCount) || 1,
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizedEventDate,
-    eventDateInput: formatDateForInput(normalizedEventDate),
+    eventDateInput: normalizedEventDate,
     timeControl: normalizeTimeControl(tournament.timeControl),
     removePhoto: false,
     pendingPhotoDataUrl: null,
@@ -806,7 +806,7 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.name = els.tournamentName.value.trim();
   tournamentSettingsDraft.format = els.tournamentFormat.value === "round_robin" ? "round_robin" : "swiss";
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
-  tournamentSettingsDraft.eventDateInput = String(els.tournamentDate.value || "").trim();
+  tournamentSettingsDraft.eventDateInput = normalizeBirthDate(els.tournamentDate.value);
   tournamentSettingsDraft.eventDate = normalizeBirthDate(tournamentSettingsDraft.eventDateInput);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
   tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
@@ -2306,13 +2306,7 @@ function formatDateOnly(isoDate) {
 }
 
 function formatDateForInput(isoDate) {
-  const normalized = normalizeBirthDate(isoDate);
-  if (!normalized) {
-    return "";
-  }
-
-  const [year, month, day] = normalized.split("-");
-  return `${day}.${month}.${year}`;
+  return normalizeBirthDate(isoDate);
 }
 
 function escapeHtml(value) {
