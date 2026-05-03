@@ -562,6 +562,11 @@ function renderRounds() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
 
+  if (archiveView) {
+    els.pairings.innerHTML = '<div class="pair-card">Для архівного перегляду доступна тільки підсумкова таблиця.</div>';
+    return;
+  }
+
   if (t.rounds.length === 0) {
     els.pairings.innerHTML = '<div class="pair-card">Ще немає згенерованих турів.</div>';
     return;
@@ -573,7 +578,7 @@ function renderRounds() {
 
   const blocks = roundsWithIndex
     .map(({ round, index }) => {
-      const roundLocked = archiveView || round.round < t.currentRound;
+      const roundLocked = round.round < t.currentRound;
       const pairs = round.pairings
         .map((pair) => {
           const white = t.players.find((p) => p.id === pair.whiteId);
@@ -586,15 +591,6 @@ function renderRounds() {
               <div class="pair-card">
                 <div class="pair-head">Дошка ${pair.board} <span>BYE</span></div>
                 <div>${escapeHtml(whiteName)} отримав(ла) BYE (1 очко)</div>
-              </div>`;
-          }
-
-          if (archiveView) {
-            return `
-              <div class="pair-card">
-                <div class="pair-head">Дошка ${pair.board}<span>${round.round} тур | архів</span></div>
-                <div><strong>Білі:</strong> ${escapeHtml(whiteName)} vs <strong>Чорні:</strong> ${escapeHtml(blackName)}</div>
-                <div style="margin-top:8px;"><strong>Результат:</strong> ${escapeHtml(formatResultLabel(pair.result))}</div>
               </div>`;
           }
 
@@ -1856,13 +1852,6 @@ function formatDate(iso) {
   } catch {
     return iso;
   }
-}
-
-function formatResultLabel(result) {
-  if (result === "pending") {
-    return "не внесено";
-  }
-  return result;
 }
 
 function escapeHtml(value) {
