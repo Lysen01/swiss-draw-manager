@@ -1,5 +1,6 @@
 const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
+const MAX_TOURNAMENT_PHOTO_BYTES = 15 * 1024 * 1024;
 
 const state = normalizeState(loadRawState());
 recalcAllBaseStats();
@@ -126,8 +127,7 @@ function bindEvents() {
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
     const selectedPhotoFile = els.tournamentPhoto.files?.[0] || null;
     if (!nextPhotoDataUrl && selectedPhotoFile) {
-      if (selectedPhotoFile.size > 3 * 1024 * 1024) {
-        alert("Фото турніру занадто велике. Оберіть файл до 3 MB.");
+      if (!isValidTournamentPhotoFile(selectedPhotoFile)) {
         return;
       }
       nextPhotoDataUrl = await readFileAsDataUrl(selectedPhotoFile);
@@ -182,8 +182,7 @@ function bindEvents() {
       tournamentSettingsDraft.pendingPhotoDataUrl = null;
       return;
     }
-    if (photoFile.size > 3 * 1024 * 1024) {
-      alert("Фото турніру занадто велике. Оберіть файл до 3 MB.");
+    if (!isValidTournamentPhotoFile(photoFile)) {
       els.tournamentPhoto.value = "";
       tournamentSettingsDraft.pendingPhotoDataUrl = null;
       return;
@@ -626,6 +625,18 @@ function formatLabel(format) {
 
 function normalizeTimeControl(value) {
   return String(value || "").trim().slice(0, 60);
+}
+
+function isValidTournamentPhotoFile(file) {
+  if (!file) {
+    return false;
+  }
+  if (file.size <= MAX_TOURNAMENT_PHOTO_BYTES) {
+    return true;
+  }
+
+  alert("Фото турніру занадто велике. Оберіть файл до 15 MB.");
+  return false;
 }
 
 function render() {
