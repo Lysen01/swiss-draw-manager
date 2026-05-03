@@ -4,6 +4,7 @@ const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const state = normalizeState(loadRawState());
 recalcAllBaseStats();
 normalizeRoundsCountForCurrentFormat(state.currentTournament);
+let editingBasePlayerId = null;
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -30,6 +31,12 @@ const els = {
   basePlayerLastName: document.getElementById("basePlayerLastName"),
   basePlayerFirstName: document.getElementById("basePlayerFirstName"),
   basePlayerRating: document.getElementById("basePlayerRating"),
+  basePlayerRank: document.getElementById("basePlayerRank"),
+  basePlayerBirthDate: document.getElementById("basePlayerBirthDate"),
+  basePlayerPhoto: document.getElementById("basePlayerPhoto"),
+  basePlayerRemovePhoto: document.getElementById("basePlayerRemovePhoto"),
+  basePlayerSubmitBtn: document.getElementById("basePlayerSubmitBtn"),
+  basePlayerCancelEditBtn: document.getElementById("basePlayerCancelEditBtn"),
   exportBaseBtn: document.getElementById("exportBaseBtn"),
   importBaseBtn: document.getElementById("importBaseBtn"),
   importBaseFile: document.getElementById("importBaseFile"),
@@ -106,15 +113,13 @@ function bindEvents() {
     createNewTournamentFlow();
   });
 
-  els.basePlayerForm.addEventListener("submit", (event) => {
+  els.basePlayerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    createBasePlayer(
-      els.basePlayerLastName.value.trim(),
-      els.basePlayerFirstName.value.trim(),
-      Number(els.basePlayerRating.value)
-    );
-    els.basePlayerForm.reset();
-    els.basePlayerLastName.focus();
+    await submitBasePlayerForm();
+  });
+
+  els.basePlayerCancelEditBtn.addEventListener("click", () => {
+    resetBasePlayerForm();
   });
 
   els.exportBaseBtn.addEventListener("click", () => {
@@ -153,7 +158,7 @@ function bindEvents() {
     }
 
     if (action === "edit-base-player") {
-      editBasePlayer(playerId);
+      startEditBasePlayer(playerId);
     }
 
     if (action === "view-base-history") {
@@ -375,6 +380,9 @@ function normalizeBasePlayer(player) {
     firstName: player.firstName || parsed.firstName || "імені",
     lastName: player.lastName || parsed.lastName || "Без",
     rating: Number(player.rating) || 0,
+    rank: normalizeRank(player.rank),
+    birthDate: normalizeBirthDate(player.birthDate),
+    photoDataUrl: typeof player.photoDataUrl === "string" && player.photoDataUrl ? player.photoDataUrl : null,
     createdAt: player.createdAt || new Date().toISOString(),
     history: Array.isArray(player.history) ? player.history : [],
     stats: player.stats || emptyStats(),
@@ -412,12 +420,15 @@ function ensureTournamentPlayersLinkedToBase(tournament, basePlayers) {
   }
 }
 
-function createBasePlayerRecord(lastName, firstName, rating) {
+function createBasePlayerRecord(lastName, firstName, rating, extra = {}) {
   return {
     id: crypto.randomUUID(),
     firstName,
     lastName,
     rating,
+    rank: normalizeRank(extra.rank),
+    birthDate: normalizeBirthDate(extra.birthDate),
+    photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
     createdAt: new Date().toISOString(),
     history: [],
     stats: emptyStats(),
@@ -455,6 +466,22 @@ function splitFullName(value) {
 
 function getBaseFullName(basePlayer) {
   return `${basePlayer.lastName || ""} ${basePlayer.firstName || ""}`.trim();
+}
+
+function normalizeRank(value) {
+  const allowed = new Set(["б/р", "юнацький", "3", "2", "1", "кмс", "мс", "гр"]);
+  if (allowed.has(value)) {
+    return value;
+  }
+  return "б/р";
+}
+
+function normalizeBirthDate(value) {
+  if (!value) {
+    return "";
+  }
+  const text = String(value).trim();
+  return /^\\d{4}-\\d{2}-\\d{2}$/.test(text) ? text : "";
 }
 
 function getMaxRoundsByFormat(format, playersCount) {
@@ -703,9 +730,12 @@ function renderBasePlayersTab() {
       return `
       <tr>
         <td>${idx + 1}</td>
+        <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
         <td>${escapeHtml(p.lastName || "")}</td>
         <td>${escapeHtml(p.firstName || "")}</td>
         <td>${p.rating}</td>
+        <td>${escapeHtml(p.rank || "б/р")}</td>
+        <td>${p.birthDate || "-"}</td>
         <td>${p.stats.tournaments}</td>
         <td>${p.stats.games}</td>
         <td>${p.stats.wins}/${p.stats.draws}/${p.stats.losses}</td>
@@ -728,9 +758,12 @@ function renderBasePlayersTab() {
       <thead>
         <tr>
           <th>#</th>
+          <th>Фото</th>
           <th>Прізвище</th>
           <th>Ім'я</th>
           <th>Рейт.</th>
+          <th>Звання</th>
+          <th>Дата нар.</th>
           <th>Турніри</th>
           <th>Партії</th>
           <th>W/D/L</th>
@@ -739,7 +772,7 @@ function renderBasePlayersTab() {
           <th>Дії</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="10">База порожня.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="13">База порожня.</td></tr>'}</tbody>
     </table>`;
 }
 
@@ -850,21 +883,86 @@ function addTournamentPlayer(basePlayerId, name, rating) {
   saveAndRender();
 }
 
-function createBasePlayer(lastName, firstName, rating) {
+async function submitBasePlayerForm() {
+  const lastName = els.basePlayerLastName.value.trim();
+  const firstName = els.basePlayerFirstName.value.trim();
+  const rating = Number(els.basePlayerRating.value);
+  const rank = els.basePlayerRank.value;
+  const birthDate = normalizeBirthDate(els.basePlayerBirthDate.value);
+  const removePhoto = els.basePlayerRemovePhoto.checked;
+  const photoFile = els.basePlayerPhoto.files?.[0] || null;
+
   if (!lastName || !firstName) {
+    alert("Прізвище та ім'я обов'язкові.");
     return;
   }
 
-  if (
-    state.playerBase.some(
-      (p) => p.lastName.toLowerCase() === lastName.toLowerCase() && p.firstName.toLowerCase() === firstName.toLowerCase()
-    )
-  ) {
-    alert("Гравець з таким прізвищем та ім'ям уже є в базі.");
+  if (!Number.isFinite(rating) || rating < 0) {
+    alert("Рейтинг має бути невід'ємним числом.");
     return;
   }
 
-  state.playerBase.push(createBasePlayerRecord(lastName, firstName, Number.isFinite(rating) ? rating : 0));
+  let photoDataUrl = null;
+  if (photoFile) {
+    if (photoFile.size > 3 * 1024 * 1024) {
+      alert("Фото занадто велике. Оберіть файл до 3 MB.");
+      return;
+    }
+    photoDataUrl = await readFileAsDataUrl(photoFile);
+  }
+
+  if (editingBasePlayerId) {
+    const base = state.playerBase.find((p) => p.id === editingBasePlayerId);
+    if (!base) {
+      resetBasePlayerForm();
+      return;
+    }
+
+    if (
+      state.playerBase.some(
+        (p) =>
+          p.id !== base.id &&
+          p.lastName.toLowerCase() === lastName.toLowerCase() &&
+          p.firstName.toLowerCase() === firstName.toLowerCase()
+      )
+    ) {
+      alert("Гравець з таким прізвищем та ім'ям уже є в базі.");
+      return;
+    }
+
+    base.lastName = lastName;
+    base.firstName = firstName;
+    base.rating = Math.round(rating);
+    base.rank = normalizeRank(rank);
+    base.birthDate = birthDate;
+
+    if (photoDataUrl) {
+      base.photoDataUrl = photoDataUrl;
+    } else if (removePhoto) {
+      base.photoDataUrl = null;
+    }
+
+    syncBasePlayerChangesToCurrentTournament(base.id);
+  } else {
+    if (
+      state.playerBase.some(
+        (p) => p.lastName.toLowerCase() === lastName.toLowerCase() && p.firstName.toLowerCase() === firstName.toLowerCase()
+      )
+    ) {
+      alert("Гравець з таким прізвищем та ім'ям уже є в базі.");
+      return;
+    }
+
+    state.playerBase.push(
+      createBasePlayerRecord(lastName, firstName, Math.round(rating), {
+        rank,
+        birthDate,
+        photoDataUrl: photoDataUrl || null,
+      })
+    );
+  }
+
+  resetBasePlayerForm();
   saveAndRender();
 }
 
@@ -884,58 +982,41 @@ function deleteBasePlayer(playerId) {
   saveAndRender();
 }
 
-function editBasePlayer(playerId) {
+function startEditBasePlayer(playerId) {
   const base = state.playerBase.find((p) => p.id === playerId);
   if (!base) {
     return;
   }
 
-  const nextLastName = prompt("Нове прізвище:", base.lastName || "");
-  if (nextLastName === null) {
-    return;
-  }
+  editingBasePlayerId = base.id;
+  els.basePlayerLastName.value = base.lastName || "";
+  els.basePlayerFirstName.value = base.firstName || "";
+  els.basePlayerRating.value = String(base.rating ?? 0);
+  els.basePlayerRank.value = normalizeRank(base.rank);
+  els.basePlayerBirthDate.value = normalizeBirthDate(base.birthDate);
+  els.basePlayerPhoto.value = "";
+  els.basePlayerRemovePhoto.checked = false;
+  els.basePlayerSubmitBtn.textContent = "Зберегти зміни";
+  els.basePlayerCancelEditBtn.hidden = false;
+  els.basePlayerLastName.focus();
+}
 
-  const nextFirstName = prompt("Нове ім'я:", base.firstName || "");
-  if (nextFirstName === null) {
-    return;
-  }
+function resetBasePlayerForm() {
+  editingBasePlayerId = null;
+  els.basePlayerForm.reset();
+  els.basePlayerRank.value = "б/р";
+  els.basePlayerRemovePhoto.checked = false;
+  els.basePlayerSubmitBtn.textContent = "Додати в базу";
+  els.basePlayerCancelEditBtn.hidden = true;
+}
 
-  const trimmedLastName = nextLastName.trim();
-  const trimmedFirstName = nextFirstName.trim();
-  if (!trimmedLastName || !trimmedFirstName) {
-    alert("Прізвище та ім'я не можуть бути порожніми.");
-    return;
-  }
-
-  if (
-    state.playerBase.some(
-      (p) =>
-        p.id !== base.id &&
-        p.lastName.toLowerCase() === trimmedLastName.toLowerCase() &&
-        p.firstName.toLowerCase() === trimmedFirstName.toLowerCase()
-    )
-  ) {
-    alert("Гравець з таким прізвищем та ім'ям уже є в базі.");
-    return;
-  }
-
-  const nextRatingRaw = prompt("Новий рейтинг:", String(base.rating));
-  if (nextRatingRaw === null) {
-    return;
-  }
-
-  const nextRating = Number(nextRatingRaw);
-  if (!Number.isFinite(nextRating) || nextRating < 0) {
-    alert("Рейтинг має бути невід'ємним числом.");
-    return;
-  }
-
-  base.lastName = trimmedLastName;
-  base.firstName = trimmedFirstName;
-  base.rating = Math.round(nextRating);
-
-  syncBasePlayerChangesToCurrentTournament(base.id);
-  saveAndRender();
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function viewBasePlayerHistory(playerId) {
