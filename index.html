@@ -82,30 +82,35 @@
       <section id="tab-players" class="layout tab-panel">
         <section class="card full">
           <h2>База гравців</h2>
-          <form id="basePlayerForm" class="inline-form">
-            <input id="basePlayerLastName" type="text" placeholder="Прізвище" required />
-            <input id="basePlayerFirstName" type="text" placeholder="Ім'я" required />
-            <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
-            <select id="basePlayerRank">
-              <option value="б/р">б/р</option>
-              <option value="юнацький">юнацький</option>
-              <option value="3">3</option>
-              <option value="2">2</option>
-              <option value="1">1</option>
-              <option value="кмс">кмс</option>
-              <option value="мс">мс</option>
-              <option value="гр">гр</option>
-            </select>
-            <input id="basePlayerBirthDate" type="date" />
-            <input id="basePlayerPhoto" type="file" accept="image/*" />
-            <label class="check-inline">
-              <input id="basePlayerRemovePhoto" type="checkbox" />
-              Видалити фото
-            </label>
-            <button id="basePlayerSubmitBtn" type="submit">Додати в базу</button>
-            <button id="basePlayerCancelEditBtn" type="button" hidden>Скасувати редагування</button>
+          <form id="basePlayerForm" class="base-form">
+            <div class="base-form-row">
+              <input id="basePlayerLastName" type="text" placeholder="Прізвище" required />
+              <input id="basePlayerFirstName" type="text" placeholder="Ім'я" required />
+              <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
+              <select id="basePlayerRank">
+                <option value="б/р">б/р</option>
+                <option value="юнацький">юнацький</option>
+                <option value="3">3</option>
+                <option value="2">2</option>
+                <option value="1">1</option>
+                <option value="кмс">кмс</option>
+                <option value="мс">мс</option>
+                <option value="гр">гр</option>
+              </select>
+              <input id="basePlayerBirthDate" type="date" />
+            </div>
+
+            <div class="base-form-row base-form-row--actions">
+              <input id="basePlayerPhoto" type="file" accept="image/*" />
+              <label class="check-inline">
+                <input id="basePlayerRemovePhoto" type="checkbox" />
+                Видалити фото
+              </label>
+              <button id="basePlayerSubmitBtn" type="submit">Додати в базу</button>
+              <button id="basePlayerCancelEditBtn" type="button" hidden>Скасувати редагування</button>
+            </div>
           </form>
-          <div class="toolbar" style="margin-top: 8px">
+          <div class="toolbar base-io-toolbar">
             <button id="exportBaseBtn" type="button">Експорт бази (JSON)</button>
             <button id="importBaseBtn" type="button">Імпорт бази</button>
             <input id="importBaseFile" type="file" accept="application/json" hidden />

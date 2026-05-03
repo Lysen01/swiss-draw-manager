@@ -358,3 +358,93 @@ button.danger {
   font-size: 11px;
   color: #6b7891;
 }
+
+.base-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.base-form-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1.3fr 0.7fr 0.9fr 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.base-form-row input,
+.base-form-row select {
+  background: #fff;
+}
+
+.base-form-row--actions {
+  grid-template-columns: 1.8fr auto auto auto;
+  align-items: center;
+}
+
+.base-form-row--actions input[type="file"] {
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.base-form-row--actions .check-inline {
+  min-height: 42px;
+  padding: 0 4px;
+}
+
+.base-form-row--actions button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.base-io-toolbar {
+  margin-top: 10px;
+}
+
+.base-io-toolbar button {
+  min-height: 42px;
+}
+
+#basePlayersList .table {
+  min-width: 1280px;
+}
+
+#basePlayersList .table th {
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+#basePlayersList .table td {
+  font-size: 13px;
+}
+
+#basePlayersList .toolbar {
+  flex-wrap: nowrap;
+}
+
+#basePlayersList .toolbar button {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 1200px) {
+  .base-form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .base-form-row--actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .base-form-row,
+  .base-form-row--actions {
+    grid-template-columns: 1fr;
+  }
+
+  .base-form-row--actions .check-inline {
+    min-height: 0;
+    padding: 0;
+  }
+}
