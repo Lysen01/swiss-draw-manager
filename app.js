@@ -2,6 +2,8 @@ const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const MAX_TOURNAMENT_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_TOURNAMENT_PHOTO_STORE_BYTES = 1_600_000;
+const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;
+const MAX_BASE_PLAYER_PHOTO_STORE_BYTES = 320_000;
 
 const state = normalizeState(loadRawState());
 recalcAllBaseStats();
@@ -680,6 +682,18 @@ function isValidTournamentPhotoFile(file) {
   return false;
 }
 
+function isValidBasePlayerPhotoFile(file) {
+  if (!file) {
+    return false;
+  }
+  if (file.size <= MAX_BASE_PLAYER_PHOTO_BYTES) {
+    return true;
+  }
+
+  alert("Фото гравця занадто велике. Оберіть файл до 10 MB.");
+  return false;
+}
+
 function render() {
   renderTabs();
   renderTournamentTab();
@@ -1171,11 +1185,10 @@ async function submitBasePlayerForm() {
 
   let photoDataUrl = null;
   if (photoFile) {
-    if (photoFile.size > 3 * 1024 * 1024) {
-      alert("Фото занадто велике. Оберіть файл до 3 MB.");
+    if (!isValidBasePlayerPhotoFile(photoFile)) {
       return;
     }
-    photoDataUrl = await readFileAsDataUrl(photoFile);
+    photoDataUrl = await readBasePlayerPhotoDataUrl(photoFile);
   }
 
   if (editingBasePlayerId) {
@@ -1298,6 +1311,16 @@ async function readTournamentPhotoDataUrl(file) {
     qualityStart: 0.86,
     qualityMin: 0.52,
     targetBytes: MAX_TOURNAMENT_PHOTO_STORE_BYTES,
+  });
+}
+
+async function readBasePlayerPhotoDataUrl(file) {
+  const rawDataUrl = await readFileAsDataUrl(file);
+  return optimizeImageDataUrl(rawDataUrl, {
+    maxSide: 760,
+    qualityStart: 0.82,
+    qualityMin: 0.45,
+    targetBytes: MAX_BASE_PLAYER_PHOTO_STORE_BYTES,
   });
 }
 
@@ -2004,6 +2027,7 @@ function archiveCurrentTournament({ notify }) {
 
   const snapshot = cloneTournament(t);
   snapshot.finishedAt = new Date().toISOString();
+  snapshot.photoDataUrl = null;
 
   const idx = state.tournamentsArchive.findIndex((x) => x.id === snapshot.id);
   if (idx >= 0) {
