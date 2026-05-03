@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swiss Draw Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__inner">
+        <h1>Swiss Draw Manager</h1>
+        <p>Швейцарська система жеребкування для дитячих та аматорських турнірів</p>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Налаштування турніру</h2>
+        <form id="settingsForm" class="grid-form">
+          <label>
+            Назва турніру
+            <input id="tournamentName" type="text" value="Дитяча шашкова ліга" required />
+          </label>
+          <label>
+            Кількість турів
+            <input id="roundsCount" type="number" min="1" max="15" value="5" required />
+          </label>
+          <button type="submit">Застосувати</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Учасники</h2>
+        <form id="playerForm" class="inline-form">
+          <input id="playerName" type="text" placeholder="Ім'я гравця" required />
+          <input id="playerRating" type="number" min="0" max="4000" placeholder="Рейтинг" required />
+          <button type="submit">Додати</button>
+        </form>
+        <div class="toolbar">
+          <button id="seedDemoBtn" type="button">Демо-учасники</button>
+          <button id="resetBtn" type="button" class="danger">Скинути турнір</button>
+        </div>
+        <div id="playersList" class="scroll"></div>
+      </section>
+
+      <section class="card">
+        <h2>Раунди</h2>
+        <div class="toolbar">
+          <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
+        </div>
+        <div id="roundMeta" class="meta"></div>
+        <div id="pairings" class="scroll"></div>
+      </section>
+
+      <section class="card">
+        <h2>Таблиця</h2>
+        <div id="standings" class="scroll"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Локально збережується у браузері (localStorage)</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
