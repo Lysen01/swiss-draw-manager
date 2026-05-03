@@ -770,7 +770,6 @@ function renderTournamentPlayers() {
         <td>${p.hadBye ? "Так" : "Ні"}</td>
         <td>
           <div class="toolbar">
-            <button type="button" data-action="edit-tour-player" data-player-id="${p.id}" ${editable ? "" : "disabled"}>Редагувати</button>
             <button type="button" data-action="remove-tour-player" data-player-id="${p.id}" class="danger" ${editable ? "" : "disabled"}>Видалити</button>
           </div>
         </td>
