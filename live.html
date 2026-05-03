@@ -379,6 +379,11 @@ function generateNextRound() {
     return;
   }
 
+  if (!isLastRoundComplete()) {
+    alert("Спочатку внесіть усі результати поточного туру.");
+    return;
+  }
+
   const nextRoundNumber = state.currentRound + 1;
   const pairings = swissPairRound(state.players, nextRoundNumber);
 
@@ -710,8 +715,12 @@ function renderRounds() {
     return;
   }
 
-  const blocks = state.rounds
-    .map((round, roundIdx) => {
+  const roundsWithIndex = state.rounds
+    .map((round, index) => ({ round, index }))
+    .sort((a, b) => b.round.round - a.round.round);
+
+  const blocks = roundsWithIndex
+    .map(({ round, index }) => {
       const pairs = round.pairings
         .map((pair) => {
           const white = state.players.find((p) => p.id === pair.whiteId);
@@ -730,7 +739,7 @@ function renderRounds() {
               <div class="pair-head">Дошка ${pair.board}<span>${round.round} тур</span></div>
               <div><strong>Білі:</strong> ${escapeHtml(white.name)} vs <strong>Чорні:</strong> ${escapeHtml(black.name)}</div>
               <div style="margin-top:8px;">
-                <select data-round-idx="${roundIdx}" data-board="${pair.board}">
+                <select data-round-idx="${index}" data-board="${pair.board}">
                   <option value="pending" ${pair.result === "pending" ? "selected" : ""}>Результат не внесено</option>
                   <option value="1-0" ${pair.result === "1-0" ? "selected" : ""}>1-0</option>
                   <option value="0-1" ${pair.result === "0-1" ? "selected" : ""}>0-1</option>
@@ -754,6 +763,15 @@ function renderRounds() {
       updateResult(roundIdx, board, event.target.value);
     });
   }
+}
+
+function isLastRoundComplete() {
+  if (state.rounds.length === 0) {
+    return true;
+  }
+
+  const lastRound = state.rounds[state.rounds.length - 1];
+  return lastRound.pairings.every((pair) => !pair.blackId || pair.result !== "pending");
 }
 
 function renderStandings() {
