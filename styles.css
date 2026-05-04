@@ -167,6 +167,18 @@ button.danger {
   color: #18488d;
 }
 
+.manual-place-input {
+  width: 70px;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid #b9c8e0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+}
+
 .round-chip {
   display: inline-block;
   min-width: 62px;

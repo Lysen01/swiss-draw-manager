@@ -548,6 +548,7 @@ function normalizeTournament(tournament) {
           startNo: Number.isInteger(p.startNo) ? p.startNo : idx + 1,
           score: Number(p.score) || 0,
           hadBye: Boolean(p.hadBye),
+          manualPlace: Number.isInteger(p.manualPlace) ? p.manualPlace : null,
           opponents: Array.isArray(p.opponents) ? p.opponents : [],
           colors: Array.isArray(p.colors) ? p.colors : [],
           resultsByRound: p.resultsByRound || {},
@@ -647,6 +648,7 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount) {
     startNo: currentCount + 1,
     score: 0,
     hadBye: false,
+    manualPlace: null,
     opponents: [],
     colors: [],
     resultsByRound: {},
@@ -1161,6 +1163,16 @@ function renderStandings() {
   const t = state.currentTournament;
   const showRoundDetails = t.status !== "archived_view";
   els.standings.innerHTML = buildStandingsTableHtml(t, { showRoundDetails });
+
+  for (const input of els.standings.querySelectorAll("input[data-manual-place-player-id]")) {
+    input.addEventListener("change", (event) => {
+      const playerId = event.target.dataset.manualPlacePlayerId;
+      const min = Number(event.target.min);
+      const max = Number(event.target.max);
+      const raw = String(event.target.value || "").trim();
+      updateManualTiePlace(playerId, raw, min, max);
+    });
+  }
 }
 
 function buildStandingsTableHtml(tournament, options = {}) {
@@ -1169,12 +1181,29 @@ function buildStandingsTableHtml(tournament, options = {}) {
 
   const enriched = getStandings(tournament);
   const placeById = Object.fromEntries(enriched.map((p, idx) => [p.id, idx + 1]));
+  const tieRangeById = new Map();
+  let cursor = 1;
+  let i = 0;
+  while (i < enriched.length) {
+    const scoreKey = Number(enriched[i].score).toFixed(4);
+    let j = i;
+    while (j < enriched.length && Number(enriched[j].score).toFixed(4) === scoreKey) {
+      j += 1;
+    }
+    const start = cursor;
+    const end = cursor + (j - i) - 1;
+    for (let k = i; k < j; k += 1) {
+      tieRangeById.set(enriched[k].id, { start, end, size: j - i });
+    }
+    cursor = end + 1;
+    i = j;
+  }
 
   const rows = enriched
     .map(
       (p, i) => `
       <tr>
-        <td>${i + 1}</td>
+        <td>${buildPlaceCell(tournament, p, i + 1, showRoundDetails, tieRangeById.get(p.id))}</td>
         <td>${escapeHtml(p.name)}</td>
         <td>${p.rating}</td>
         ${showRoundDetails ? buildRoundCells(tournament, p, placeById) : ""}
@@ -1208,6 +1237,48 @@ function buildStandingsTableHtml(tournament, options = {}) {
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tieRange) {
+  const tieSize = tieRange?.size || 1;
+  const canEdit = showRoundDetails && tournament.status !== "archived_view" && tieSize > 1;
+  if (!canEdit) {
+    return String(computedPlace);
+  }
+
+  const value = Number.isInteger(player.manualPlace) ? player.manualPlace : computedPlace;
+  const title = `Ручне місце для рівних очок: ${tieRange.start}-${tieRange.end}`;
+  return `<input class="manual-place-input" type="number" min="${tieRange.start}" max="${tieRange.end}" value="${value}" data-manual-place-player-id="${player.id}" title="${title}" />`;
+}
+
+function updateManualTiePlace(playerId, rawValue, min, max) {
+  const t = state.currentTournament;
+  if (t.status === "archived_view") {
+    return;
+  }
+
+  const player = t.players.find((p) => p.id === playerId);
+  if (!player) {
+    return;
+  }
+
+  if (rawValue === "") {
+    player.manualPlace = null;
+    t.updatedAt = new Date().toISOString();
+    saveAndRender();
+    return;
+  }
+
+  const value = Number(rawValue);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    alert(`Для цього гравця можна вказати місце тільки в діапазоні ${min}-${max}.`);
+    saveAndRender();
+    return;
+  }
+
+  player.manualPlace = value;
+  t.updatedAt = new Date().toISOString();
+  saveAndRender();
 }
 
 function renderBasePlayersTab() {
@@ -2290,11 +2361,27 @@ function getStandings(tournament) {
   for (const key of scoreKeys) {
     const group = grouped.get(key);
     const tiedIds = new Set(group.map((p) => p.id));
+    let rangeStart = ordered.length + 1;
+    let rangeEnd = rangeStart + group.length - 1;
     for (const player of group) {
       player.h2h = getHeadToHeadPointsForGroup(tournament, player, tiedIds);
     }
 
     group.sort((a, b) => {
+      const aManual = Number.isInteger(a.manualPlace) && a.manualPlace >= rangeStart && a.manualPlace <= rangeEnd ? a.manualPlace : null;
+      const bManual = Number.isInteger(b.manualPlace) && b.manualPlace >= rangeStart && b.manualPlace <= rangeEnd ? b.manualPlace : null;
+      if (aManual !== null || bManual !== null) {
+        if (aManual !== null && bManual !== null && aManual !== bManual) {
+          return aManual - bManual;
+        }
+        if (aManual !== null && bManual === null) {
+          return -1;
+        }
+        if (aManual === null && bManual !== null) {
+          return 1;
+        }
+      }
+
       for (const criterion of criteria) {
         if (criterion === "head_to_head" && b.h2h !== a.h2h) {
           return b.h2h - a.h2h;
