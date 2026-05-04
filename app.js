@@ -929,13 +929,9 @@ function renderTieBreakSelectors(orderInput) {
   for (let i = 0; i < selects.length; i += 1) {
     const select = selects[i];
     const current = order[i] || "none";
-    const usedByOthers = new Set(order.filter((_, idx) => idx !== i));
     const options = [
       '<option value="none">Не використовувати</option>',
-      ...TIEBREAK_OPTIONS.map((item) => {
-        const disabled = usedByOthers.has(item.value) && item.value !== current;
-        return `<option value="${item.value}" ${disabled ? "disabled" : ""}>${escapeHtml(item.label)}</option>`;
-      }),
+      ...TIEBREAK_OPTIONS.map((item) => `<option value="${item.value}">${escapeHtml(item.label)}</option>`),
     ].join("");
 
     select.innerHTML = options;
