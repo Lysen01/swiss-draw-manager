@@ -2088,7 +2088,10 @@ function finishCurrentTournament() {
 
   archiveCurrentTournament({ notify: false });
   state.currentTournament = createDefaultTournament();
+  tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
   state.activeTab = "tournament";
+  state.tournamentView = "setup";
+  state.archivePreviewTournamentId = null;
   saveAndRender();
   alert("Турнір завершено і перенесено в архів.");
 }
