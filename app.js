@@ -1,6 +1,14 @@
 const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const KYIV_PRESET_VERSION = "kyiv-v1";
+const DEFAULT_TIEBREAK_ORDER = ["head_to_head", "buchholz", "sb", "wins", "rating"];
+const TIEBREAK_OPTIONS = [
+  { value: "head_to_head", label: "Особисті зустрічі (H2H)" },
+  { value: "buchholz", label: "Buchholz" },
+  { value: "sb", label: "Sonneborn-Berger (SB)" },
+  { value: "wins", label: "Кількість перемог (Wins)" },
+  { value: "rating", label: "Рейтинг" },
+];
 const MAX_TOURNAMENT_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_TOURNAMENT_PHOTO_STORE_BYTES = 1_600_000;
 const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -35,6 +43,11 @@ const els = {
   tournamentSettingsPhoto: document.getElementById("tournamentSettingsPhoto"),
   tournamentSettingsDate: document.getElementById("tournamentSettingsDate"),
   tournamentSettingsControl: document.getElementById("tournamentSettingsControl"),
+  tieBreak1: document.getElementById("tieBreak1"),
+  tieBreak2: document.getElementById("tieBreak2"),
+  tieBreak3: document.getElementById("tieBreak3"),
+  tieBreak4: document.getElementById("tieBreak4"),
+  tieBreak5: document.getElementById("tieBreak5"),
   dbPlayerSelect: document.getElementById("dbPlayerSelect"),
   dbPlayerOptions: document.getElementById("dbPlayerOptions"),
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
@@ -65,6 +78,15 @@ bindEvents();
 render();
 
 function bindEvents() {
+  const tieBreakSelects = [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5];
+  for (const select of tieBreakSelects) {
+    select.addEventListener("change", () => {
+      ensureTournamentSettingsDraftForCurrentTournament();
+      tournamentSettingsDraft.tieBreakOrder = collectTieBreakOrderFromForm();
+      renderTieBreakSelectors(tournamentSettingsDraft.tieBreakOrder);
+    });
+  }
+
   els.tabsNav.addEventListener("click", (event) => {
     const btn = event.target.closest("[data-tab]");
     if (!btn) {
@@ -130,6 +152,7 @@ function bindEvents() {
     t.format = nextFormat;
     t.eventDate = nextEventDate;
     t.timeControl = draft.timeControl;
+    t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder);
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
     const selectedPhotoFile = els.tournamentPhoto.files?.[0] || null;
@@ -380,6 +403,7 @@ function normalizeState(raw) {
       id: crypto.randomUUID(),
       name: raw.tournamentName || "Мігрований турнір",
       format: "swiss",
+      tieBreakOrder: [...DEFAULT_TIEBREAK_ORDER],
       roundsCount: Number(raw.roundsCount) || 5,
       currentRound: Number(raw.currentRound) || 0,
       status: "active",
@@ -470,6 +494,7 @@ function createDefaultTournament() {
     format: "swiss",
     eventDate: "",
     timeControl: "",
+    tieBreakOrder: [...DEFAULT_TIEBREAK_ORDER],
     photoDataUrl: null,
     roundsCount: 1,
     currentRound: 0,
@@ -488,6 +513,7 @@ function normalizeTournament(tournament) {
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizeBirthDate(tournament.eventDate),
     timeControl: normalizeTimeControl(tournament.timeControl),
+    tieBreakOrder: normalizeTieBreakOrder(tournament.tieBreakOrder),
     photoDataUrl: typeof tournament.photoDataUrl === "string" && tournament.photoDataUrl ? tournament.photoDataUrl : null,
     roundsCount: Number(tournament.roundsCount) || 5,
     currentRound: Number(tournament.currentRound) || 0,
@@ -772,6 +798,7 @@ function renderTournamentTab() {
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
+  renderTieBreakSelectors(draft.tieBreakOrder);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
 
@@ -818,6 +845,7 @@ function createTournamentSettingsDraft(tournament) {
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizedEventDate,
     timeControl: normalizeTimeControl(tournament.timeControl),
+    tieBreakOrder: normalizeTieBreakOrder(tournament.tieBreakOrder),
     removePhoto: false,
     pendingPhotoDataUrl: null,
   };
@@ -843,10 +871,59 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
   tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
+  tournamentSettingsDraft.tieBreakOrder = collectTieBreakOrderFromForm();
   tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
 
   if (tournamentSettingsDraft.removePhoto) {
     tournamentSettingsDraft.pendingPhotoDataUrl = null;
+  }
+}
+
+function collectTieBreakOrderFromForm() {
+  const picked = [els.tieBreak1.value, els.tieBreak2.value, els.tieBreak3.value, els.tieBreak4.value, els.tieBreak5.value];
+  return normalizeTieBreakOrder(picked);
+}
+
+function normalizeTieBreakOrder(input) {
+  const allowed = new Set(TIEBREAK_OPTIONS.map((x) => x.value));
+  const list = Array.isArray(input) ? input : [];
+  const uniq = [];
+
+  for (const raw of list) {
+    const value = String(raw || "").trim();
+    if (!value || value === "none" || !allowed.has(value) || uniq.includes(value)) {
+      continue;
+    }
+    uniq.push(value);
+  }
+
+  for (const fallback of DEFAULT_TIEBREAK_ORDER) {
+    if (!uniq.includes(fallback)) {
+      uniq.push(fallback);
+    }
+  }
+
+  return uniq.slice(0, 5);
+}
+
+function renderTieBreakSelectors(orderInput) {
+  const order = normalizeTieBreakOrder(orderInput);
+  const selects = [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5];
+
+  for (let i = 0; i < selects.length; i += 1) {
+    const select = selects[i];
+    const current = order[i] || "none";
+    const usedByOthers = new Set(order.filter((_, idx) => idx !== i));
+    const options = [
+      '<option value="none">Не використовувати</option>',
+      ...TIEBREAK_OPTIONS.map((item) => {
+        const disabled = usedByOthers.has(item.value) && item.value !== current;
+        return `<option value="${item.value}" ${disabled ? "disabled" : ""}>${escapeHtml(item.label)}</option>`;
+      }),
+    ].join("");
+
+    select.innerHTML = options;
+    select.value = current;
   }
 }
 
@@ -1071,6 +1148,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
         <td>${p.rating}</td>
         ${showRoundDetails ? buildRoundCells(tournament, p, placeById) : ""}
         <td>${p.score.toFixed(1)}</td>
+        <td>${p.h2h.toFixed(1)}</td>
+        <td>${p.wins}</td>
         <td>${p.buchholz.toFixed(1)}</td>
         <td>${p.sb.toFixed(2)}</td>
       </tr>`
@@ -1090,6 +1169,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
           <th>Рейтинг</th>
           ${roundHeaders}
           <th>Очки</th>
+          <th>H2H</th>
+          <th>Wins</th>
           <th>Buchholz</th>
           <th>SB</th>
         </tr>
@@ -2053,30 +2134,101 @@ function getSonnebornBerger(tournament, player) {
   return total;
 }
 
+function getWins(player) {
+  return Object.values(player.resultsByRound || {}).filter((r) => r === "W").length;
+}
+
+function getHeadToHeadPointsForGroup(tournament, player, tiedIdSet) {
+  let total = 0;
+
+  for (const round of tournament.rounds || []) {
+    for (const game of round.pairings || []) {
+      if (!game.blackId) {
+        continue;
+      }
+
+      if (game.result !== "1-0" && game.result !== "0-1" && game.result !== "0.5-0.5") {
+        continue;
+      }
+
+      if (game.whiteId !== player.id && game.blackId !== player.id) {
+        continue;
+      }
+
+      const opponentId = game.whiteId === player.id ? game.blackId : game.whiteId;
+      if (!tiedIdSet.has(opponentId)) {
+        continue;
+      }
+
+      if (game.result === "0.5-0.5") {
+        total += 0.5;
+        continue;
+      }
+
+      const playerIsWhite = game.whiteId === player.id;
+      const didPlayerWin = (playerIsWhite && game.result === "1-0") || (!playerIsWhite && game.result === "0-1");
+      total += didPlayerWin ? 1 : 0;
+    }
+  }
+
+  return total;
+}
+
 function getStandings(tournament) {
   const enriched = tournament.players.map((p) => ({
     ...p,
+    h2h: 0,
+    wins: getWins(p),
     buchholz: getBuchholz(tournament, p),
     sb: getSonnebornBerger(tournament, p),
   }));
 
-  enriched.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score;
+  const grouped = new Map();
+  for (const player of enriched) {
+    const key = Number(player.score).toFixed(4);
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(player);
+  }
+
+  const scoreKeys = [...grouped.keys()].sort((a, b) => Number(b) - Number(a));
+  const criteria = normalizeTieBreakOrder(tournament.tieBreakOrder);
+  const ordered = [];
+
+  for (const key of scoreKeys) {
+    const group = grouped.get(key);
+    const tiedIds = new Set(group.map((p) => p.id));
+    for (const player of group) {
+      player.h2h = getHeadToHeadPointsForGroup(tournament, player, tiedIds);
     }
 
-    if (b.buchholz !== a.buchholz) {
-      return b.buchholz - a.buchholz;
-    }
+    group.sort((a, b) => {
+      for (const criterion of criteria) {
+        if (criterion === "head_to_head" && b.h2h !== a.h2h) {
+          return b.h2h - a.h2h;
+        }
+        if (criterion === "buchholz" && b.buchholz !== a.buchholz) {
+          return b.buchholz - a.buchholz;
+        }
+        if (criterion === "sb" && b.sb !== a.sb) {
+          return b.sb - a.sb;
+        }
+        if (criterion === "wins" && b.wins !== a.wins) {
+          return b.wins - a.wins;
+        }
+        if (criterion === "rating" && b.rating !== a.rating) {
+          return b.rating - a.rating;
+        }
+      }
 
-    if (b.sb !== a.sb) {
-      return b.sb - a.sb;
-    }
+      return String(a.name || "").localeCompare(String(b.name || ""), "uk");
+    });
 
-    return b.rating - a.rating;
-  });
+    ordered.push(...group);
+  }
 
-  return enriched;
+  return ordered;
 }
 
 function buildRoundCells(tournament, player, placeById) {

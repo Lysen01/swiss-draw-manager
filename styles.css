@@ -397,6 +397,26 @@ button.danger {
   justify-content: flex-start;
 }
 
+.tie-break-box {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.tie-break-box__title {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.tie-break-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
 .tournament-settings-preview {
   margin-top: 12px;
   border: 1px solid var(--line);
