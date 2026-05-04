@@ -1636,7 +1636,12 @@ function renderTournamentSettingsPreview() {
   const hasAnyMeta = hasPlayers && (hasPhoto || hasDate || hasControl);
 
   els.tournamentSettingsPreview.hidden = !hasAnyMeta;
+  els.tournamentSettingsPreview.style.display = hasAnyMeta ? "flex" : "none";
   if (!hasAnyMeta) {
+    els.tournamentSettingsPhoto.src = "";
+    els.tournamentSettingsPhoto.hidden = true;
+    els.tournamentSettingsDate.textContent = "";
+    els.tournamentSettingsControl.textContent = "";
     return;
   }
 
