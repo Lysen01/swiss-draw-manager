@@ -38,12 +38,14 @@ const els = {
   tournamentFormat: document.getElementById("tournamentFormat"),
   tournamentDate: document.getElementById("tournamentDate"),
   tournamentTimeControl: document.getElementById("tournamentTimeControl"),
+  tournamentChiefJudge: document.getElementById("tournamentChiefJudge"),
   tournamentPhoto: document.getElementById("tournamentPhoto"),
   tournamentRemovePhoto: document.getElementById("tournamentRemovePhoto"),
   tournamentSettingsPreview: document.getElementById("tournamentSettingsPreview"),
   tournamentSettingsPhoto: document.getElementById("tournamentSettingsPhoto"),
   tournamentSettingsDate: document.getElementById("tournamentSettingsDate"),
   tournamentSettingsControl: document.getElementById("tournamentSettingsControl"),
+  tournamentSettingsChiefJudge: document.getElementById("tournamentSettingsChiefJudge"),
   tieBreak1: document.getElementById("tieBreak1"),
   tieBreak2: document.getElementById("tieBreak2"),
   tieBreak3: document.getElementById("tieBreak3"),
@@ -153,6 +155,7 @@ function bindEvents() {
     t.format = nextFormat;
     t.eventDate = nextEventDate;
     t.timeControl = draft.timeControl;
+    t.chiefJudge = draft.chiefJudge;
     t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder, { fillDefaults: false });
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
@@ -200,6 +203,11 @@ function bindEvents() {
   els.tournamentTimeControl.addEventListener("input", () => {
     ensureTournamentSettingsDraftForCurrentTournament();
     tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
+  });
+
+  els.tournamentChiefJudge.addEventListener("input", () => {
+    ensureTournamentSettingsDraftForCurrentTournament();
+    tournamentSettingsDraft.chiefJudge = normalizeChiefJudge(els.tournamentChiefJudge.value);
   });
 
   els.tournamentRemovePhoto.addEventListener("change", () => {
@@ -511,6 +519,7 @@ function createDefaultTournament() {
     format: "swiss",
     eventDate: "",
     timeControl: "",
+    chiefJudge: "",
     tieBreakOrder: [...DEFAULT_TIEBREAK_ORDER],
     photoDataUrl: null,
     roundsCount: 1,
@@ -530,6 +539,7 @@ function normalizeTournament(tournament) {
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizeBirthDate(tournament.eventDate),
     timeControl: normalizeTimeControl(tournament.timeControl),
+    chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
     tieBreakOrder: Array.isArray(tournament.tieBreakOrder)
       ? normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false })
       : [...DEFAULT_TIEBREAK_ORDER],
@@ -762,6 +772,10 @@ function normalizeTimeControl(value) {
   return String(value || "").trim().slice(0, 60);
 }
 
+function normalizeChiefJudge(value) {
+  return String(value || "").trim().slice(0, 120);
+}
+
 function isValidTournamentPhotoFile(file) {
   if (!file) {
     return false;
@@ -819,14 +833,16 @@ function renderTournamentTab() {
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
+  els.tournamentChiefJudge.value = normalizeChiefJudge(draft.chiefJudge);
   renderTieBreakSelectors(draft.tieBreakOrder);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
 
   const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "дата не вказана";
   const timeControlText = t.timeControl || "не вказано";
+  const chiefJudgeText = t.chiefJudge || "не вказано";
   const tournamentTitle = t.name || "Новий турнір";
-  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText}${archiveView ? " | Архів (read-only)" : ""}`;
+  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveView ? " | Архів (read-only)" : ""}`;
 
   renderTournamentSettingsPreview();
 
@@ -868,6 +884,7 @@ function createTournamentSettingsDraft(tournament) {
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizedEventDate,
     timeControl: normalizeTimeControl(tournament.timeControl),
+    chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
     tieBreakOrder: normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false }),
     removePhoto: false,
     pendingPhotoDataUrl: null,
@@ -894,6 +911,7 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
   tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
+  tournamentSettingsDraft.chiefJudge = normalizeChiefJudge(els.tournamentChiefJudge.value);
   tournamentSettingsDraft.tieBreakOrder = collectTieBreakOrderFromForm();
   tournamentSettingsDraft.removePhoto = els.tournamentRemovePhoto.checked;
 
@@ -966,7 +984,8 @@ function renderTournamentSettingsPreview() {
   const hasPhoto = Boolean(t.photoDataUrl);
   const hasDate = Boolean(t.eventDate);
   const hasControl = Boolean(t.timeControl);
-  const hasAnyMeta = hasPlayers && (hasPhoto || hasDate || hasControl);
+  const hasChiefJudge = Boolean(t.chiefJudge);
+  const hasAnyMeta = hasPlayers && (hasPhoto || hasDate || hasControl || hasChiefJudge);
 
   els.tournamentSettingsPreview.hidden = !hasAnyMeta;
   els.tournamentSettingsPreview.style.display = hasAnyMeta ? "flex" : "none";
@@ -975,6 +994,7 @@ function renderTournamentSettingsPreview() {
     els.tournamentSettingsPhoto.hidden = true;
     els.tournamentSettingsDate.textContent = "";
     els.tournamentSettingsControl.textContent = "";
+    els.tournamentSettingsChiefJudge.textContent = "";
     return;
   }
 
@@ -988,6 +1008,7 @@ function renderTournamentSettingsPreview() {
 
   els.tournamentSettingsDate.textContent = `Дата: ${hasDate ? formatDateOnly(t.eventDate) : "не вказана"}`;
   els.tournamentSettingsControl.textContent = `Контроль часу: ${hasControl ? t.timeControl : "не вказано"}`;
+  els.tournamentSettingsChiefJudge.textContent = `Головний суддя: ${hasChiefJudge ? t.chiefJudge : "не вказано"}`;
 }
 
 function renderTournamentSubtabs() {
@@ -1427,6 +1448,7 @@ function renderArchiveTab() {
             <div class="archive-meta"><strong>Турнір:</strong> ${escapeHtml(t.name)}</div>
             <div class="archive-meta"><strong>Дата:</strong> ${t.eventDate ? formatDateOnly(t.eventDate) : "не вказана"}</div>
             <div class="archive-meta"><strong>Контроль:</strong> ${escapeHtml(t.timeControl || "не вказано")}</div>
+            <div class="archive-meta"><strong>Головний суддя:</strong> ${escapeHtml(t.chiefJudge || "не вказано")}</div>
           </div>
         </div>
         <div class="archive-meta">Топ-3: ${top || "-"}</div>
@@ -1465,6 +1487,7 @@ function buildArchivePreviewHtml(archived) {
       <div>
         <div class="archive-meta"><strong>Дата:</strong> ${archived.eventDate ? formatDateOnly(archived.eventDate) : "не вказана"}</div>
         <div class="archive-meta"><strong>Контроль:</strong> ${escapeHtml(archived.timeControl || "не вказано")}</div>
+        <div class="archive-meta"><strong>Головний суддя:</strong> ${escapeHtml(archived.chiefJudge || "не вказано")}</div>
       </div>
     </div>
     <div class="toolbar" style="margin-top:8px;">
