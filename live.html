@@ -1017,7 +1017,7 @@ function bindEvents() {
     t.format = nextFormat;
     t.eventDate = nextEventDate;
     t.timeControl = draft.timeControl;
-    t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder);
+    t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder, { fillDefaults: false });
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
     const selectedPhotoFile = els.tournamentPhoto.files?.[0] || null;
@@ -1378,7 +1378,9 @@ function normalizeTournament(tournament) {
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizeBirthDate(tournament.eventDate),
     timeControl: normalizeTimeControl(tournament.timeControl),
-    tieBreakOrder: normalizeTieBreakOrder(tournament.tieBreakOrder),
+    tieBreakOrder: Array.isArray(tournament.tieBreakOrder)
+      ? normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false })
+      : [...DEFAULT_TIEBREAK_ORDER],
     photoDataUrl: typeof tournament.photoDataUrl === "string" && tournament.photoDataUrl ? tournament.photoDataUrl : null,
     roundsCount: Number(tournament.roundsCount) || 5,
     currentRound: Number(tournament.currentRound) || 0,
@@ -1710,7 +1712,7 @@ function createTournamentSettingsDraft(tournament) {
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizedEventDate,
     timeControl: normalizeTimeControl(tournament.timeControl),
-    tieBreakOrder: normalizeTieBreakOrder(tournament.tieBreakOrder),
+    tieBreakOrder: normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false }),
     removePhoto: false,
     pendingPhotoDataUrl: null,
   };
@@ -1746,33 +1748,47 @@ function captureTournamentSettingsDraftFromForm() {
 
 function collectTieBreakOrderFromForm() {
   const picked = [els.tieBreak1.value, els.tieBreak2.value, els.tieBreak3.value, els.tieBreak4.value, els.tieBreak5.value];
-  return normalizeTieBreakOrder(picked);
+  return normalizeTieBreakOrder(picked, { fillDefaults: false });
 }
 
-function normalizeTieBreakOrder(input) {
+function normalizeTieBreakOrder(input, options = {}) {
+  const { fillDefaults = true } = options;
   const allowed = new Set(TIEBREAK_OPTIONS.map((x) => x.value));
   const list = Array.isArray(input) ? input : [];
-  const uniq = [];
+  const normalized = [];
+  const used = new Set();
 
-  for (const raw of list) {
-    const value = String(raw || "").trim();
-    if (!value || value === "none" || !allowed.has(value) || uniq.includes(value)) {
+  for (let i = 0; i < 5; i += 1) {
+    const raw = String(list[i] || "").trim();
+    const value = raw && raw !== "none" && allowed.has(raw) ? raw : "none";
+    if (value !== "none" && used.has(value)) {
+      normalized.push("none");
       continue;
     }
-    uniq.push(value);
-  }
-
-  for (const fallback of DEFAULT_TIEBREAK_ORDER) {
-    if (!uniq.includes(fallback)) {
-      uniq.push(fallback);
+    normalized.push(value);
+    if (value !== "none") {
+      used.add(value);
     }
   }
 
-  return uniq.slice(0, 5);
+  if (fillDefaults) {
+    for (const fallback of DEFAULT_TIEBREAK_ORDER) {
+      const emptyIdx = normalized.indexOf("none");
+      if (emptyIdx === -1) {
+        break;
+      }
+      if (!used.has(fallback)) {
+        normalized[emptyIdx] = fallback;
+        used.add(fallback);
+      }
+    }
+  }
+
+  return normalized.slice(0, 5);
 }
 
 function renderTieBreakSelectors(orderInput) {
-  const order = normalizeTieBreakOrder(orderInput);
+  const order = normalizeTieBreakOrder(orderInput, { fillDefaults: false });
   const selects = [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5];
 
   for (let i = 0; i < selects.length; i += 1) {
@@ -3058,7 +3074,7 @@ function getStandings(tournament) {
   }
 
   const scoreKeys = [...grouped.keys()].sort((a, b) => Number(b) - Number(a));
-  const criteria = normalizeTieBreakOrder(tournament.tieBreakOrder);
+  const criteria = normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false }).filter((x) => x !== "none");
   const ordered = [];
 
   for (const key of scoreKeys) {
