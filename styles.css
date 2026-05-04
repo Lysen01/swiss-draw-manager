@@ -151,6 +151,22 @@ button.danger {
   z-index: 1;
 }
 
+.th-sort-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.th-sort-btn.active {
+  color: #18488d;
+}
+
 .round-chip {
   display: inline-block;
   min-width: 62px;

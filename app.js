@@ -20,6 +20,7 @@ normalizeRoundsCountForCurrentFormat(state.currentTournament);
 let editingBasePlayerId = null;
 let tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
 let tournamentBaseLookup = [];
+let basePlayersSort = { key: "rating", dir: "desc" };
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -306,6 +307,20 @@ function bindEvents() {
 
     if (action === "view-base-history") {
       viewBasePlayerHistory(playerId);
+    }
+
+    if (action === "sort-base-column") {
+      const sortKey = btn.dataset.sortKey;
+      if (!sortKey) {
+        return;
+      }
+      if (basePlayersSort.key === sortKey) {
+        basePlayersSort.dir = basePlayersSort.dir === "asc" ? "desc" : "asc";
+      } else {
+        basePlayersSort.key = sortKey;
+        basePlayersSort.dir = sortKey === "rating" ? "desc" : "asc";
+      }
+      renderBasePlayersTab();
     }
   });
 
@@ -1196,9 +1211,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
 }
 
 function renderBasePlayersTab() {
-  const rows = state.playerBase
-    .slice()
-    .sort((a, b) => b.rating - a.rating)
+  const sortedPlayers = sortBasePlayers(state.playerBase);
+  const rows = sortedPlayers
     .map((p, idx) => {
       return `
       <tr>
@@ -1225,26 +1239,87 @@ function renderBasePlayersTab() {
     })
     .join("");
 
+  const head = (label, key) => {
+    const active = basePlayersSort.key === key;
+    const arrow = active ? (basePlayersSort.dir === "asc" ? " ↑" : " ↓") : "";
+    return `<button class="th-sort-btn ${active ? "active" : ""}" type="button" data-action="sort-base-column" data-sort-key="${key}">${label}${arrow}</button>`;
+  };
+
   els.basePlayersList.innerHTML = `
     <table class="table">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Фото</th>
-          <th>Прізвище</th>
-          <th>Ім'я</th>
-          <th>Рейт.</th>
-          <th>Звання</th>
-          <th>Дата нар.</th>
-          <th>Турніри</th>
-          <th>Партії</th>
-          <th>W/D/L</th>
-          <th>Очки</th>
+          <th>${head("#", "index")}</th>
+          <th>${head("Фото", "photo")}</th>
+          <th>${head("Прізвище", "lastName")}</th>
+          <th>${head("Ім'я", "firstName")}</th>
+          <th>${head("Рейт.", "rating")}</th>
+          <th>${head("Звання", "rank")}</th>
+          <th>${head("Дата нар.", "birthDate")}</th>
+          <th>${head("Турніри", "tournaments")}</th>
+          <th>${head("Партії", "games")}</th>
+          <th>${head("W/D/L", "wdl")}</th>
+          <th>${head("Очки", "score")}</th>
           <th>Дії</th>
         </tr>
       </thead>
       <tbody>${rows || '<tr><td colspan="12">База порожня.</td></tr>'}</tbody>
     </table>`;
+}
+
+function sortBasePlayers(players) {
+  const dir = basePlayersSort.dir === "asc" ? 1 : -1;
+  const key = basePlayersSort.key;
+
+  const list = players
+    .slice()
+    .map((p, idx) => ({ p, idx }))
+    .sort((aWrap, bWrap) => {
+      const a = aWrap.p;
+      const b = bWrap.p;
+
+      const compareText = (x, y) => String(x || "").localeCompare(String(y || ""), "uk");
+      const compareNum = (x, y) => (Number(x) || 0) - (Number(y) || 0);
+
+      let cmp = 0;
+      if (key === "index") {
+        cmp = aWrap.idx - bWrap.idx;
+      } else if (key === "photo") {
+        cmp = (a.photoDataUrl ? 1 : 0) - (b.photoDataUrl ? 1 : 0);
+      } else if (key === "lastName") {
+        cmp = compareText(a.lastName, b.lastName);
+      } else if (key === "firstName") {
+        cmp = compareText(a.firstName, b.firstName);
+      } else if (key === "rating") {
+        cmp = compareNum(a.rating, b.rating);
+      } else if (key === "rank") {
+        cmp = compareText(a.rank, b.rank);
+      } else if (key === "birthDate") {
+        cmp = compareText(a.birthDate || "9999-99-99", b.birthDate || "9999-99-99");
+      } else if (key === "tournaments") {
+        cmp = compareNum(a.stats?.tournaments, b.stats?.tournaments);
+      } else if (key === "games") {
+        cmp = compareNum(a.stats?.games, b.stats?.games);
+      } else if (key === "wdl") {
+        const aw = Number(a.stats?.wins) || 0;
+        const ad = Number(a.stats?.draws) || 0;
+        const al = Number(a.stats?.losses) || 0;
+        const bw = Number(b.stats?.wins) || 0;
+        const bd = Number(b.stats?.draws) || 0;
+        const bl = Number(b.stats?.losses) || 0;
+        cmp = aw - bw || ad - bd || (al - bl) * -1;
+      } else if (key === "score") {
+        cmp = compareNum(a.stats?.totalScore, b.stats?.totalScore);
+      }
+
+      if (cmp !== 0) {
+        return cmp * dir;
+      }
+
+      return compareText(getBaseFullName(a), getBaseFullName(b));
+    });
+
+  return list.map((x) => x.p);
 }
 
 function renderArchiveTab() {
