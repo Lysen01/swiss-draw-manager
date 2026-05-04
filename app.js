@@ -894,8 +894,8 @@ function renderBaseSelect() {
 
   if (currentValue && tournamentBaseLookup.some((item) => item.token === currentValue)) {
     els.dbPlayerSelect.value = currentValue;
-  } else if (!currentValue && tournamentBaseLookup.length > 0) {
-    els.dbPlayerSelect.value = tournamentBaseLookup[0].token;
+  } else {
+    els.dbPlayerSelect.value = "";
   }
   els.addFromBaseBtn.disabled = false;
 }
