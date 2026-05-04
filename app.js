@@ -854,6 +854,7 @@ function renderTournamentSubtabs() {
 
 function renderBaseSelect() {
   const currentValue = String(els.dbPlayerSelect.value || "");
+  const shouldForceEmpty = (state.currentTournament.players || []).length === 0;
 
   if (state.playerBase.length === 0) {
     tournamentBaseLookup = [];
@@ -892,7 +893,9 @@ function renderBaseSelect() {
   els.dbPlayerSelect.disabled = false;
   els.dbPlayerSelect.placeholder = "Почніть вводити прізвище або ім'я";
 
-  if (currentValue && tournamentBaseLookup.some((item) => item.token === currentValue)) {
+  if (shouldForceEmpty) {
+    els.dbPlayerSelect.value = "";
+  } else if (currentValue && tournamentBaseLookup.some((item) => item.token === currentValue)) {
     els.dbPlayerSelect.value = currentValue;
   } else {
     els.dbPlayerSelect.value = "";
