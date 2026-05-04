@@ -1,5 +1,6 @@
 const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
+const KYIV_PRESET_VERSION = "kyiv-v1";
 const MAX_TOURNAMENT_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_TOURNAMENT_PHOTO_STORE_BYTES = 1_600_000;
 const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -346,7 +347,7 @@ function loadRawState() {
 
 function normalizeState(raw) {
   if (!raw) {
-    return createDefaultState();
+    return applyKyivPresetIfNeeded(createDefaultState());
   }
 
   if (raw.currentTournament && Array.isArray(raw.playerBase) && Array.isArray(raw.tournamentsArchive)) {
@@ -354,13 +355,14 @@ function normalizeState(raw) {
       activeTab: raw.activeTab || "tournament",
       tournamentView: raw.tournamentView === "play" ? "play" : "setup",
       archivePreviewTournamentId: raw.archivePreviewTournamentId || null,
+      kyivPresetVersion: raw.kyivPresetVersion || null,
       playerBase: raw.playerBase.map(normalizeBasePlayer),
       currentTournament: normalizeTournament(raw.currentTournament),
       tournamentsArchive: raw.tournamentsArchive.map(normalizeArchivedTournament),
     };
 
     ensureTournamentPlayersLinkedToBase(normalized.currentTournament, normalized.playerBase);
-    return normalized;
+    return applyKyivPresetIfNeeded(normalized);
   }
 
   if (raw.tournamentName && Array.isArray(raw.players) && Array.isArray(raw.rounds)) {
@@ -406,10 +408,10 @@ function normalizeState(raw) {
       })),
     };
 
-    return migrated;
+    return applyKyivPresetIfNeeded(migrated);
   }
 
-  return createDefaultState();
+  return applyKyivPresetIfNeeded(createDefaultState());
 }
 
 function createDefaultState() {
@@ -417,10 +419,48 @@ function createDefaultState() {
     activeTab: "tournament",
     tournamentView: "setup",
     archivePreviewTournamentId: null,
+    kyivPresetVersion: null,
     playerBase: [],
     currentTournament: createDefaultTournament(),
     tournamentsArchive: [],
   };
+}
+
+function applyKyivPresetIfNeeded(stateObj) {
+  if (stateObj.kyivPresetVersion === KYIV_PRESET_VERSION) {
+    return stateObj;
+  }
+
+  stateObj.playerBase = createKyivPresetPlayers();
+  stateObj.currentTournament = createDefaultTournament();
+  stateObj.tournamentView = "setup";
+  stateObj.archivePreviewTournamentId = null;
+  stateObj.kyivPresetVersion = KYIV_PRESET_VERSION;
+  return stateObj;
+}
+
+function createKyivPresetPlayers() {
+  const preset = [
+    { lastName: "Порецький", firstName: "Лев", rating: 2380, rank: "кмс", birthDate: "2011-07-05" },
+    { lastName: "Дяченко", firstName: "Андрій", rating: 2244, rank: "1", birthDate: "2011-08-04" },
+    { lastName: "Єжова", firstName: "Валерія", rating: 2214, rank: "мс", birthDate: "2011-07-29" },
+    { lastName: "Баркевич", firstName: "Максим", rating: 2408, rank: "кмс", birthDate: "2013-05-31" },
+    { lastName: "Поплавський", firstName: "Данііл", rating: 2276, rank: "1", birthDate: "2014-02-25" },
+    { lastName: "Савченко", firstName: "Макар", rating: 2250, rank: "1", birthDate: "2015-07-01" },
+    { lastName: "Постой", firstName: "Роман", rating: 2250, rank: "1", birthDate: "2015-11-19" },
+    { lastName: "Лисенко", firstName: "Поліна", rating: 2158, rank: "1", birthDate: "2014-12-26" },
+    { lastName: "Карасьова", firstName: "Мар'яна", rating: 2150, rank: "1", birthDate: "2014-08-08" },
+    { lastName: "Гавриш", firstName: "Єлизавета", rating: 1950, rank: "3", birthDate: "2015-03-23" },
+    { lastName: "Діденко", firstName: "Олександр", rating: 2150, rank: "2", birthDate: "2016-12-02" },
+    { lastName: "Строкін", firstName: "Владислав", rating: 2150, rank: "2", birthDate: "2017-09-10" },
+    { lastName: "Сухомуд", firstName: "Святослав", rating: 2050, rank: "3", birthDate: "2016-02-02" },
+    { lastName: "Надточій", firstName: "Владислав", rating: 2050, rank: "3", birthDate: "2017-08-13" },
+    { lastName: "Дем'яненко", firstName: "Мар'яна", rating: 1950, rank: "3", birthDate: "2017-08-03" },
+    { lastName: "Алексеєнко", firstName: "Анастасія", rating: 1850, rank: "юнацький", birthDate: "2017-09-20" },
+    { lastName: "Сіфорова", firstName: "Анна", rating: 1950, rank: "3", birthDate: "2018-07-11" },
+  ];
+
+  return preset.map((p) => createBasePlayerRecord(p.lastName, p.firstName, p.rating, p));
 }
 
 function createDefaultTournament() {
