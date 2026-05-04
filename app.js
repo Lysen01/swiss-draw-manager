@@ -424,12 +424,12 @@ function createDefaultState() {
 function createDefaultTournament() {
   return {
     id: crypto.randomUUID(),
-    name: "Дитяча шашкова ліга",
+    name: "",
     format: "swiss",
     eventDate: "",
     timeControl: "",
     photoDataUrl: null,
-    roundsCount: 5,
+    roundsCount: 1,
     currentRound: 0,
     status: "active",
     createdAt: new Date().toISOString(),
@@ -442,7 +442,7 @@ function createDefaultTournament() {
 function normalizeTournament(tournament) {
   const t = {
     id: tournament.id || crypto.randomUUID(),
-    name: tournament.name || "Турнір",
+    name: typeof tournament.name === "string" ? tournament.name : "Турнір",
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizeBirthDate(tournament.eventDate),
     timeControl: normalizeTimeControl(tournament.timeControl),
@@ -735,7 +735,8 @@ function renderTournamentTab() {
 
   const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "дата не вказана";
   const timeControlText = t.timeControl || "не вказано";
-  els.roundMeta.textContent = `${t.name} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText}${archiveView ? " | Архів (read-only)" : ""}`;
+  const tournamentTitle = t.name || "Новий турнір";
+  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText}${archiveView ? " | Архів (read-only)" : ""}`;
 
   renderTournamentSettingsPreview();
 
@@ -770,7 +771,7 @@ function createTournamentSettingsDraft(tournament) {
   const normalizedEventDate = normalizeBirthDate(tournament.eventDate);
   return {
     tournamentId: tournament.id,
-    name: tournament.name || "Турнір",
+    name: typeof tournament.name === "string" ? tournament.name : "Турнір",
     roundsCount: Number(tournament.roundsCount) || 1,
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
     eventDate: normalizedEventDate,
@@ -2262,7 +2263,10 @@ function createNewTournamentFlow() {
   }
 
   state.currentTournament = createDefaultTournament();
+  tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
   state.activeTab = "tournament";
+  state.tournamentView = "setup";
+  state.archivePreviewTournamentId = null;
   saveAndRender();
 }
 
