@@ -56,6 +56,7 @@ const els = {
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
   generateRoundBtn: document.getElementById("generateRoundBtn"),
+  printRoundBtn: document.getElementById("printRoundBtn"),
   roundMeta: document.getElementById("roundMeta"),
   pairings: document.getElementById("pairings"),
   standings: document.getElementById("standings"),
@@ -265,6 +266,9 @@ function bindEvents() {
 
   els.generateRoundBtn.addEventListener("click", () => {
     generateNextRound();
+  });
+  els.printRoundBtn.addEventListener("click", () => {
+    printCurrentRound();
   });
 
   if (els.seedDemoBtn) {
@@ -848,6 +852,7 @@ function renderTournamentTab() {
 
   renderBaseSelect();
   els.generateRoundBtn.disabled = archiveView;
+  els.printRoundBtn.disabled = archiveView || t.rounds.length === 0;
   els.finishTournamentBtn.disabled = archiveView;
   if (els.seedDemoBtn) {
     els.seedDemoBtn.disabled = archiveView;
@@ -1178,6 +1183,99 @@ function renderRounds() {
       updateResult(roundIdx, board, event.target.value);
     });
   }
+}
+
+function printCurrentRound() {
+  const t = state.currentTournament;
+  if (t.status === "archived_view") {
+    alert("У режимі архіву друк туру недоступний.");
+    return;
+  }
+
+  if (!Array.isArray(t.rounds) || t.rounds.length === 0) {
+    alert("Ще немає згенерованих турів для друку.");
+    return;
+  }
+
+  const currentRound = t.rounds[t.rounds.length - 1];
+  if (!currentRound) {
+    alert("Не вдалося знайти поточний тур.");
+    return;
+  }
+
+  const tournamentTitle = t.name || "Турнір";
+  const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "не вказана";
+  const controlText = t.timeControl || "не вказано";
+  const judgeText = t.chiefJudge || "не вказано";
+
+  const rowsHtml = (currentRound.pairings || [])
+    .map((pair) => {
+      const white = t.players.find((p) => p.id === pair.whiteId);
+      const black = pair.blackId ? t.players.find((p) => p.id === pair.blackId) : null;
+      const whiteName = white ? white.name : "Невідомо";
+      const blackName = black ? black.name : "BYE";
+      const resultText =
+        pair.result === "1-0" || pair.result === "0-1" || pair.result === "0.5-0.5"
+          ? pair.result
+          : black ? "—" : "1-0 (BYE)";
+
+      return `<tr>
+        <td>${pair.board}</td>
+        <td>${escapeHtml(whiteName)}</td>
+        <td>${escapeHtml(blackName)}</td>
+        <td>${escapeHtml(resultText)}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const printHtml = `<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(tournamentTitle)} — Тур ${currentRound.round}</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 18mm 12mm; color: #101b37; }
+      h1 { margin: 0 0 10px; font-size: 28px; }
+      .meta { margin: 2px 0; font-size: 15px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+      th, td { border: 1px solid #b8c4d8; padding: 8px 10px; text-align: left; font-size: 14px; }
+      th { background: #e8eef8; }
+      @media print { body { margin: 10mm; } }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(tournamentTitle)} — Тур ${currentRound.round}</h1>
+    <div class="meta"><strong>Формат:</strong> ${escapeHtml(formatLabel(t.format))}</div>
+    <div class="meta"><strong>Дата:</strong> ${escapeHtml(eventDateText)}</div>
+    <div class="meta"><strong>Контроль часу:</strong> ${escapeHtml(controlText)}</div>
+    <div class="meta"><strong>Головний суддя:</strong> ${escapeHtml(judgeText)}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Дошка</th>
+          <th>Білі</th>
+          <th>Чорні</th>
+          <th>Результат</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=1000,height=800");
+  if (!win) {
+    alert("Браузер заблокував вікно друку. Дозволь pop-up для цієї сторінки.");
+    return;
+  }
+
+  win.document.open();
+  win.document.write(printHtml);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    win.print();
+  }, 150);
 }
 
 function renderStandings() {
