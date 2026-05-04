@@ -1,10 +1,12 @@
 const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const KYIV_PRESET_VERSION = "kyiv-v1";
-const DEFAULT_TIEBREAK_ORDER = ["head_to_head", "buchholz", "sb", "wins", "rating"];
+const DEFAULT_TIEBREAK_ORDER = ["head_to_head", "buchholz", "solk_plus", "tsolk", "wins"];
 const TIEBREAK_OPTIONS = [
   { value: "head_to_head", label: "Особисті зустрічі (H2H)" },
   { value: "buchholz", label: "Buchholz" },
+  { value: "solk_plus", label: "SOLK+" },
+  { value: "tsolk", label: "TSOLK" },
   { value: "sb", label: "Sonneborn-Berger (SB)" },
   { value: "wins", label: "Кількість перемог (Wins)" },
   { value: "rating", label: "Рейтинг" },
@@ -1324,6 +1326,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
         <td>${p.h2h.toFixed(1)}</td>
         <td>${p.wins}</td>
         <td>${p.buchholz.toFixed(1)}</td>
+        <td>${p.solkPlus.toFixed(1)}</td>
+        <td>${p.tsolk.toFixed(1)}</td>
         <td>${p.sb.toFixed(2)}</td>
       </tr>`
     )
@@ -1345,6 +1349,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
           <th>H2H</th>
           <th>Wins</th>
           <th>Buchholz</th>
+          <th>SOLK+</th>
+          <th>TSOLK</th>
           <th>SB</th>
         </tr>
       </thead>
@@ -2396,10 +2402,33 @@ function isLastRoundComplete(tournament) {
 }
 
 function getBuchholz(tournament, player) {
+  return getOpponentScores(tournament, player).reduce((sum, x) => sum + x, 0);
+}
+
+function getOpponentScores(tournament, player) {
   return player.opponents
     .map((id) => tournament.players.find((p) => p.id === id))
     .filter(Boolean)
-    .reduce((sum, p) => sum + p.score, 0);
+    .map((p) => Number(p.score) || 0);
+}
+
+function getSolkPlus(tournament, player) {
+  const scores = getOpponentScores(tournament, player).sort((a, b) => a - b);
+  if (scores.length === 0) {
+    return 0;
+  }
+  if (scores.length === 1) {
+    return scores[0];
+  }
+  return scores.slice(1).reduce((sum, x) => sum + x, 0);
+}
+
+function getTSolk(tournament, player) {
+  const scores = getOpponentScores(tournament, player).sort((a, b) => a - b);
+  if (scores.length <= 2) {
+    return scores.reduce((sum, x) => sum + x, 0);
+  }
+  return scores.slice(1, -1).reduce((sum, x) => sum + x, 0);
 }
 
 function getSonnebornBerger(tournament, player) {
@@ -2484,6 +2513,8 @@ function getStandings(tournament) {
     h2h: 0,
     wins: getWins(p),
     buchholz: getBuchholz(tournament, p),
+    solkPlus: getSolkPlus(tournament, p),
+    tsolk: getTSolk(tournament, p),
     sb: getSonnebornBerger(tournament, p),
   }));
 
@@ -2514,6 +2545,12 @@ function getStandings(tournament) {
         }
         if (criterion === "buchholz" && b.buchholz !== a.buchholz) {
           return b.buchholz - a.buchholz;
+        }
+        if (criterion === "solk_plus" && b.solkPlus !== a.solkPlus) {
+          return b.solkPlus - a.solkPlus;
+        }
+        if (criterion === "tsolk" && b.tsolk !== a.tsolk) {
+          return b.tsolk - a.tsolk;
         }
         if (criterion === "sb" && b.sb !== a.sb) {
           return b.sb - a.sb;
