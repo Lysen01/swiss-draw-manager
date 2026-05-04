@@ -40,6 +40,12 @@ body {
   color: var(--muted);
 }
 
+.hero__description {
+  max-width: 980px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
 .layout {
   max-width: 1120px;
   margin: 0 auto;
