@@ -258,10 +258,12 @@ function bindEvents() {
     generateNextRound();
   });
 
-  els.seedDemoBtn.addEventListener("click", () => {
-    captureTournamentSettingsDraftFromForm();
-    addDemoPlayers();
-  });
+  if (els.seedDemoBtn) {
+    els.seedDemoBtn.addEventListener("click", () => {
+      captureTournamentSettingsDraftFromForm();
+      addDemoPlayers();
+    });
+  }
 
   els.finishTournamentBtn.addEventListener("click", () => {
     finishCurrentTournament();
@@ -814,7 +816,9 @@ function renderTournamentTab() {
   renderBaseSelect();
   els.generateRoundBtn.disabled = archiveView;
   els.finishTournamentBtn.disabled = archiveView;
-  els.seedDemoBtn.disabled = archiveView;
+  if (els.seedDemoBtn) {
+    els.seedDemoBtn.disabled = archiveView;
+  }
   if (archiveView) {
     els.addFromBaseBtn.disabled = true;
   }
