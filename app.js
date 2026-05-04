@@ -10,7 +10,7 @@ recalcAllBaseStats();
 normalizeRoundsCountForCurrentFormat(state.currentTournament);
 let editingBasePlayerId = null;
 let tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
-let tournamentBaseSearchQuery = "";
+let tournamentBaseLookup = [];
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -35,7 +35,7 @@ const els = {
   tournamentSettingsDate: document.getElementById("tournamentSettingsDate"),
   tournamentSettingsControl: document.getElementById("tournamentSettingsControl"),
   dbPlayerSelect: document.getElementById("dbPlayerSelect"),
-  dbPlayerSearch: document.getElementById("dbPlayerSearch"),
+  dbPlayerOptions: document.getElementById("dbPlayerOptions"),
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
   generateRoundBtn: document.getElementById("generateRoundBtn"),
@@ -228,11 +228,6 @@ function bindEvents() {
   els.addFromBaseBtn.addEventListener("click", () => {
     captureTournamentSettingsDraftFromForm();
     addPlayerFromBaseSelect();
-  });
-
-  els.dbPlayerSearch.addEventListener("input", () => {
-    tournamentBaseSearchQuery = String(els.dbPlayerSearch.value || "").trim().toLowerCase();
-    renderBaseSelect();
   });
 
   els.generateRoundBtn.addEventListener("click", () => {
@@ -858,29 +853,19 @@ function renderTournamentSubtabs() {
 }
 
 function renderBaseSelect() {
-  const currentValue = els.dbPlayerSelect.value;
+  const currentValue = String(els.dbPlayerSelect.value || "");
 
   if (state.playerBase.length === 0) {
-    els.dbPlayerSelect.innerHTML = '<option value="">База гравців порожня</option>';
+    tournamentBaseLookup = [];
+    els.dbPlayerSelect.value = "";
+    els.dbPlayerSelect.placeholder = "База гравців порожня";
+    els.dbPlayerSelect.disabled = true;
+    els.dbPlayerOptions.innerHTML = "";
     els.addFromBaseBtn.disabled = true;
     return;
   }
 
-  const filtered = state.playerBase.filter((p) => {
-    if (!tournamentBaseSearchQuery) {
-      return true;
-    }
-    const haystack = `${p.lastName} ${p.firstName} ${getBaseFullName(p)} ${p.rating}`.toLowerCase();
-    return haystack.includes(tournamentBaseSearchQuery);
-  });
-
-  if (filtered.length === 0) {
-    els.dbPlayerSelect.innerHTML = '<option value="">Нічого не знайдено</option>';
-    els.addFromBaseBtn.disabled = true;
-    return;
-  }
-
-  const options = filtered
+  const ordered = state.playerBase
     .slice()
     .sort((a, b) => {
       const byLast = String(a.lastName || "").localeCompare(String(b.lastName || ""), "uk");
@@ -892,13 +877,25 @@ function renderBaseSelect() {
         return byFirst;
       }
       return b.rating - a.rating;
-    })
-    .map((p) => `<option value="${p.id}">${escapeHtml(getBaseFullName(p))} (${p.rating})</option>`)
+    });
+
+  tournamentBaseLookup = ordered.map((p) => ({
+    id: p.id,
+    token: `${getBaseFullName(p)} (${p.rating})`,
+    search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)} ${p.rating}`.toLowerCase(),
+  }));
+
+  els.dbPlayerOptions.innerHTML = tournamentBaseLookup
+    .map((item) => `<option value="${escapeHtml(item.token)}"></option>`)
     .join("");
 
-  els.dbPlayerSelect.innerHTML = options;
-  if (currentValue && filtered.some((p) => p.id === currentValue)) {
+  els.dbPlayerSelect.disabled = false;
+  els.dbPlayerSelect.placeholder = "Почніть вводити прізвище або ім'я";
+
+  if (currentValue && tournamentBaseLookup.some((item) => item.token === currentValue)) {
     els.dbPlayerSelect.value = currentValue;
+  } else if (!currentValue && tournamentBaseLookup.length > 0) {
+    els.dbPlayerSelect.value = tournamentBaseLookup[0].token;
   }
   els.addFromBaseBtn.disabled = false;
 }
@@ -1192,12 +1189,31 @@ function buildArchivePreviewHtml(archived) {
 }
 
 function addPlayerFromBaseSelect() {
-  const baseId = els.dbPlayerSelect.value;
-  if (!baseId) {
+  const raw = String(els.dbPlayerSelect.value || "").trim();
+  if (!raw) {
+    alert("Оберіть гравця зі списку.");
     return;
   }
 
+  let matches = tournamentBaseLookup.filter((item) => item.token === raw);
+  if (matches.length === 0) {
+    const q = raw.toLowerCase();
+    matches = tournamentBaseLookup.filter((item) => item.search.includes(q));
+  }
+
+  if (matches.length === 0) {
+    alert("Гравця не знайдено. Оберіть зі списку підказок.");
+    return;
+  }
+
+  if (matches.length > 1) {
+    alert("Знайдено кілька гравців. Уточніть вибір у списку.");
+    return;
+  }
+
+  const baseId = matches[0].id;
   addBasePlayerToTournament(baseId);
+  els.dbPlayerSelect.value = "";
 }
 
 function addBasePlayerToTournament(basePlayerId) {
