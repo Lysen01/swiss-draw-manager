@@ -1270,6 +1270,10 @@ function bindEvents() {
       deleteArchivedTournament(tournamentId);
     }
 
+    if (action === "print-archive") {
+      printArchivedTournament(tournamentId);
+    }
+
     if (action === "close-archive-preview") {
       state.archivePreviewTournamentId = null;
       saveAndRender();
@@ -2382,6 +2386,7 @@ function renderArchiveTab() {
           <strong>${escapeHtml(t.name)}</strong>
           <div class="toolbar">
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
+            <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
             <button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>
           </div>
         </div>
@@ -2417,6 +2422,70 @@ function openArchivePreview(tournamentId) {
   state.archivePreviewTournamentId = tournamentId;
   state.activeTab = "archive";
   saveAndRender();
+}
+
+function printArchivedTournament(tournamentId) {
+  const archived = state.tournamentsArchive.find((t) => t.id === tournamentId);
+  if (!archived) {
+    alert("Турнір в архіві не знайдено.");
+    return;
+  }
+
+  const standingsHtml = buildStandingsTableHtml(archived, { showRoundDetails: true });
+  const eventDateText = archived.eventDate ? formatDateOnly(archived.eventDate) : "не вказана";
+  const controlText = archived.timeControl || "не вказано";
+  const judgeText = archived.chiefJudge || "не вказано";
+  const finishedText = formatDate(archived.finishedAt);
+
+  const printHtml = `<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(archived.name)} — підсумкова таблиця</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 12mm; color: #101b37; }
+      h1 { margin: 0 0 10px; font-size: 28px; }
+      .meta { margin: 2px 0 0; font-size: 15px; }
+      .media { display: flex; align-items: flex-start; gap: 14px; margin-top: 10px; }
+      .media img { width: 110px; height: 110px; object-fit: cover; border: 1px solid #b8c4d8; border-radius: 8px; }
+      .table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+      .table th, .table td { border: 1px solid #b8c4d8; padding: 7px 9px; text-align: left; font-size: 13px; vertical-align: middle; }
+      .table th { background: #e8eef8; }
+      .round-chip { border: 1px solid #2a66c5; border-radius: 8px; padding: 2px 8px; display: inline-block; font-weight: 600; }
+      .chip-empty { border-color: #b8c4d8; color: #7f8ba2; }
+      .chip-bye { border-color: #6c9f3d; color: #356b16; }
+      @media print { body { margin: 10mm; } }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(archived.name)} — підсумкова таблиця</h1>
+    <div class="meta"><strong>Завершено:</strong> ${escapeHtml(finishedText)}</div>
+    <div class="meta"><strong>Дата проведення:</strong> ${escapeHtml(eventDateText)}</div>
+    <div class="meta"><strong>Контроль часу:</strong> ${escapeHtml(controlText)}</div>
+    <div class="meta"><strong>Головний суддя:</strong> ${escapeHtml(judgeText)}</div>
+    <div class="meta"><strong>Турів:</strong> ${archived.currentRound}/${archived.roundsCount} | <strong>Учасників:</strong> ${archived.players.length}</div>
+    ${
+      archived.photoDataUrl
+        ? `<div class="media"><img src="${archived.photoDataUrl}" alt="Фото ${escapeHtml(archived.name)}" /></div>`
+        : ""
+    }
+    ${standingsHtml}
+  </body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=1200,height=900");
+  if (!win) {
+    alert("Браузер заблокував вікно друку. Дозволь pop-up для цієї сторінки.");
+    return;
+  }
+
+  win.document.open();
+  win.document.write(printHtml);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    win.print();
+  }, 150);
 }
 
 function buildArchivePreviewHtml(archived) {
