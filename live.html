@@ -1629,10 +1629,11 @@ function captureTournamentSettingsDraftFromForm() {
 
 function renderTournamentSettingsPreview() {
   const t = state.currentTournament;
+  const hasPlayers = Array.isArray(t.players) && t.players.length > 0;
   const hasPhoto = Boolean(t.photoDataUrl);
   const hasDate = Boolean(t.eventDate);
   const hasControl = Boolean(t.timeControl);
-  const hasAnyMeta = hasPhoto || hasDate || hasControl;
+  const hasAnyMeta = hasPlayers && (hasPhoto || hasDate || hasControl);
 
   els.tournamentSettingsPreview.hidden = !hasAnyMeta;
   if (!hasAnyMeta) {
