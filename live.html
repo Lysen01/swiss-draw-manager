@@ -723,6 +723,10 @@ button.danger {
           <p class="meta">Учасників можна додати тільки з бази гравців.</p>
 
           <div class="inline-form" style="margin-top: 8px">
+            <input id="dbPlayerSearch" type="text" placeholder="Пошук за прізвищем або ім'ям" />
+          </div>
+
+          <div class="inline-form" style="margin-top: 8px">
             <select id="dbPlayerSelect"></select>
             <button id="addFromBaseBtn" type="button">Додати з бази</button>
           </div>
@@ -829,6 +833,7 @@ recalcAllBaseStats();
 normalizeRoundsCountForCurrentFormat(state.currentTournament);
 let editingBasePlayerId = null;
 let tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+let tournamentBaseSearchQuery = "";
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -853,6 +858,7 @@ const els = {
   tournamentSettingsDate: document.getElementById("tournamentSettingsDate"),
   tournamentSettingsControl: document.getElementById("tournamentSettingsControl"),
   dbPlayerSelect: document.getElementById("dbPlayerSelect"),
+  dbPlayerSearch: document.getElementById("dbPlayerSearch"),
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
   generateRoundBtn: document.getElementById("generateRoundBtn"),
@@ -1045,6 +1051,11 @@ function bindEvents() {
   els.addFromBaseBtn.addEventListener("click", () => {
     captureTournamentSettingsDraftFromForm();
     addPlayerFromBaseSelect();
+  });
+
+  els.dbPlayerSearch.addEventListener("input", () => {
+    tournamentBaseSearchQuery = String(els.dbPlayerSearch.value || "").trim().toLowerCase();
+    renderBaseSelect();
   });
 
   els.generateRoundBtn.addEventListener("click", () => {
@@ -1670,19 +1681,48 @@ function renderTournamentSubtabs() {
 }
 
 function renderBaseSelect() {
+  const currentValue = els.dbPlayerSelect.value;
+
   if (state.playerBase.length === 0) {
     els.dbPlayerSelect.innerHTML = '<option value="">База гравців порожня</option>';
     els.addFromBaseBtn.disabled = true;
     return;
   }
 
-  const options = state.playerBase
+  const filtered = state.playerBase.filter((p) => {
+    if (!tournamentBaseSearchQuery) {
+      return true;
+    }
+    const haystack = `${p.lastName} ${p.firstName} ${getBaseFullName(p)} ${p.rating}`.toLowerCase();
+    return haystack.includes(tournamentBaseSearchQuery);
+  });
+
+  if (filtered.length === 0) {
+    els.dbPlayerSelect.innerHTML = '<option value="">Нічого не знайдено</option>';
+    els.addFromBaseBtn.disabled = true;
+    return;
+  }
+
+  const options = filtered
     .slice()
-    .sort((a, b) => b.rating - a.rating)
+    .sort((a, b) => {
+      const byLast = String(a.lastName || "").localeCompare(String(b.lastName || ""), "uk");
+      if (byLast !== 0) {
+        return byLast;
+      }
+      const byFirst = String(a.firstName || "").localeCompare(String(b.firstName || ""), "uk");
+      if (byFirst !== 0) {
+        return byFirst;
+      }
+      return b.rating - a.rating;
+    })
     .map((p) => `<option value="${p.id}">${escapeHtml(getBaseFullName(p))} (${p.rating})</option>`)
     .join("");
 
   els.dbPlayerSelect.innerHTML = options;
+  if (currentValue && filtered.some((p) => p.id === currentValue)) {
+    els.dbPlayerSelect.value = currentValue;
+  }
   els.addFromBaseBtn.disabled = false;
 }
 
