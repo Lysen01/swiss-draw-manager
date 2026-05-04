@@ -1087,10 +1087,10 @@ function renderBaseSelect() {
 
 function renderTournamentPlayers() {
   const t = state.currentTournament;
-  const sorted = [...t.players].sort((a, b) => b.rating - a.rating);
+  const ordered = [...t.players];
   const editable = t.currentRound === 0;
 
-  const rows = sorted
+  const rows = ordered
     .map(
       (p, i) => `
       <tr>
