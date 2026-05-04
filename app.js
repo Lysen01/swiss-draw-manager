@@ -1262,7 +1262,7 @@ function buildStandingsTableHtml(tournament, options = {}) {
 
 function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tieRange) {
   const tieSize = tieRange?.size || 1;
-  const canEdit = showRoundDetails && tournament.status !== "archived_view" && tieSize > 1;
+  const canEdit = showRoundDetails && tournament.status === "active" && tieSize > 1;
   if (!canEdit) {
     return String(computedPlace);
   }
@@ -1472,7 +1472,7 @@ function openArchivePreview(tournamentId) {
 }
 
 function buildArchivePreviewHtml(archived) {
-  const standingsTable = buildStandingsTableHtml(archived, { showRoundDetails: false });
+  const standingsTable = buildStandingsTableHtml(archived, { showRoundDetails: true });
 
   return `
     <hr />
@@ -2503,6 +2503,7 @@ function archiveCurrentTournament({ notify }) {
   }
 
   const snapshot = cloneTournament(t);
+  snapshot.status = "archived";
   snapshot.finishedAt = new Date().toISOString();
 
   const idx = state.tournamentsArchive.findIndex((x) => x.id === snapshot.id);
