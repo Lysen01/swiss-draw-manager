@@ -301,6 +301,10 @@ button.danger {
   flex-wrap: wrap;
 }
 
+.subtabs--nested {
+  margin-top: 10px;
+}
+
 .subtab-btn {
   background: #edf3fe;
   color: #20437b;
