@@ -254,8 +254,8 @@ button.danger {
 .pair-card {
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 10px;
-  margin: 8px;
+  padding: 8px 10px;
+  margin: 6px;
 }
 
 .pair-head {
@@ -263,6 +263,54 @@ button.danger {
   justify-content: space-between;
   font-weight: 700;
   margin-bottom: 8px;
+}
+
+#pairings.scroll {
+  max-height: 72vh;
+}
+
+.pair-card--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pair-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pair-board {
+  display: inline-flex;
+  min-width: 72px;
+  font-weight: 700;
+  color: #183b74;
+}
+
+.pair-vs {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.pair-lock {
+  font-size: 12px;
+  color: #5a6d8f;
+}
+
+.pair-actions select {
+  min-width: 170px;
+}
+
+.pair-bye-note {
+  font-weight: 700;
+  color: #2f6d14;
 }
 
 .meta {
@@ -417,6 +465,34 @@ button.danger {
 #dbPlayerSelect {
   min-width: 280px;
   background: #fff;
+}
+
+.base-pick-list {
+  max-height: 240px;
+}
+
+.base-pick-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  background: #fff;
+}
+
+.base-pick-item:last-child {
+  border-bottom: 0;
+}
+
+.base-pick-item input {
+  margin: 0;
+}
+
+.base-pick-empty {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .mono {
@@ -700,5 +776,18 @@ button.danger {
 
   #playersList.scroll {
     max-height: 360px;
+  }
+
+  .pair-card--row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .pair-actions {
+    width: 100%;
+  }
+
+  .pair-actions select {
+    width: 100%;
   }
 }
