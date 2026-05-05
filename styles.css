@@ -482,16 +482,18 @@ button.danger {
 }
 
 label.base-pick-item {
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: 22px 1fr;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: stretch;
   gap: 8px;
+  width: 100%;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   font-size: 14px;
   background: #fff;
   cursor: pointer;
+  text-align: left;
 }
 
 .base-pick-item:last-child {
@@ -505,6 +507,11 @@ label.base-pick-item {
 
 .base-pick-item span {
   flex: 1;
+}
+
+.base-pick-name {
+  display: block;
+  line-height: 1.35;
 }
 
 .base-pick-empty {

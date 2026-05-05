@@ -1149,7 +1149,7 @@ function renderBaseSelect() {
         return `
         <label class="base-pick-item">
           <input type="checkbox" data-base-player-id="${item.id}" ${checked} />
-          <span>${escapeHtml(item.token)}</span>
+          <span class="base-pick-name">${escapeHtml(item.token)}</span>
         </label>`;
       })
       .join("");
