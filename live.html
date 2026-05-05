@@ -2980,7 +2980,12 @@ function generateNextRound() {
 
     pairings = roundRobinPairRound(t, nextRoundNumber);
   } else {
-    pairings = swissPairRound(t, nextRoundNumber);
+    const swissPairings = swissPairRound(t, nextRoundNumber);
+    if (!swissPairings) {
+      alert("Неможливо згенерувати тур без повторних пар. Зменште кількість турів або змініть склад учасників.");
+      return;
+    }
+    pairings = swissPairings;
   }
 
   t.rounds.push({ round: nextRoundNumber, pairings });
@@ -2992,29 +2997,44 @@ function generateNextRound() {
 
 function swissPairRound(tournament, roundNumber) {
   const sorted = [...tournament.players].sort(comparePlayersForPairing);
-  const unpaired = [...sorted];
   const pairings = [];
+  let byePlayer = null;
+  let pairedTuples = null;
 
-  if (unpaired.length % 2 === 1) {
-    const byePlayer = chooseByePlayer(unpaired);
+  if (sorted.length % 2 === 1) {
+    const byeCandidates = getByeCandidates(sorted);
+    for (const candidate of byeCandidates) {
+      const remaining = sorted.filter((p) => p.id !== candidate.id);
+      const attempt = buildSwissNonRepeatPairings(remaining);
+      if (attempt) {
+        byePlayer = candidate;
+        pairedTuples = attempt;
+        break;
+      }
+    }
+  } else {
+    pairedTuples = buildSwissNonRepeatPairings(sorted);
+  }
+
+  if (!pairedTuples) {
+    return null;
+  }
+
+  if (byePlayer) {
     byePlayer.hadBye = true;
     byePlayer.score += 1;
     byePlayer.resultsByRound[roundNumber] = "BYE";
     pairings.push({ board: pairings.length + 1, whiteId: byePlayer.id, blackId: null, result: "1-0 BYE" });
-    unpaired.splice(unpaired.findIndex((p) => p.id === byePlayer.id), 1);
   }
 
-  while (unpaired.length > 0) {
-    const p1 = unpaired.shift();
-    let idx = findBestOpponentIndex(p1, unpaired);
-    if (idx === -1) {
-      idx = 0;
-    }
-
-    const p2 = unpaired.splice(idx, 1)[0];
+  for (const [p1, p2] of pairedTuples) {
     const colors = assignColors(p1, p2);
-
-    pairings.push({ board: pairings.length + 1, whiteId: colors.white.id, blackId: colors.black.id, result: "pending" });
+    pairings.push({
+      board: pairings.length + 1,
+      whiteId: colors.white.id,
+      blackId: colors.black.id,
+      result: "pending",
+    });
   }
 
   applyPendingMetadata(tournament, pairings);
@@ -3126,28 +3146,76 @@ function chooseByePlayer(players) {
   return candidates[0] || players[players.length - 1];
 }
 
-function findBestOpponentIndex(player, candidates) {
-  let bestIndex = -1;
-  let bestScore = -Infinity;
-
-  for (let i = 0; i < candidates.length; i += 1) {
-    const c = candidates[i];
-    if (player.opponents.includes(c.id)) {
-      continue;
+function getByeCandidates(players) {
+  return [...players].sort((a, b) => {
+    if (a.hadBye !== b.hadBye) {
+      return a.hadBye ? 1 : -1;
     }
-
-    let score = 0;
-    score -= Math.abs(player.score - c.score) * 10;
-    score -= Math.abs(player.rating - c.rating) / 100;
-    score += colorCompatibility(player, c);
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = i;
+    if (a.score !== b.score) {
+      return a.score - b.score;
     }
+    return a.rating - b.rating;
+  });
+}
+
+function buildSwissNonRepeatPairings(players) {
+  if (players.length % 2 === 1) {
+    return null;
   }
 
-  return bestIndex;
+  function hasLegalOpponent(player, pool) {
+    for (const c of pool) {
+      if (c.id !== player.id && !player.opponents.includes(c.id)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function isPoolFeasible(pool) {
+    for (const p of pool) {
+      if (!hasLegalOpponent(p, pool)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function pairScore(a, b) {
+    let score = 0;
+    score -= Math.abs(a.score - b.score) * 10;
+    score -= Math.abs(a.rating - b.rating) / 100;
+    score += colorCompatibility(a, b);
+    return score;
+  }
+
+  function search(pool) {
+    if (pool.length === 0) {
+      return [];
+    }
+
+    const p1 = pool[0];
+    const rest = pool.slice(1);
+    const candidates = rest
+      .filter((c) => !p1.opponents.includes(c.id))
+      .sort((a, b) => pairScore(p1, b) - pairScore(p1, a));
+
+    for (const p2 of candidates) {
+      const nextPool = rest.filter((p) => p.id !== p2.id);
+      if (nextPool.length > 0 && !isPoolFeasible(nextPool)) {
+        continue;
+      }
+
+      const tail = search(nextPool);
+      if (tail) {
+        return [[p1, p2], ...tail];
+      }
+    }
+
+    return null;
+  }
+
+  return search(players);
 }
 
 function colorCompatibility(a, b) {
