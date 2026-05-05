@@ -31,11 +31,8 @@
         <section class="card full">
           <div id="tournamentSubtabs" class="subtabs">
             <button class="subtab-btn active" type="button" data-tournament-view="setup">Налаштування турніру</button>
-            <button class="subtab-btn" type="button" data-tournament-view="play">Проведення турніру</button>
-          </div>
-          <div id="tournamentPlaySubtabs" class="subtabs subtabs--nested" data-tour-view="play">
-            <button class="subtab-btn active" type="button" data-play-view="rounds">Раунди</button>
-            <button class="subtab-btn" type="button" data-play-view="table">Таблиця</button>
+            <button class="subtab-btn" type="button" data-tournament-view="rounds">Раунди</button>
+            <button class="subtab-btn" type="button" data-tournament-view="table">Таблиця</button>
           </div>
         </section>
 
@@ -131,7 +128,7 @@
           <div id="playersList" class="scroll"></div>
         </section>
 
-        <section class="card" data-tour-view="play" data-play-view-panel data-play-view="rounds">
+        <section class="card full" data-tour-view="rounds">
           <h2>Раунди</h2>
           <div class="toolbar">
             <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
@@ -142,7 +139,7 @@
           <div id="pairings" class="scroll"></div>
         </section>
 
-        <section class="card" data-tour-view="play" data-play-view-panel data-play-view="table">
+        <section class="card full" data-tour-view="table">
           <h2>Таблиця</h2>
           <div id="standings" class="scroll"></div>
         </section>

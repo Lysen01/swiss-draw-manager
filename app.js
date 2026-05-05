@@ -32,9 +32,7 @@ const els = {
     archive: document.getElementById("tab-archive"),
   },
   tournamentSubtabs: document.getElementById("tournamentSubtabs"),
-  tournamentPlaySubtabs: document.getElementById("tournamentPlaySubtabs"),
   tournamentViewPanels: document.querySelectorAll("[data-tour-view]"),
-  tournamentPlayViewPanels: document.querySelectorAll("[data-play-view-panel]"),
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
@@ -113,21 +111,10 @@ function bindEvents() {
     }
 
     captureTournamentSettingsDraftFromForm();
-    state.tournamentView = btn.dataset.tournamentView === "play" ? "play" : "setup";
+    const nextView = btn.dataset.tournamentView;
+    state.tournamentView = nextView === "rounds" || nextView === "table" ? nextView : "setup";
     saveAndRender();
   });
-
-  if (els.tournamentPlaySubtabs) {
-    els.tournamentPlaySubtabs.addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-play-view]");
-      if (!btn) {
-        return;
-      }
-
-      state.tournamentPlayView = btn.dataset.playView === "table" ? "table" : "rounds";
-      saveAndRender();
-    });
-  }
 
   els.settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -425,8 +412,7 @@ function normalizeState(raw) {
   if (raw.currentTournament && Array.isArray(raw.playerBase) && Array.isArray(raw.tournamentsArchive)) {
     const normalized = {
       activeTab: raw.activeTab || "tournament",
-      tournamentView: raw.tournamentView === "play" ? "play" : "setup",
-      tournamentPlayView: raw.tournamentPlayView === "table" ? "table" : "rounds",
+      tournamentView: normalizeTournamentView(raw),
       archivePreviewTournamentId: raw.archivePreviewTournamentId || null,
       kyivPresetVersion: raw.kyivPresetVersion || null,
       playerBase: raw.playerBase.map(normalizeBasePlayer),
@@ -488,11 +474,23 @@ function normalizeState(raw) {
   return applyKyivPresetIfNeeded(createDefaultState());
 }
 
+function normalizeTournamentView(rawState) {
+  if (rawState.tournamentView === "setup" || rawState.tournamentView === "rounds" || rawState.tournamentView === "table") {
+    return rawState.tournamentView;
+  }
+  if (rawState.tournamentView === "play") {
+    return rawState.tournamentPlayView === "table" ? "table" : "rounds";
+  }
+  if (rawState.tournamentPlayView === "table") {
+    return "table";
+  }
+  return "setup";
+}
+
 function createDefaultState() {
   return {
     activeTab: "tournament",
     tournamentView: "setup",
-    tournamentPlayView: "rounds",
     archivePreviewTournamentId: null,
     kyivPresetVersion: null,
     playerBase: [],
@@ -509,7 +507,6 @@ function applyKyivPresetIfNeeded(stateObj) {
   stateObj.playerBase = createKyivPresetPlayers();
   stateObj.currentTournament = createDefaultTournament();
   stateObj.tournamentView = "setup";
-  stateObj.tournamentPlayView = "rounds";
   stateObj.archivePreviewTournamentId = null;
   stateObj.kyivPresetVersion = KYIV_PRESET_VERSION;
   return stateObj;
@@ -1040,8 +1037,8 @@ function renderTournamentSettingsPreview() {
 }
 
 function renderTournamentSubtabs() {
-  const activeView = state.tournamentView === "play" ? "play" : "setup";
-  const activePlayView = state.tournamentPlayView === "table" ? "table" : "rounds";
+  const activeView =
+    state.tournamentView === "rounds" || state.tournamentView === "table" ? state.tournamentView : "setup";
 
   for (const btn of els.tournamentSubtabs.querySelectorAll(".subtab-btn")) {
     btn.classList.toggle("active", btn.dataset.tournamentView === activeView);
@@ -1049,18 +1046,6 @@ function renderTournamentSubtabs() {
 
   for (const panel of els.tournamentViewPanels) {
     panel.classList.toggle("tour-view-hidden", panel.dataset.tourView !== activeView);
-  }
-
-  if (els.tournamentPlaySubtabs) {
-    for (const btn of els.tournamentPlaySubtabs.querySelectorAll(".subtab-btn")) {
-      btn.classList.toggle("active", btn.dataset.playView === activePlayView);
-    }
-  }
-
-  for (const panel of els.tournamentPlayViewPanels) {
-    const isPlayVisible = activeView === "play";
-    const panelPlayView = panel.dataset.playView === "table" ? "table" : "rounds";
-    panel.classList.toggle("tour-view-hidden", !isPlayVisible || panelPlayView !== activePlayView);
   }
 }
 
@@ -2785,7 +2770,6 @@ function finishCurrentTournament() {
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
   state.activeTab = "tournament";
   state.tournamentView = "setup";
-  state.tournamentPlayView = "rounds";
   state.archivePreviewTournamentId = null;
   saveAndRender();
   alert("Турнір завершено і перенесено в архів.");
@@ -2960,7 +2944,6 @@ function createNewTournamentFlow() {
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
   state.activeTab = "tournament";
   state.tournamentView = "setup";
-  state.tournamentPlayView = "rounds";
   state.archivePreviewTournamentId = null;
   saveAndRender();
 }
