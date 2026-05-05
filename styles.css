@@ -99,6 +99,16 @@ button {
   font: inherit;
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  min-height: 0;
+  border-radius: 4px;
+  accent-color: var(--brand);
+}
+
 select:disabled {
   background: #eef3fb;
   color: #5f6d86;
@@ -471,14 +481,17 @@ button.danger {
   max-height: 240px;
 }
 
-.base-pick-item {
+label.base-pick-item {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   font-size: 14px;
   background: #fff;
+  cursor: pointer;
 }
 
 .base-pick-item:last-child {
@@ -487,6 +500,11 @@ button.danger {
 
 .base-pick-item input {
   margin: 0;
+  flex: 0 0 auto;
+}
+
+.base-pick-item span {
+  flex: 1;
 }
 
 .base-pick-empty {
