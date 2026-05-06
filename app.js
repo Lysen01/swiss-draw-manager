@@ -1,3 +1,6 @@
+// Auto-generated file. Do not edit directly.
+// Source: src/app/*.js
+// ===== 00-constants.js =====
 const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const KYIV_PRESET_VERSION = "kyiv-v1";
@@ -16,11 +19,10 @@ const MAX_TOURNAMENT_PHOTO_STORE_BYTES = 1_600_000;
 const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;
 const MAX_BASE_PLAYER_PHOTO_STORE_BYTES = 320_000;
 
-const state = normalizeState(loadRawState());
-recalcAllBaseStats();
-normalizeRoundsCountForCurrentFormat(state.currentTournament);
+// ===== 01-globals.js =====
+let state;
 let editingBasePlayerId = null;
-let tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+let tournamentSettingsDraft = null;
 let tournamentBaseLookup = [];
 let filteredTournamentBaseLookup = [];
 let selectedBasePlayerIds = new Set();
@@ -83,9 +85,7 @@ const els = {
   archiveList: document.getElementById("archiveList"),
 };
 
-bindEvents();
-render();
-
+// ===== 02-events.js =====
 function bindEvents() {
   const tieBreakSelects = [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5];
   for (const select of tieBreakSelects) {
@@ -414,6 +414,7 @@ function bindEvents() {
   });
 }
 
+// ===== 03-state-normalization.js =====
 function loadRawState() {
   try {
     const v2 = localStorage.getItem(STORAGE_KEY);
@@ -852,6 +853,7 @@ function isValidBasePlayerPhotoFile(file) {
   return false;
 }
 
+// ===== 04-render.js =====
 function render() {
   renderTabs();
   renderTournamentTab();
@@ -1701,6 +1703,7 @@ function buildArchivePreviewHtml(archived) {
   `;
 }
 
+// ===== 05-actions.js =====
 function selectAllVisibleBasePlayers() {
   if (!filteredTournamentBaseLookup.length) {
     return;
@@ -2134,6 +2137,7 @@ function addDemoPlayers() {
   saveAndRender();
 }
 
+// ===== 06-pairing.js =====
 function generateNextRound() {
   const t = state.currentTournament;
 
@@ -2564,6 +2568,7 @@ function rollbackResultIfNeeded(tournament, roundNumber, pairing) {
   delete black.resultsByRound[roundNumber];
 }
 
+// ===== 07-standings.js =====
 function isLastRoundComplete(tournament) {
   if (tournament.rounds.length === 0) {
     return true;
@@ -2788,6 +2793,7 @@ function buildRoundCells(tournament, player, placeById) {
   return html;
 }
 
+// ===== 08-lifecycle-utils.js =====
 function ensureStartNumbers(tournament) {
   let changed = false;
   const byRating = [...tournament.players].sort((a, b) => b.rating - a.rating);
@@ -3102,3 +3108,12 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+// ===== 09-init.js =====
+state = normalizeState(loadRawState());
+recalcAllBaseStats();
+normalizeRoundsCountForCurrentFormat(state.currentTournament);
+tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+
+bindEvents();
+render();
