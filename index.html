@@ -117,10 +117,11 @@
           <p class="meta">Учасників можна додати тільки з бази гравців.</p>
 
           <div class="inline-form" style="margin-top: 8px">
-            <input id="dbPlayerSelect" type="text" list="dbPlayerOptions" placeholder="Почніть вводити прізвище або ім'я" autocomplete="off" />
-            <datalist id="dbPlayerOptions"></datalist>
-            <button id="addFromBaseBtn" type="button">Додати з бази</button>
+            <input id="dbPlayerSelect" type="text" placeholder="Пошук за прізвищем, ім'ям або рейтингом" autocomplete="off" />
+            <button id="selectAllBaseBtn" type="button">Виділити всіх</button>
+            <button id="addFromBaseBtn" type="button">Додати</button>
           </div>
+          <div id="dbPlayerChecklist" class="scroll"></div>
 
           <div class="toolbar">
             <button id="resetBtn" type="button" class="danger">Новий турнір</button>
