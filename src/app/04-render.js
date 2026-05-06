@@ -3,6 +3,20 @@ function render() {
   renderTournamentTab();
   renderBasePlayersTab();
   renderArchiveTab();
+  renderPersistenceFooter();
+}
+
+function renderPersistenceFooter() {
+  if (els.storageModeLabel) {
+    els.storageModeLabel.textContent =
+      persistenceInfo.mode === "remote" ? "Сховище: Render API + PostgreSQL" : "Сховище: браузер (localStorage)";
+  }
+
+  if (!els.syncStatus) {
+    return;
+  }
+
+  els.syncStatus.textContent = persistenceInfo.message;
 }
 
 function renderTabs() {
@@ -846,4 +860,3 @@ function buildArchivePreviewHtml(archived) {
     <div class="scroll" style="margin-top:10px;">${standingsTable}</div>
   `;
 }
-

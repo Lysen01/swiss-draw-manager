@@ -37,11 +37,18 @@
 
 ## Збереження даних
 
-Дані зберігаються локально у `localStorage` браузера. Стара схема (`swiss-manager-v1`) автоматично мігрується у нову (`swiss-manager-v2`).
+Застосунок тепер підтримує 2 режими:
+
+- Автономний режим: дані зберігаються локально у `localStorage` браузера.
+- Render-режим: якщо доступний `/api/health`, фронтенд автоматично підключається до Render API і синхронізує дані з PostgreSQL.
+
+Стара схема (`swiss-manager-v1`) автоматично мігрується у нову (`swiss-manager-v2`).
 
 ## Запуск
 
-Відкрийте `index.html` у браузері.
+- Швидкий локальний перегляд: відкрийте `index.html` у браузері.
+- Повний режим з БД: запустіть API (`npm run start:api`) і відкрийте Render URL або локальний сервер.
+- Якщо фронтенд відкритий окремо від API, можна передати адресу бекенду параметром `?api=https://your-service.onrender.com`.
 
 ## Структура коду
 
@@ -93,8 +100,14 @@ DATABASE_URL=postgresql://... npm run start:api
 5. Start: `npm run start:api`
 6. Env vars:
    - `DATABASE_URL` = Internal Database URL з твоєї БД `arbiter-db`
-   - `CORS_ORIGIN` = `https://lysen01.github.io`
+   - `CORS_ORIGIN` = потрібен тільки якщо фронтенд живе на іншому домені
    - `NODE_ENV` = `production`
+
+### Як тепер працює frontend + backend
+
+- Якщо фронтенд відкритий з того ж Render сервісу, API використовується автоматично.
+- Якщо API тимчасово недоступний, застосунок не падає і продовжує працювати через `localStorage`.
+- Гравці, активний турнір і архів синхронізуються з PostgreSQL.
 
 Після деплою перевірка:
 - `GET /api/health`

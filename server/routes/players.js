@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../lib/db');
-const { asSafeString, asRating, asDateOrNull } = require('../lib/validators');
+const { asSafeString, asUuidOrNull, asRating, asDateOrNull } = require('../lib/validators');
 
 const router = express.Router();
 
@@ -32,6 +32,7 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
+    const id = asUuidOrNull(req.body.id);
     const lastName = asSafeString(req.body.last_name || req.body.lastName, 120);
     const firstName = asSafeString(req.body.first_name || req.body.firstName, 120);
     const rating = asRating(req.body.rating);
@@ -44,10 +45,10 @@ router.post('/', async (req, res, next) => {
     }
 
     const result = await query(
-      `INSERT INTO players (last_name, first_name, rating, rank, birth_date, photo_url)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO players (id, last_name, first_name, rating, rank, birth_date, photo_url)
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7)
        RETURNING id, last_name, first_name, rating, rank, birth_date, photo_url, created_at, updated_at`,
-      [lastName, firstName, rating, rank, birthDate, photoUrl]
+      [id, lastName, firstName, rating, rank, birthDate, photoUrl]
     );
 
     return res.status(201).json(result.rows[0]);

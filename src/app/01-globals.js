@@ -1,10 +1,26 @@
 let state;
+let stateRevision = 0;
+let hasStoredLocalState = false;
 let editingBasePlayerId = null;
 let tournamentSettingsDraft = null;
 let tournamentBaseLookup = [];
 let filteredTournamentBaseLookup = [];
 let selectedBasePlayerIds = new Set();
 let basePlayersSort = { key: "rating", dir: "desc" };
+let remoteApiBaseUrl = null;
+let remoteKnownPlayerIds = new Set();
+let remoteKnownTournamentIds = new Set();
+let remoteSyncTimerId = null;
+let remoteSyncInFlight = false;
+let remoteSyncQueued = false;
+let remoteBootstrapStarted = false;
+let remoteBootstrapRevision = 0;
+let persistenceInfo = {
+  mode: "local",
+  status: "idle",
+  message: "Автономний режим: збереження лише в браузері.",
+  lastSyncedAt: "",
+};
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -61,4 +77,6 @@ const els = {
   baseEditHint: document.getElementById("baseEditHint"),
   basePlayersList: document.getElementById("basePlayersList"),
   archiveList: document.getElementById("archiveList"),
+  storageModeLabel: document.getElementById("storageModeLabel"),
+  syncStatus: document.getElementById("syncStatus"),
 };

@@ -2,6 +2,15 @@ function asSafeString(value, max = 255) {
   return String(value || '').trim().slice(0, max);
 }
 
+function asUuidOrNull(value) {
+  const text = asSafeString(value, 64).toLowerCase();
+  if (!text) {
+    return null;
+  }
+
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(text) ? text : null;
+}
+
 function asRating(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
@@ -23,6 +32,7 @@ function asDateOrNull(value) {
 
 module.exports = {
   asSafeString,
+  asUuidOrNull,
   asRating,
   asDateOrNull,
 };

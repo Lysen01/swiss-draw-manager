@@ -4,6 +4,8 @@
 const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const KYIV_PRESET_VERSION = "kyiv-v1";
+const API_BASE_URL_STORAGE_KEY = "arbiter-api-origin";
+const REMOTE_SYNC_DEBOUNCE_MS = 400;
 const DEFAULT_TIEBREAK_ORDER = ["head_to_head", "buchholz", "solk_plus", "tsolk", "wins"];
 const TIEBREAK_OPTIONS = [
   { value: "head_to_head", label: "Особисті зустрічі (H2H)" },
@@ -21,12 +23,28 @@ const MAX_BASE_PLAYER_PHOTO_STORE_BYTES = 320_000;
 
 // ===== 01-globals.js =====
 let state;
+let stateRevision = 0;
+let hasStoredLocalState = false;
 let editingBasePlayerId = null;
 let tournamentSettingsDraft = null;
 let tournamentBaseLookup = [];
 let filteredTournamentBaseLookup = [];
 let selectedBasePlayerIds = new Set();
 let basePlayersSort = { key: "rating", dir: "desc" };
+let remoteApiBaseUrl = null;
+let remoteKnownPlayerIds = new Set();
+let remoteKnownTournamentIds = new Set();
+let remoteSyncTimerId = null;
+let remoteSyncInFlight = false;
+let remoteSyncQueued = false;
+let remoteBootstrapStarted = false;
+let remoteBootstrapRevision = 0;
+let persistenceInfo = {
+  mode: "local",
+  status: "idle",
+  message: "Автономний режим: збереження лише в браузері.",
+  lastSyncedAt: "",
+};
 
 const els = {
   tabsNav: document.getElementById("tabsNav"),
@@ -83,6 +101,8 @@ const els = {
   baseEditHint: document.getElementById("baseEditHint"),
   basePlayersList: document.getElementById("basePlayersList"),
   archiveList: document.getElementById("archiveList"),
+  storageModeLabel: document.getElementById("storageModeLabel"),
+  syncStatus: document.getElementById("syncStatus"),
 };
 
 // ===== 02-events.js =====
@@ -859,6 +879,20 @@ function render() {
   renderTournamentTab();
   renderBasePlayersTab();
   renderArchiveTab();
+  renderPersistenceFooter();
+}
+
+function renderPersistenceFooter() {
+  if (els.storageModeLabel) {
+    els.storageModeLabel.textContent =
+      persistenceInfo.mode === "remote" ? "Сховище: Render API + PostgreSQL" : "Сховище: браузер (localStorage)";
+  }
+
+  if (!els.syncStatus) {
+    return;
+  }
+
+  els.syncStatus.textContent = persistenceInfo.message;
 }
 
 function renderTabs() {
@@ -2794,6 +2828,579 @@ function buildRoundCells(tournament, player, placeById) {
 }
 
 // ===== 08-lifecycle-utils.js =====
+function setPersistenceInfo(next) {
+  persistenceInfo = {
+    ...persistenceInfo,
+    ...next,
+  };
+}
+
+function persistLocalState(options = {}) {
+  const { notifyOnError = true } = options;
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (error) {
+    if (notifyOnError) {
+      if (isQuotaExceededError(error)) {
+        alert("Браузерне сховище переповнене. Зменште розмір/кількість фото і спробуйте знову.");
+      } else {
+        alert("Не вдалося зберегти зміни в браузері. Спробуйте ще раз.");
+      }
+    }
+    console.error(error);
+    return false;
+  }
+}
+
+function normalizeApiBaseUrl(value) {
+  const text = String(value || "").trim();
+  if (!text || text === "same-origin") {
+    return "";
+  }
+
+  try {
+    const url = new URL(text);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function resolveApiBaseUrl() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const queryValue = params.get("api");
+  if (queryValue) {
+    const normalized = normalizeApiBaseUrl(queryValue);
+    if (normalized !== null) {
+      try {
+        localStorage.setItem(API_BASE_URL_STORAGE_KEY, normalized);
+      } catch {
+        // Ignore storage failures here; local fallback still works.
+      }
+      return normalized;
+    }
+  }
+
+  try {
+    const stored = normalizeApiBaseUrl(localStorage.getItem(API_BASE_URL_STORAGE_KEY));
+    if (stored !== null && stored !== "") {
+      return stored;
+    }
+  } catch {
+    // Ignore and continue with auto-detection.
+  }
+
+  if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+    return "";
+  }
+
+  return null;
+}
+
+function buildApiUrl(path) {
+  return `${remoteApiBaseUrl || ""}${path}`;
+}
+
+async function apiRequest(path, options = {}) {
+  const { method = "GET", body = undefined, timeoutMs = 5000 } = options;
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timeoutId =
+    controller && Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
+  try {
+    const response = await fetch(buildApiUrl(path), {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller ? controller.signal : undefined,
+    });
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    const contentType = String(response.headers.get("content-type") || "");
+    const isJson = contentType.includes("application/json");
+    const payload = isJson ? await response.json() : await response.text();
+
+    if (!response.ok) {
+      const errorMessage =
+        payload && typeof payload === "object" && payload.error
+          ? payload.error
+          : isJson
+            ? `HTTP ${response.status}`
+            : String(payload || `HTTP ${response.status}`).slice(0, 140);
+      throw new Error(errorMessage);
+    }
+
+    return payload;
+  } finally {
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
+async function bootstrapPersistence() {
+  if (remoteBootstrapStarted) {
+    return;
+  }
+
+  remoteBootstrapStarted = true;
+  remoteBootstrapRevision = stateRevision;
+  remoteApiBaseUrl = resolveApiBaseUrl();
+
+  if (remoteApiBaseUrl === null) {
+    setPersistenceInfo({
+      mode: "local",
+      status: "idle",
+      message: "Відкрито без вебсервера: працюю лише з localStorage.",
+      lastSyncedAt: "",
+    });
+    render();
+    return;
+  }
+
+  setPersistenceInfo({
+    mode: "local",
+    status: "checking",
+    message: remoteApiBaseUrl ? "Перевіряю Render API..." : "Перевіряю вбудований API...",
+    lastSyncedAt: "",
+  });
+  render();
+
+  try {
+    const { playersRows, tournamentRows } = await fetchRemoteBootstrapPayload();
+    remoteKnownPlayerIds = new Set(playersRows.map((item) => item.id).filter(Boolean));
+    remoteKnownTournamentIds = new Set(tournamentRows.map((item) => item.id).filter(Boolean));
+    const remoteHasData = playersRows.length > 0 || tournamentRows.length > 0;
+    const localHasData = hasMeaningfulAppState(state);
+
+    setPersistenceInfo({
+      mode: "remote",
+      status: "ready",
+      message: "Підключено до Render API. Зміни синхронізуються з PostgreSQL.",
+      lastSyncedAt: new Date().toISOString(),
+    });
+
+    if (!remoteHasData && localHasData && hasStoredLocalState) {
+      setPersistenceInfo({
+        mode: "remote",
+        status: "ready",
+        message: "Render база порожня. Переношу в неї поточні локальні дані.",
+        lastSyncedAt: "",
+      });
+      scheduleRemoteSync("bootstrap-seed");
+    } else if (stateRevision === remoteBootstrapRevision) {
+      state = buildStateFromApi(playersRows, tournamentRows);
+      tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+      persistLocalState({ notifyOnError: false });
+    } else {
+      scheduleRemoteSync("bootstrap-catchup");
+    }
+  } catch (error) {
+    console.error("[bootstrapPersistence]", error);
+    setPersistenceInfo({
+      mode: "local",
+      status: "error",
+      message: "Render API недоступний. Працюю локально через localStorage.",
+      lastSyncedAt: "",
+    });
+  }
+
+  render();
+}
+
+async function fetchRemoteBootstrapPayload() {
+  await apiRequest("/api/health", { timeoutMs: 3500 });
+  const [playersRows, tournamentRows] = await Promise.all([
+    apiRequest("/api/players", { timeoutMs: 5000 }),
+    apiRequest("/api/tournaments", { timeoutMs: 5000 }),
+  ]);
+
+  return {
+    playersRows: Array.isArray(playersRows) ? playersRows : [],
+    tournamentRows: Array.isArray(tournamentRows) ? tournamentRows : [],
+  };
+}
+
+function buildStateFromApi(playersRows, tournamentRows) {
+  const basePlayers = playersRows.map(mapApiPlayerToBasePlayer);
+  const mappedTournaments = tournamentRows.map(mapApiTournamentToState);
+  const archivedTournaments = mappedTournaments
+    .filter((item) => item.status === "archived")
+    .map((item) => normalizeArchivedTournament(item));
+
+  const activeTournament =
+    mappedTournaments
+      .filter((item) => item.status !== "archived" && item.status !== "archived_view")
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))[0] ||
+    createDefaultTournament();
+
+  const nextState = normalizeState({
+    activeTab: state?.activeTab || "tournament",
+    tournamentView: state?.tournamentView || "setup",
+    archivePreviewTournamentId: null,
+    kyivPresetVersion: KYIV_PRESET_VERSION,
+    playerBase: basePlayers,
+    currentTournament: activeTournament,
+    tournamentsArchive: archivedTournaments,
+  });
+
+  ensureTournamentPlayersLinkedToBase(nextState.currentTournament, nextState.playerBase);
+  for (const tournament of nextState.tournamentsArchive) {
+    ensureTournamentPlayersLinkedToBase(tournament, nextState.playerBase);
+  }
+  rebuildPlayerBaseHistoryForState(nextState);
+
+  return nextState;
+}
+
+function mapApiPlayerToBasePlayer(row) {
+  return normalizeBasePlayer({
+    id: row.id,
+    lastName: row.last_name,
+    firstName: row.first_name,
+    rating: row.rating,
+    rank: row.rank,
+    birthDate: row.birth_date,
+    photoDataUrl: row.photo_url,
+    createdAt: row.created_at,
+    history: [],
+    stats: emptyStats(),
+  });
+}
+
+function mapApiTournamentToState(row) {
+  const payload = row && typeof row.payload === "object" && row.payload ? row.payload : {};
+  return {
+    id: row.id,
+    name: row.name || payload.name || "Турнір",
+    format: row.format === "round_robin" ? "round_robin" : "swiss",
+    eventDate: row.event_date || payload.eventDate || "",
+    timeControl: row.time_control || payload.timeControl || "",
+    chiefJudge: row.chief_judge || payload.chiefJudge || "",
+    tieBreakOrder: Array.isArray(row.tie_break_order) ? row.tie_break_order : payload.tieBreakOrder,
+    photoDataUrl: row.photo_url || payload.photoDataUrl || null,
+    roundsCount: row.rounds_count || payload.roundsCount || 1,
+    currentRound: row.current_round || payload.currentRound || 0,
+    status: row.status || payload.status || "active",
+    createdAt: row.created_at || payload.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || payload.updatedAt || new Date().toISOString(),
+    finishedAt: row.archived_at || payload.finishedAt || row.updated_at || new Date().toISOString(),
+    players: Array.isArray(payload.players) ? payload.players : [],
+    rounds: Array.isArray(payload.rounds) ? payload.rounds : [],
+  };
+}
+
+function cloneAppState(appState) {
+  if (typeof structuredClone === "function") {
+    return structuredClone(appState);
+  }
+
+  return JSON.parse(JSON.stringify(appState));
+}
+
+function prepareStateForPersistence(appState) {
+  const snapshot = cloneAppState(appState);
+  ensureTournamentPlayersLinkedToBase(snapshot.currentTournament, snapshot.playerBase);
+
+  for (const archived of snapshot.tournamentsArchive) {
+    ensureTournamentPlayersLinkedToBase(archived, snapshot.playerBase);
+  }
+
+  rebuildPlayerBaseHistoryForState(snapshot);
+  return snapshot;
+}
+
+function rebuildPlayerBaseHistoryForState(appState) {
+  for (const base of appState.playerBase) {
+    base.history = [];
+    base.stats = emptyStats();
+  }
+
+  for (const archived of appState.tournamentsArchive) {
+    mergeTournamentResultsIntoPlayerBase(appState.playerBase, archived);
+  }
+}
+
+function mergeTournamentResultsIntoPlayerBase(basePlayers, tournamentSnapshot) {
+  const standings = getStandings(tournamentSnapshot);
+  const placeById = Object.fromEntries(standings.map((p, idx) => [p.id, idx + 1]));
+
+  for (const tp of tournamentSnapshot.players) {
+    const base = findOrCreateBasePlayerForTournamentPlayer(basePlayers, tp);
+    const { games, wins, draws, losses, bye } = countPlayerStats(tp);
+
+    const entry = {
+      tournamentId: tournamentSnapshot.id,
+      tournamentName: tournamentSnapshot.name,
+      finishedAt: tournamentSnapshot.finishedAt,
+      place: placeById[tp.id] || null,
+      score: Number(tp.score) || 0,
+      games,
+      wins,
+      draws,
+      losses,
+      bye,
+      rounds: tournamentSnapshot.currentRound,
+      opponents: collectOpponentsForPlayer(tournamentSnapshot, tp.id),
+    };
+
+    const existingIdx = base.history.findIndex((h) => h.tournamentId === tournamentSnapshot.id);
+    if (existingIdx >= 0) {
+      base.history[existingIdx] = entry;
+    } else {
+      base.history.push(entry);
+    }
+  }
+
+  recalcBaseStatsForList(basePlayers);
+}
+
+function findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer) {
+  let base = null;
+
+  if (tournamentPlayer.basePlayerId) {
+    base = basePlayers.find((bp) => bp.id === tournamentPlayer.basePlayerId);
+  }
+
+  if (!base) {
+    base = basePlayers.find((bp) => getBaseFullName(bp).toLowerCase() === tournamentPlayer.name.toLowerCase());
+  }
+
+  if (!base) {
+    const split = splitFullName(tournamentPlayer.name);
+    base = createBasePlayerRecord(split.lastName, split.firstName, tournamentPlayer.rating);
+    base.id = tournamentPlayer.basePlayerId || base.id;
+    basePlayers.push(base);
+  }
+
+  return base;
+}
+
+function buildBasePlayerApiPayload(basePlayer) {
+  return {
+    id: basePlayer.id,
+    last_name: basePlayer.lastName,
+    first_name: basePlayer.firstName,
+    rating: Number(basePlayer.rating) || 0,
+    rank: normalizeRank(basePlayer.rank),
+    birth_date: normalizeBirthDate(basePlayer.birthDate) || null,
+    photo_url: basePlayer.photoDataUrl || null,
+  };
+}
+
+function buildTournamentApiPayload(tournament, status) {
+  const tieBreakOrder = normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false });
+  const archivedAt = status === "archived" ? tournament.finishedAt || tournament.updatedAt || new Date().toISOString() : null;
+
+  return {
+    id: tournament.id,
+    name: tournament.name || "Турнір",
+    format: tournament.format === "round_robin" ? "round_robin" : "swiss",
+    rounds_count: Number(tournament.roundsCount) || 1,
+    current_round: Number(tournament.currentRound) || 0,
+    status,
+    event_date: normalizeBirthDate(tournament.eventDate) || null,
+    time_control: normalizeTimeControl(tournament.timeControl) || null,
+    chief_judge: normalizeChiefJudge(tournament.chiefJudge) || null,
+    photo_url: tournament.photoDataUrl || null,
+    tie_break_order: tieBreakOrder,
+    archived_at: archivedAt,
+    payload: {
+      players: Array.isArray(tournament.players) ? tournament.players : [],
+      rounds: Array.isArray(tournament.rounds) ? tournament.rounds : [],
+      createdAt: tournament.createdAt || new Date().toISOString(),
+      updatedAt: tournament.updatedAt || new Date().toISOString(),
+      finishedAt: archivedAt,
+      tieBreakOrder,
+      photoDataUrl: tournament.photoDataUrl || null,
+      eventDate: normalizeBirthDate(tournament.eventDate) || "",
+      timeControl: normalizeTimeControl(tournament.timeControl),
+      chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
+    },
+  };
+}
+
+function hasMeaningfulTournamentData(tournament) {
+  if (!tournament || tournament.status === "archived_view") {
+    return false;
+  }
+
+  return Boolean(
+    tournament.players.length ||
+      tournament.rounds.length ||
+      tournament.currentRound > 0 ||
+      tournament.name ||
+      tournament.eventDate ||
+      tournament.timeControl ||
+      tournament.chiefJudge ||
+      tournament.photoDataUrl
+  );
+}
+
+function hasMeaningfulAppState(appState) {
+  if (!appState) {
+    return false;
+  }
+
+  return Boolean(
+    appState.playerBase.length ||
+      appState.tournamentsArchive.length ||
+      hasMeaningfulTournamentData(appState.currentTournament)
+  );
+}
+
+function buildTournamentsForSync(appState) {
+  const payloads = [];
+
+  if (hasMeaningfulTournamentData(appState.currentTournament)) {
+    payloads.push(buildTournamentApiPayload(appState.currentTournament, "active"));
+  }
+
+  for (const archived of appState.tournamentsArchive) {
+    payloads.push(buildTournamentApiPayload(archived, "archived"));
+  }
+
+  return payloads;
+}
+
+function scheduleRemoteSync(_reason = "state-change") {
+  if (persistenceInfo.mode !== "remote") {
+    return;
+  }
+
+  if (remoteSyncTimerId) {
+    window.clearTimeout(remoteSyncTimerId);
+  }
+
+  remoteSyncTimerId = window.setTimeout(() => {
+    remoteSyncTimerId = null;
+    void flushRemoteSync();
+  }, REMOTE_SYNC_DEBOUNCE_MS);
+}
+
+async function flushRemoteSync() {
+  if (persistenceInfo.mode !== "remote") {
+    return;
+  }
+
+  if (remoteSyncInFlight) {
+    remoteSyncQueued = true;
+    return;
+  }
+
+  remoteSyncInFlight = true;
+  setPersistenceInfo({
+    mode: "remote",
+    status: "syncing",
+    message: "Синхронізую зміни з PostgreSQL...",
+  });
+  render();
+
+  try {
+    const snapshot = prepareStateForPersistence(state);
+    await syncRemoteSnapshot(snapshot);
+
+    setPersistenceInfo({
+      mode: "remote",
+      status: "ready",
+      message: `Синхронізовано з PostgreSQL о ${formatSyncTime(new Date().toISOString())}.`,
+      lastSyncedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[flushRemoteSync]", error);
+    setPersistenceInfo({
+      mode: "remote",
+      status: "error",
+      message: "Помилка синхронізації з Render API. Локальна копія в браузері збережена.",
+    });
+  } finally {
+    remoteSyncInFlight = false;
+    render();
+  }
+
+  if (remoteSyncQueued) {
+    remoteSyncQueued = false;
+    void flushRemoteSync();
+  }
+}
+
+async function syncRemoteSnapshot(appState) {
+  const desiredPlayers = appState.playerBase.map(buildBasePlayerApiPayload);
+  const desiredPlayerIds = new Set(desiredPlayers.map((item) => item.id));
+
+  for (const playerPayload of desiredPlayers) {
+    if (remoteKnownPlayerIds.has(playerPayload.id)) {
+      await apiRequest(`/api/players/${playerPayload.id}`, {
+        method: "PUT",
+        body: playerPayload,
+        timeoutMs: 6000,
+      });
+    } else {
+      await apiRequest("/api/players", {
+        method: "POST",
+        body: playerPayload,
+        timeoutMs: 6000,
+      });
+      remoteKnownPlayerIds.add(playerPayload.id);
+    }
+  }
+
+  for (const playerId of [...remoteKnownPlayerIds]) {
+    if (desiredPlayerIds.has(playerId)) {
+      continue;
+    }
+    await apiRequest(`/api/players/${playerId}`, { method: "DELETE", timeoutMs: 6000 });
+    remoteKnownPlayerIds.delete(playerId);
+  }
+
+  const desiredTournaments = buildTournamentsForSync(appState);
+  const desiredTournamentIds = new Set(desiredTournaments.map((item) => item.id));
+
+  for (const tournamentPayload of desiredTournaments) {
+    if (remoteKnownTournamentIds.has(tournamentPayload.id)) {
+      await apiRequest(`/api/tournaments/${tournamentPayload.id}`, {
+        method: "PUT",
+        body: tournamentPayload,
+        timeoutMs: 8000,
+      });
+    } else {
+      await apiRequest("/api/tournaments", {
+        method: "POST",
+        body: tournamentPayload,
+        timeoutMs: 8000,
+      });
+      remoteKnownTournamentIds.add(tournamentPayload.id);
+    }
+  }
+
+  for (const tournamentId of [...remoteKnownTournamentIds]) {
+    if (desiredTournamentIds.has(tournamentId)) {
+      continue;
+    }
+    await apiRequest(`/api/tournaments/${tournamentId}`, { method: "DELETE", timeoutMs: 8000 });
+    remoteKnownTournamentIds.delete(tournamentId);
+  }
+}
+
+function formatSyncTime(iso) {
+  try {
+    return new Intl.DateTimeFormat("uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
 function ensureStartNumbers(tournament) {
   let changed = false;
   const byRating = [...tournament.players].sort((a, b) => b.rating - a.rating);
@@ -2871,52 +3478,7 @@ function finishCurrentTournament() {
 }
 
 function applyTournamentResultsToPlayerBase(tournamentSnapshot) {
-  const standings = getStandings(tournamentSnapshot);
-  const placeById = Object.fromEntries(standings.map((p, idx) => [p.id, idx + 1]));
-
-  for (const tp of tournamentSnapshot.players) {
-    let base = null;
-
-    if (tp.basePlayerId) {
-      base = state.playerBase.find((bp) => bp.id === tp.basePlayerId);
-    }
-
-    if (!base) {
-      base = state.playerBase.find((bp) => getBaseFullName(bp).toLowerCase() === tp.name.toLowerCase());
-    }
-
-    if (!base) {
-      const split = splitFullName(tp.name);
-      base = createBasePlayerRecord(split.lastName, split.firstName, tp.rating);
-      state.playerBase.push(base);
-    }
-
-    const { games, wins, draws, losses, bye } = countPlayerStats(tp);
-
-    const entry = {
-      tournamentId: tournamentSnapshot.id,
-      tournamentName: tournamentSnapshot.name,
-      finishedAt: tournamentSnapshot.finishedAt,
-      place: placeById[tp.id] || null,
-      score: Number(tp.score) || 0,
-      games,
-      wins,
-      draws,
-      losses,
-      bye,
-      rounds: tournamentSnapshot.currentRound,
-      opponents: collectOpponentsForPlayer(tournamentSnapshot, tp.id),
-    };
-
-    const existingIdx = base.history.findIndex((h) => h.tournamentId === tournamentSnapshot.id);
-    if (existingIdx >= 0) {
-      base.history[existingIdx] = entry;
-    } else {
-      base.history.push(entry);
-    }
-  }
-
-  recalcAllBaseStats();
+  mergeTournamentResultsIntoPlayerBase(state.playerBase, tournamentSnapshot);
 }
 
 function countPlayerStats(tPlayer) {
@@ -2973,8 +3535,8 @@ function collectOpponentsForPlayer(tournament, playerId) {
   return result;
 }
 
-function recalcAllBaseStats() {
-  for (const base of state.playerBase) {
+function recalcBaseStatsForList(basePlayers) {
+  for (const base of basePlayers) {
     const stats = emptyStats();
     for (const h of base.history) {
       stats.tournaments += 1;
@@ -2988,6 +3550,10 @@ function recalcAllBaseStats() {
 
     base.stats = stats;
   }
+}
+
+function recalcAllBaseStats() {
+  recalcBaseStatsForList(state.playerBase);
 }
 
 function loadTournamentFromArchive(tournamentId) {
@@ -3017,11 +3583,7 @@ function deleteArchivedTournament(tournamentId) {
     state.archivePreviewTournamentId = null;
   }
 
-  for (const bp of state.playerBase) {
-    bp.history = bp.history.filter((h) => h.tournamentId !== tournamentId);
-  }
-
-  recalcAllBaseStats();
+  rebuildPlayerBaseHistoryForState(state);
   saveAndRender();
 }
 
@@ -3052,17 +3614,10 @@ function cloneTournament(tournament) {
 }
 
 function saveAndRender() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    if (isQuotaExceededError(error)) {
-      alert("Браузерне сховище переповнене. Зменште розмір/кількість фото і спробуйте знову.");
-    } else {
-      alert("Не вдалося зберегти зміни в браузері. Спробуйте ще раз.");
-    }
-    console.error(error);
-  }
+  stateRevision += 1;
+  persistLocalState();
   render();
+  scheduleRemoteSync("state-change");
 }
 
 function isQuotaExceededError(error) {
@@ -3110,10 +3665,13 @@ function escapeHtml(value) {
 }
 
 // ===== 09-init.js =====
-state = normalizeState(loadRawState());
+const initialRawState = loadRawState();
+hasStoredLocalState = Boolean(initialRawState);
+state = normalizeState(initialRawState);
 recalcAllBaseStats();
 normalizeRoundsCountForCurrentFormat(state.currentTournament);
 tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
 
 bindEvents();
 render();
+void bootstrapPersistence();

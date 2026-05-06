@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
-const cors = require('cors');
+const path = require('path');
 const { query, closePool } = require('./lib/db');
 const { ensureSchema } = require('./lib/schema');
 const playersRouter = require('./routes/players');
@@ -9,24 +9,52 @@ const tournamentsRouter = require('./routes/tournaments');
 
 const app = express();
 const PORT = Number(process.env.PORT || 10000);
+const ROOT_DIR = path.resolve(__dirname, '..');
+const FRONTEND_ENTRY = path.join(ROOT_DIR, 'index.html');
+app.set('trust proxy', true);
 
-const allowedOrigins = (process.env.CORS_ORIGIN || '')
+const configuredOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((v) => v.trim())
   .filter(Boolean);
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error('CORS blocked'));
-    },
-  })
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      'https://swiss-draw-manager.onrender.com',
+      process.env.RENDER_EXTERNAL_URL,
+      ...configuredOrigins,
+    ].filter(Boolean)
+  )
 );
 
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const requestProtocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const requestOrigin = `${requestProtocol}://${req.get('host')}`;
+  const allowOrigin =
+    !origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin) || origin === requestOrigin;
+
+  if (!allowOrigin) {
+    return next(new Error('CORS blocked'));
+  }
+
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  }
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
+
 app.use(express.json({ limit: '2mb' }));
+app.use(express.static(ROOT_DIR, { index: false }));
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -39,11 +67,27 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api/players', playersRouter);
 app.use('/api/tournaments', tournamentsRouter);
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'API route not found' });
+});
 
-app.use((error, _req, res, _next) => {
+const sendFrontend = (_req, res) => {
+  res.sendFile(FRONTEND_ENTRY);
+};
+
+app.get('/', sendFrontend);
+app.get('*', sendFrontend);
+
+app.use((error, req, res, _next) => {
   console.error('[api-error]', error);
   const status = error.message === 'CORS blocked' ? 403 : 500;
-  res.status(status).json({ error: status === 403 ? 'CORS blocked' : 'Внутрішня помилка сервера' });
+  const message = status === 403 ? 'CORS blocked' : 'Внутрішня помилка сервера';
+
+  if (req.path.startsWith('/api')) {
+    return res.status(status).json({ error: message });
+  }
+
+  return res.status(status).send(message);
 });
 
 async function start() {

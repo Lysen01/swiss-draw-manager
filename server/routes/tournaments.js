@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../lib/db');
-const { asSafeString, asDateOrNull } = require('../lib/validators');
+const { asSafeString, asUuidOrNull, asDateOrNull } = require('../lib/validators');
 
 const router = express.Router();
 
@@ -43,6 +43,7 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
+    const id = asUuidOrNull(req.body.id);
     const name = asSafeString(req.body.name, 180) || 'Новий турнір';
     const format = req.body.format === 'round_robin' ? 'round_robin' : 'swiss';
     const roundsCount = Math.max(1, Number(req.body.rounds_count || req.body.roundsCount || 1));
@@ -61,18 +62,19 @@ router.post('/', async (req, res, next) => {
 
     const result = await query(
       `INSERT INTO tournaments (
-        name, format, rounds_count, current_round, status,
+        id, name, format, rounds_count, current_round, status,
         event_date, time_control, chief_judge, photo_url,
         tie_break_order, payload
       ) VALUES (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8, $9,
-        $10::jsonb, $11::jsonb
+        COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6,
+        $7, $8, $9, $10,
+        $11::jsonb, $12::jsonb
       )
       RETURNING id, name, format, rounds_count, current_round, status,
                 event_date, time_control, chief_judge, photo_url,
                 tie_break_order, payload, created_at, updated_at, archived_at`,
       [
+        id,
         name,
         format,
         roundsCount,
