@@ -67,3 +67,34 @@ node scripts/build-app.js
 ```
 
 3. Відкрийте `index.html` і перевірте результат.
+
+## Backend API (Render + PostgreSQL)
+
+У репозиторій додано API сервер:
+- `server/index.js`
+- `server/routes/players.js`
+- `server/routes/tournaments.js`
+- `server/lib/db.js`
+- `server/lib/schema.js`
+
+### Локальний запуск API
+
+```bash
+npm install
+DATABASE_URL=postgresql://... npm run start:api
+```
+
+### Deploy на Render
+
+1. `New -> Web Service`
+2. Repo: `Lysen01/swiss-draw-manager`
+3. Branch: `main`
+4. Build: `npm install`
+5. Start: `npm run start:api`
+6. Env vars:
+   - `DATABASE_URL` = Internal Database URL з твоєї БД `arbiter-db`
+   - `CORS_ORIGIN` = `https://lysen01.github.io`
+   - `NODE_ENV` = `production`
+
+Після деплою перевірка:
+- `GET /api/health`

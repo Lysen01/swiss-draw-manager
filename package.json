@@ -1,0 +1,16 @@
+{
+  "name": "arbiter-shashkovoi-ligy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Арбітр Шашкової Ліги: frontend + PostgreSQL API",
+  "scripts": {
+    "build:app": "node scripts/build-app.js",
+    "start:api": "node server/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "pg": "^8.16.3"
+  }
+}

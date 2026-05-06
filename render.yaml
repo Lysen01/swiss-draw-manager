@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: arbiter-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm run start:api
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://lysen01.github.io
