@@ -9,6 +9,7 @@ async function ensureSchema() {
       last_name TEXT NOT NULL,
       first_name TEXT NOT NULL,
       rating INTEGER NOT NULL DEFAULT 0,
+      gender TEXT NOT NULL DEFAULT '',
       rank TEXT NOT NULL DEFAULT 'б/р',
       birth_date DATE,
       photo_url TEXT,
@@ -17,6 +18,8 @@ async function ensureSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_players_last_first ON players (last_name, first_name);
+
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS gender TEXT NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS tournaments (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

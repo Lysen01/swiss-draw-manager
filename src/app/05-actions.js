@@ -63,6 +63,7 @@ function addBasePlayerToTournament(basePlayerId) {
 function addTournamentPlayer(basePlayerId, name, rating, options = {}) {
   const t = state.currentTournament;
   const shouldSave = options.save !== false;
+  const basePlayer = basePlayerId ? state.playerBase.find((p) => p.id === basePlayerId) : null;
 
   if (t.players.some((p) => p.basePlayerId === basePlayerId)) {
     if (shouldSave) {
@@ -71,7 +72,12 @@ function addTournamentPlayer(basePlayerId, name, rating, options = {}) {
     return false;
   }
 
-  t.players.push(createTournamentPlayer(name, rating, basePlayerId, t.players.length));
+  t.players.push(
+    createTournamentPlayer(name, rating, basePlayerId, t.players.length, {
+      gender: basePlayer?.gender,
+      photoDataUrl: basePlayer?.photoDataUrl,
+    })
+  );
   if (shouldSave) {
     normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
@@ -84,6 +90,7 @@ async function submitBasePlayerForm() {
   const lastName = els.basePlayerLastName.value.trim();
   const firstName = els.basePlayerFirstName.value.trim();
   const rating = Number(els.basePlayerRating.value);
+  const gender = normalizeGender(els.basePlayerGender.value);
   const rank = els.basePlayerRank.value;
   const birthDate = normalizeBirthDate(els.basePlayerBirthDate.value);
   const removePhoto = els.basePlayerRemovePhoto.checked;
@@ -129,6 +136,7 @@ async function submitBasePlayerForm() {
     base.lastName = lastName;
     base.firstName = firstName;
     base.rating = Math.round(rating);
+    base.gender = gender;
     base.rank = normalizeRank(rank);
     base.birthDate = birthDate;
 
@@ -151,6 +159,7 @@ async function submitBasePlayerForm() {
 
     state.playerBase.push(
       createBasePlayerRecord(lastName, firstName, Math.round(rating), {
+        gender,
         rank,
         birthDate,
         photoDataUrl: photoDataUrl || null,
@@ -188,6 +197,7 @@ function startEditBasePlayer(playerId) {
   els.basePlayerLastName.value = base.lastName || "";
   els.basePlayerFirstName.value = base.firstName || "";
   els.basePlayerRating.value = String(base.rating ?? 0);
+  els.basePlayerGender.value = normalizeGender(base.gender);
   els.basePlayerRank.value = normalizeRank(base.rank);
   els.basePlayerBirthDate.value = normalizeBirthDate(base.birthDate);
   els.basePlayerPhoto.value = "";
@@ -195,7 +205,7 @@ function startEditBasePlayer(playerId) {
   els.basePlayerSubmitBtn.textContent = "Зберегти зміни";
   els.basePlayerCancelEditBtn.hidden = false;
   els.baseEditHint.hidden = false;
-  els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Поля: Прізвище, Ім'я, Рейтинг, Спортивне звання, Дата народження, Фото.`;
+  els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Поля: Прізвище, Ім'я, Рейтинг, Стать, Спортивне звання, Дата народження, Фото.`;
   els.basePlayerForm.scrollIntoView({ behavior: "smooth", block: "center" });
   els.basePlayerLastName.focus();
 }
@@ -203,6 +213,7 @@ function startEditBasePlayer(playerId) {
 function resetBasePlayerForm() {
   editingBasePlayerId = null;
   els.basePlayerForm.reset();
+  els.basePlayerGender.value = "";
   els.basePlayerRank.value = "б/р";
   els.basePlayerRemovePhoto.checked = false;
   els.basePlayerSubmitBtn.textContent = "Додати в базу";
@@ -315,6 +326,8 @@ function syncBasePlayerChangesToCurrentTournament(basePlayerId) {
   const linked = t.players.filter((p) => p.basePlayerId === basePlayerId);
   for (const tp of linked) {
     tp.name = getBaseFullName(base);
+    tp.gender = normalizeGender(base.gender);
+    tp.photoDataUrl = base.photoDataUrl || null;
     if (t.currentRound === 0) {
       tp.rating = base.rating;
     }
@@ -424,10 +437,14 @@ function addDemoPlayers() {
       state.playerBase.push(base);
     }
 
-    t.players.push(createTournamentPlayer(getBaseFullName(base), rating, base.id, t.players.length));
+    t.players.push(
+      createTournamentPlayer(getBaseFullName(base), rating, base.id, t.players.length, {
+        gender: base.gender,
+        photoDataUrl: base.photoDataUrl,
+      })
+    );
   }
 
   normalizeRoundsCountForCurrentFormat(t);
   saveAndRender();
 }
-

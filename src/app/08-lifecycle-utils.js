@@ -240,6 +240,7 @@ function mapApiPlayerToBasePlayer(row) {
     lastName: row.last_name,
     firstName: row.first_name,
     rating: row.rating,
+    gender: row.gender,
     rank: row.rank,
     birthDate: row.birth_date,
     photoDataUrl: row.photo_url,
@@ -349,9 +350,20 @@ function findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer
 
   if (!base) {
     const split = splitFullName(tournamentPlayer.name);
-    base = createBasePlayerRecord(split.lastName, split.firstName, tournamentPlayer.rating);
+    base = createBasePlayerRecord(split.lastName, split.firstName, tournamentPlayer.rating, {
+      gender: tournamentPlayer.gender,
+      photoDataUrl: tournamentPlayer.photoDataUrl,
+    });
     base.id = tournamentPlayer.basePlayerId || base.id;
     basePlayers.push(base);
+  }
+
+  if (!base.gender && tournamentPlayer.gender) {
+    base.gender = normalizeGender(tournamentPlayer.gender);
+  }
+
+  if (!base.photoDataUrl && tournamentPlayer.photoDataUrl) {
+    base.photoDataUrl = tournamentPlayer.photoDataUrl;
   }
 
   return base;
@@ -363,6 +375,7 @@ function buildBasePlayerApiPayload(basePlayer) {
     last_name: basePlayer.lastName,
     first_name: basePlayer.firstName,
     rating: Number(basePlayer.rating) || 0,
+    gender: normalizeGender(basePlayer.gender),
     rank: normalizeRank(basePlayer.rank),
     birth_date: normalizeBirthDate(basePlayer.birthDate) || null,
     photo_url: basePlayer.photoDataUrl || null,

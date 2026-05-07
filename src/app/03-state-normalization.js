@@ -126,23 +126,23 @@ function applyKyivPresetIfNeeded(stateObj) {
 
 function createKyivPresetPlayers() {
   const preset = [
-    { lastName: "Порецький", firstName: "Лев", rating: 2380, rank: "кмс", birthDate: "2011-07-05" },
-    { lastName: "Дяченко", firstName: "Андрій", rating: 2244, rank: "1", birthDate: "2011-08-04" },
-    { lastName: "Єжова", firstName: "Валерія", rating: 2214, rank: "мс", birthDate: "2011-07-29" },
-    { lastName: "Баркевич", firstName: "Максим", rating: 2408, rank: "кмс", birthDate: "2013-05-31" },
-    { lastName: "Поплавський", firstName: "Данііл", rating: 2276, rank: "1", birthDate: "2014-02-25" },
-    { lastName: "Савченко", firstName: "Макар", rating: 2250, rank: "1", birthDate: "2015-07-01" },
-    { lastName: "Постой", firstName: "Роман", rating: 2250, rank: "1", birthDate: "2015-11-19" },
-    { lastName: "Лисенко", firstName: "Поліна", rating: 2158, rank: "1", birthDate: "2014-12-26" },
-    { lastName: "Карасьова", firstName: "Мар'яна", rating: 2150, rank: "1", birthDate: "2014-08-08" },
-    { lastName: "Гавриш", firstName: "Єлизавета", rating: 1950, rank: "3", birthDate: "2015-03-23" },
-    { lastName: "Діденко", firstName: "Олександр", rating: 2150, rank: "2", birthDate: "2016-12-02" },
-    { lastName: "Строкін", firstName: "Владислав", rating: 2150, rank: "2", birthDate: "2017-09-10" },
-    { lastName: "Сухомуд", firstName: "Святослав", rating: 2050, rank: "3", birthDate: "2016-02-02" },
-    { lastName: "Надточій", firstName: "Владислав", rating: 2050, rank: "3", birthDate: "2017-08-13" },
-    { lastName: "Дем'яненко", firstName: "Мар'яна", rating: 1950, rank: "3", birthDate: "2017-08-03" },
-    { lastName: "Алексеєнко", firstName: "Анастасія", rating: 1850, rank: "юнацький", birthDate: "2017-09-20" },
-    { lastName: "Сіфорова", firstName: "Анна", rating: 1950, rank: "3", birthDate: "2018-07-11" },
+    { lastName: "Порецький", firstName: "Лев", rating: 2380, gender: "M", rank: "кмс", birthDate: "2011-07-05" },
+    { lastName: "Дяченко", firstName: "Андрій", rating: 2244, gender: "M", rank: "1", birthDate: "2011-08-04" },
+    { lastName: "Єжова", firstName: "Валерія", rating: 2214, gender: "F", rank: "мс", birthDate: "2011-07-29" },
+    { lastName: "Баркевич", firstName: "Максим", rating: 2408, gender: "M", rank: "кмс", birthDate: "2013-05-31" },
+    { lastName: "Поплавський", firstName: "Данііл", rating: 2276, gender: "M", rank: "1", birthDate: "2014-02-25" },
+    { lastName: "Савченко", firstName: "Макар", rating: 2250, gender: "M", rank: "1", birthDate: "2015-07-01" },
+    { lastName: "Постой", firstName: "Роман", rating: 2250, gender: "M", rank: "1", birthDate: "2015-11-19" },
+    { lastName: "Лисенко", firstName: "Поліна", rating: 2158, gender: "F", rank: "1", birthDate: "2014-12-26" },
+    { lastName: "Карасьова", firstName: "Мар'яна", rating: 2150, gender: "F", rank: "1", birthDate: "2014-08-08" },
+    { lastName: "Гавриш", firstName: "Єлизавета", rating: 1950, gender: "F", rank: "3", birthDate: "2015-03-23" },
+    { lastName: "Діденко", firstName: "Олександр", rating: 2150, gender: "M", rank: "2", birthDate: "2016-12-02" },
+    { lastName: "Строкін", firstName: "Владислав", rating: 2150, gender: "M", rank: "2", birthDate: "2017-09-10" },
+    { lastName: "Сухомуд", firstName: "Святослав", rating: 2050, gender: "M", rank: "3", birthDate: "2016-02-02" },
+    { lastName: "Надточій", firstName: "Владислав", rating: 2050, gender: "M", rank: "3", birthDate: "2017-08-13" },
+    { lastName: "Дем'яненко", firstName: "Мар'яна", rating: 1950, gender: "F", rank: "3", birthDate: "2017-08-03" },
+    { lastName: "Алексеєнко", firstName: "Анастасія", rating: 1850, gender: "F", rank: "юнацький", birthDate: "2017-09-20" },
+    { lastName: "Сіфорова", firstName: "Анна", rating: 1950, gender: "F", rank: "3", birthDate: "2018-07-11" },
   ];
 
   return preset.map((p) => createBasePlayerRecord(p.lastName, p.firstName, p.rating, p));
@@ -191,6 +191,8 @@ function normalizeTournament(tournament) {
           basePlayerId: p.basePlayerId || null,
           name: p.name,
           rating: Number(p.rating) || 0,
+          gender: normalizeGender(p.gender),
+          photoDataUrl: typeof p.photoDataUrl === "string" && p.photoDataUrl ? p.photoDataUrl : null,
           startNo: Number.isInteger(p.startNo) ? p.startNo : idx + 1,
           score: Number(p.score) || 0,
           hadBye: Boolean(p.hadBye),
@@ -230,6 +232,7 @@ function normalizeBasePlayer(player) {
     firstName: player.firstName || parsed.firstName || "імені",
     lastName: player.lastName || parsed.lastName || "Без",
     rating: Number(player.rating) || 0,
+    gender: normalizeGender(player.gender),
     rank: normalizeRank(player.rank),
     birthDate: normalizeBirthDate(player.birthDate),
     photoDataUrl: typeof player.photoDataUrl === "string" && player.photoDataUrl ? player.photoDataUrl : null,
@@ -264,7 +267,10 @@ function ensureTournamentPlayersLinkedToBase(tournament, basePlayers) {
     }
 
     const split = splitFullName(p.name);
-    const created = createBasePlayerRecord(split.lastName, split.firstName, p.rating);
+    const created = createBasePlayerRecord(split.lastName, split.firstName, p.rating, {
+      gender: p.gender,
+      photoDataUrl: p.photoDataUrl,
+    });
     basePlayers.push(created);
     p.basePlayerId = created.id;
   }
@@ -276,6 +282,7 @@ function createBasePlayerRecord(lastName, firstName, rating, extra = {}) {
     firstName,
     lastName,
     rating,
+    gender: normalizeGender(extra.gender),
     rank: normalizeRank(extra.rank),
     birthDate: normalizeBirthDate(extra.birthDate),
     photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
@@ -285,12 +292,14 @@ function createBasePlayerRecord(lastName, firstName, rating, extra = {}) {
   };
 }
 
-function createTournamentPlayer(name, rating, basePlayerId, currentCount) {
+function createTournamentPlayer(name, rating, basePlayerId, currentCount, extra = {}) {
   return {
     id: crypto.randomUUID(),
     basePlayerId,
     name,
     rating,
+    gender: normalizeGender(extra.gender),
+    photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
     startNo: currentCount + 1,
     score: 0,
     hadBye: false,
@@ -325,6 +334,10 @@ function normalizeRank(value) {
     return value;
   }
   return "б/р";
+}
+
+function normalizeGender(value) {
+  return value === "M" || value === "F" ? value : "";
 }
 
 function normalizeBirthDate(value) {
@@ -435,4 +448,3 @@ function isValidBasePlayerPhotoFile(file) {
   alert("Фото гравця занадто велике. Оберіть файл до 10 MB.");
   return false;
 }
-

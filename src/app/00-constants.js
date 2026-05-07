@@ -13,6 +13,11 @@ const TIEBREAK_OPTIONS = [
   { value: "wins", label: "Кількість перемог (Wins)" },
   { value: "rating", label: "Рейтинг" },
 ];
+const GENDER_OPTIONS = [
+  { value: "", label: "Не вказано" },
+  { value: "M", label: "М" },
+  { value: "F", label: "Ж" },
+];
 const MAX_TOURNAMENT_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_TOURNAMENT_PHOTO_STORE_BYTES = 1_600_000;
 const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;

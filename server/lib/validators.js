@@ -19,6 +19,10 @@ function asRating(value) {
   return Math.max(0, Math.min(4000, Math.round(n)));
 }
 
+function asGender(value) {
+  return value === 'M' || value === 'F' ? value : '';
+}
+
 function asDateOrNull(value) {
   const v = String(value || '').trim();
   if (!v) {
@@ -34,5 +38,6 @@ module.exports = {
   asSafeString,
   asUuidOrNull,
   asRating,
+  asGender,
   asDateOrNull,
 };

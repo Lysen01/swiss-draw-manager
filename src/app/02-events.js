@@ -239,6 +239,28 @@ function bindEvents() {
     resetBasePlayerForm();
   });
 
+  for (const control of [
+    els.basePlayersSearch,
+    els.basePlayersGenderFilter,
+    els.basePlayersRatingFrom,
+    els.basePlayersRatingTo,
+  ]) {
+    control.addEventListener("input", () => {
+      renderBasePlayersTab();
+    });
+    control.addEventListener("change", () => {
+      renderBasePlayersTab();
+    });
+  }
+
+  els.basePlayersClearFilters.addEventListener("click", () => {
+    els.basePlayersSearch.value = "";
+    els.basePlayersGenderFilter.value = "all";
+    els.basePlayersRatingFrom.value = "";
+    els.basePlayersRatingTo.value = "";
+    renderBasePlayersTab();
+  });
+
   els.basePlayersList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -277,6 +299,19 @@ function bindEvents() {
       }
       renderBasePlayersTab();
     }
+  });
+
+  els.pairings.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action='set-pair-result']");
+    if (!btn || btn.disabled) {
+      return;
+    }
+
+    const roundIdx = Number(btn.dataset.roundIdx);
+    const board = Number(btn.dataset.board);
+    const currentValue = btn.dataset.current || "pending";
+    const nextValue = btn.dataset.resultValue || "pending";
+    updateResult(roundIdx, board, currentValue === nextValue ? "pending" : nextValue);
   });
 
   els.playersList.addEventListener("click", (event) => {
@@ -325,4 +360,3 @@ function bindEvents() {
     }
   });
 }
-

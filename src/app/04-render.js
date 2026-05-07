@@ -279,7 +279,7 @@ function renderBaseSelect() {
       player: p,
       id: p.id,
       token: `${getBaseFullName(p)} (${p.rating})`,
-      search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)} ${p.rating}`.toLowerCase(),
+      search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)}`.toLowerCase(),
     }));
 
   const allowedIds = new Set(tournamentBaseLookup.map((item) => item.id));
@@ -287,7 +287,7 @@ function renderBaseSelect() {
   filteredTournamentBaseLookup =
     query.length === 0 ? tournamentBaseLookup : tournamentBaseLookup.filter((item) => item.search.includes(query));
   els.dbPlayerSelect.disabled = false;
-  els.dbPlayerSelect.placeholder = "Пошук за прізвищем, ім'ям або рейтингом";
+  els.dbPlayerSelect.placeholder = "Пошук за прізвищем або ім'ям";
 
   if (tournamentBaseLookup.length === 0) {
     els.dbPlayerChecklist.innerHTML = '<div class="base-pick-empty">Усі гравці з бази вже додані в цей турнір.</div>';
@@ -404,12 +404,11 @@ function renderRounds() {
                 ${roundLocked ? '<span class="pair-lock">зафіксовано</span>' : ""}
               </div>
               <div class="pair-actions">
-                <select data-round-idx="${index}" data-board="${pair.board}" ${roundLocked ? "disabled" : ""}>
-                  <option value="pending" ${pair.result === "pending" ? "selected" : ""}>Результат не внесено</option>
-                  <option value="1-0" ${pair.result === "1-0" ? "selected" : ""}>1-0</option>
-                  <option value="0-1" ${pair.result === "0-1" ? "selected" : ""}>0-1</option>
-                  <option value="0.5-0.5" ${pair.result === "0.5-0.5" ? "selected" : ""}>0.5-0.5</option>
-                </select>
+                <div class="result-toggle" role="group" aria-label="Результат партії">
+                  ${buildPairResultButton(index, pair.board, pair.result, "1-0", "W", "Білі перемогли", roundLocked)}
+                  ${buildPairResultButton(index, pair.board, pair.result, "0.5-0.5", "D", "Нічия", roundLocked)}
+                  ${buildPairResultButton(index, pair.board, pair.result, "0-1", "L", "Чорні перемогли", roundLocked)}
+                </div>
               </div>
             </div>`;
         })
@@ -420,14 +419,24 @@ function renderRounds() {
     .join("");
 
   els.pairings.innerHTML = blocks;
+}
 
-  for (const select of els.pairings.querySelectorAll("select")) {
-    select.addEventListener("change", (event) => {
-      const roundIdx = Number(event.target.dataset.roundIdx);
-      const board = Number(event.target.dataset.board);
-      updateResult(roundIdx, board, event.target.value);
-    });
-  }
+function buildPairResultButton(roundIdx, board, currentResult, nextResult, label, title, disabled) {
+  const active = currentResult === nextResult;
+  return `
+    <button
+      type="button"
+      class="result-btn ${active ? "active" : ""}"
+      data-action="set-pair-result"
+      data-round-idx="${roundIdx}"
+      data-board="${board}"
+      data-current="${currentResult}"
+      data-result-value="${nextResult}"
+      title="${escapeHtml(title)}"
+      aria-pressed="${active ? "true" : "false"}"
+      ${disabled ? "disabled" : ""}
+    >${label}</button>
+  `;
 }
 
 function printCurrentRound() {
@@ -558,7 +567,7 @@ function buildStandingsTableHtml(tournament, options = {}) {
       (p, i) => `
       <tr>
         <td>${buildPlaceCell(tournament, p, i + 1, showRoundDetails, tieRangeById.get(p.id))}</td>
-        <td>${escapeHtml(p.name)}</td>
+        <td>${buildStandingsPlayerCell(tournament, p)}</td>
         <td>${p.rating}</td>
         ${showRoundDetails ? buildRoundCells(tournament, p, placeById) : ""}
         <td>${p.score.toFixed(1)}</td>
@@ -601,23 +610,46 @@ function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tie
   return String(computedPlace);
 }
 
+function buildStandingsPlayerCell(tournament, player) {
+  const photoDataUrl = getTournamentPlayerPhotoDataUrl(player);
+  const name = escapeHtml(player.name);
+  const media = photoDataUrl
+    ? `<img class="standings-player__avatar" src="${photoDataUrl}" alt="${name}" />`
+    : '<span class="standings-player__placeholder">Фото</span>';
+
+  return `<div class="standings-player">${media}<span class="standings-player__name">${name}</span></div>`;
+}
+
+function getTournamentPlayerPhotoDataUrl(player) {
+  if (player.photoDataUrl) {
+    return player.photoDataUrl;
+  }
+
+  if (player.basePlayerId) {
+    const base = state.playerBase.find((bp) => bp.id === player.basePlayerId);
+    if (base?.photoDataUrl) {
+      return base.photoDataUrl;
+    }
+  }
+
+  const byName = state.playerBase.find((bp) => getBaseFullName(bp).toLowerCase() === String(player.name || "").toLowerCase());
+  return byName?.photoDataUrl || null;
+}
+
 function renderBasePlayersTab() {
-  const sortedPlayers = sortBasePlayers(state.playerBase);
+  const filteredPlayers = filterBasePlayers(state.playerBase);
+  const sortedPlayers = sortBasePlayers(filteredPlayers);
+  const totalPlayers = state.playerBase.length;
+  const filtersActive =
+    Boolean(String(els.basePlayersSearch.value || "").trim()) ||
+    els.basePlayersGenderFilter.value !== "all" ||
+    els.basePlayersRatingFrom.value !== "" ||
+    els.basePlayersRatingTo.value !== "";
+  els.basePlayersSummary.textContent = `Показано ${sortedPlayers.length} з ${totalPlayers} гравців${filtersActive ? " за фільтром" : ""}.`;
   const rows = sortedPlayers
-    .map((p, idx) => {
+    .map((p) => {
       return `
       <tr>
-        <td>${idx + 1}</td>
-        <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
-        <td>${escapeHtml(p.lastName || "")}</td>
-        <td>${escapeHtml(p.firstName || "")}</td>
-        <td>${p.rating}</td>
-        <td>${escapeHtml(p.rank || "б/р")}</td>
-        <td>${p.birthDate || "-"}</td>
-        <td>${p.stats.tournaments}</td>
-        <td>${p.stats.games}</td>
-        <td>${p.stats.wins}/${p.stats.draws}/${p.stats.losses}</td>
-        <td>${p.stats.totalScore.toFixed(1)}</td>
         <td>
           <div class="row-actions">
             <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
@@ -626,6 +658,16 @@ function renderBasePlayersTab() {
             <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
           </div>
         </td>
+        <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
+        <td class="player-name-cell">${escapeHtml(getBaseFullName(p))}</td>
+        <td>${formatGenderLabel(p.gender)}</td>
+        <td>${p.rating}</td>
+        <td>${escapeHtml(p.rank || "б/р")}</td>
+        <td>${p.birthDate || "-"}</td>
+        <td>${p.stats.tournaments}</td>
+        <td>${p.stats.games}</td>
+        <td>${p.stats.wins}/${p.stats.draws}/${p.stats.losses}</td>
+        <td>${p.stats.totalScore.toFixed(1)}</td>
       </tr>`;
     })
     .join("");
@@ -640,10 +682,10 @@ function renderBasePlayersTab() {
     <table class="table">
       <thead>
         <tr>
-          <th>${head("#", "index")}</th>
+          <th>Дії</th>
           <th>${head("Фото", "photo")}</th>
-          <th>${head("Прізвище", "lastName")}</th>
-          <th>${head("Ім'я", "firstName")}</th>
+          <th>${head("Гравець", "name")}</th>
+          <th>${head("Стать", "gender")}</th>
           <th>${head("Рейт.", "rating")}</th>
           <th>${head("Звання", "rank")}</th>
           <th>${head("Дата нар.", "birthDate")}</th>
@@ -651,11 +693,40 @@ function renderBasePlayersTab() {
           <th>${head("Партії", "games")}</th>
           <th>${head("W/D/L", "wdl")}</th>
           <th>${head("Очки", "score")}</th>
-          <th>Дії</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="12">База порожня.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="11">База порожня.</td></tr>'}</tbody>
     </table>`;
+}
+
+function filterBasePlayers(players) {
+  const query = String(els.basePlayersSearch.value || "").trim().toLowerCase();
+  const genderFilter = els.basePlayersGenderFilter.value;
+  const ratingFrom = Number(els.basePlayersRatingFrom.value);
+  const ratingTo = Number(els.basePlayersRatingTo.value);
+  const hasRatingFrom = Number.isFinite(ratingFrom) && els.basePlayersRatingFrom.value !== "";
+  const hasRatingTo = Number.isFinite(ratingTo) && els.basePlayersRatingTo.value !== "";
+
+  return players.filter((player) => {
+    const searchText = `${player.lastName || ""} ${player.firstName || ""} ${player.firstName || ""} ${player.lastName || ""}`.toLowerCase();
+    if (query && !searchText.includes(query)) {
+      return false;
+    }
+
+    if (genderFilter !== "all" && normalizeGender(player.gender) !== genderFilter) {
+      return false;
+    }
+
+    if (hasRatingFrom && Number(player.rating) < ratingFrom) {
+      return false;
+    }
+
+    if (hasRatingTo && Number(player.rating) > ratingTo) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 function sortBasePlayers(players) {
@@ -673,14 +744,12 @@ function sortBasePlayers(players) {
       const compareNum = (x, y) => (Number(x) || 0) - (Number(y) || 0);
 
       let cmp = 0;
-      if (key === "index") {
-        cmp = aWrap.idx - bWrap.idx;
-      } else if (key === "photo") {
+      if (key === "photo") {
         cmp = (a.photoDataUrl ? 1 : 0) - (b.photoDataUrl ? 1 : 0);
-      } else if (key === "lastName") {
-        cmp = compareText(a.lastName, b.lastName);
-      } else if (key === "firstName") {
-        cmp = compareText(a.firstName, b.firstName);
+      } else if (key === "name") {
+        cmp = compareText(getBaseFullName(a), getBaseFullName(b));
+      } else if (key === "gender") {
+        cmp = compareText(normalizeGender(a.gender), normalizeGender(b.gender));
       } else if (key === "rating") {
         cmp = compareNum(a.rating, b.rating);
       } else if (key === "rank") {
@@ -711,6 +780,16 @@ function sortBasePlayers(players) {
     });
 
   return list.map((x) => x.p);
+}
+
+function formatGenderLabel(value) {
+  if (value === "M") {
+    return "М";
+  }
+  if (value === "F") {
+    return "Ж";
+  }
+  return "-";
 }
 
 function renderArchiveTab() {
@@ -798,6 +877,12 @@ function printArchivedTournament(tournamentId) {
       .table { width: 100%; border-collapse: collapse; margin-top: 14px; }
       .table th, .table td { border: 1px solid #b8c4d8; padding: 7px 9px; text-align: left; font-size: 13px; vertical-align: middle; }
       .table th { background: #e8eef8; }
+      .standings-player { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .standings-player__avatar,
+      .standings-player__placeholder { width: 30px; height: 30px; border-radius: 50%; flex: 0 0 30px; }
+      .standings-player__avatar { object-fit: cover; border: 1px solid #c8d6eb; }
+      .standings-player__placeholder { display: inline-flex; align-items: center; justify-content: center; background: #eef3fb; color: #6f7e98; font-size: 10px; font-weight: 700; }
+      .standings-player__name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .round-chip { border: 1px solid #2a66c5; border-radius: 8px; padding: 2px 8px; display: inline-block; font-weight: 600; }
       .chip-empty { border-color: #b8c4d8; color: #7f8ba2; }
       .chip-bye { border-color: #6c9f3d; color: #356b16; }

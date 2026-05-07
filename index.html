@@ -117,7 +117,7 @@
           <p class="meta">Учасників можна додати тільки з бази гравців.</p>
 
           <div class="inline-form" style="margin-top: 8px">
-            <input id="dbPlayerSelect" type="text" placeholder="Пошук за прізвищем, ім'ям або рейтингом" autocomplete="off" />
+            <input id="dbPlayerSelect" type="text" placeholder="Пошук за прізвищем або ім'ям" autocomplete="off" />
             <button id="selectAllBaseBtn" type="button">Виділити всіх</button>
             <button id="addFromBaseBtn" type="button">Додати</button>
           </div>
@@ -164,6 +164,14 @@
                 <input id="basePlayerRating" type="number" min="0" max="4000" placeholder="Базовий рейтинг" required />
               </label>
               <label class="base-field">
+                <span class="base-field__label">Стать</span>
+                <select id="basePlayerGender">
+                  <option value="">Не вказано</option>
+                  <option value="M">М</option>
+                  <option value="F">Ж</option>
+                </select>
+              </label>
+              <label class="base-field">
                 <span class="base-field__label">Спорт. звання</span>
                 <select id="basePlayerRank">
                   <option value="б/р">б/р</option>
@@ -196,6 +204,18 @@
             </div>
           </form>
           <div id="baseEditHint" class="edit-hint" hidden></div>
+          <div class="base-list-toolbar">
+            <input id="basePlayersSearch" type="text" placeholder="Пошук за прізвищем або ім'ям" autocomplete="off" />
+            <select id="basePlayersGenderFilter">
+              <option value="all">Усі</option>
+              <option value="M">Тільки М</option>
+              <option value="F">Тільки Ж</option>
+            </select>
+            <input id="basePlayersRatingFrom" type="number" min="0" placeholder="Рейтинг від" />
+            <input id="basePlayersRatingTo" type="number" min="0" placeholder="Рейтинг до" />
+            <button id="basePlayersClearFilters" type="button">Скинути</button>
+          </div>
+          <div id="basePlayersSummary" class="meta"></div>
           <div id="basePlayersList" class="scroll tall"></div>
         </section>
       </section>
