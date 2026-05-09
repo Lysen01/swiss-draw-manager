@@ -806,7 +806,7 @@ function normalizeTournament(tournament) {
     tieBreakOrder: Array.isArray(tournament.tieBreakOrder)
       ? normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false })
       : [...DEFAULT_TIEBREAK_ORDER],
-    photoDataUrl: typeof tournament.photoDataUrl === "string" && tournament.photoDataUrl ? tournament.photoDataUrl : null,
+    photoDataUrl: normalizeImageDataUrl(tournament.photoDataUrl),
     roundsCount: Number(tournament.roundsCount) || 5,
     currentRound: Number(tournament.currentRound) || 0,
     status: tournament.status || "active",
@@ -821,7 +821,7 @@ function normalizeTournament(tournament) {
           gender: normalizeGender(p.gender),
           clubId: normalizeEntityId(p.clubId),
           coachId: normalizeEntityId(p.coachId),
-          photoDataUrl: typeof p.photoDataUrl === "string" && p.photoDataUrl ? p.photoDataUrl : null,
+          photoDataUrl: normalizeImageDataUrl(p.photoDataUrl),
           startNo: Number.isInteger(p.startNo) ? p.startNo : idx + 1,
           score: Number(p.score) || 0,
           hadBye: Boolean(p.hadBye),
@@ -866,7 +866,7 @@ function normalizeBasePlayer(player) {
     coachId: normalizeEntityId(player.coachId),
     rank: normalizeRank(player.rank),
     birthDate: normalizeBirthDate(player.birthDate),
-    photoDataUrl: typeof player.photoDataUrl === "string" && player.photoDataUrl ? player.photoDataUrl : null,
+    photoDataUrl: normalizeImageDataUrl(player.photoDataUrl),
     createdAt: player.createdAt || new Date().toISOString(),
     history: Array.isArray(player.history) ? player.history : [],
     stats: player.stats || emptyStats(),
@@ -920,7 +920,7 @@ function createBasePlayerRecord(lastName, firstName, rating, extra = {}) {
     coachId: normalizeEntityId(extra.coachId),
     rank: normalizeRank(extra.rank),
     birthDate: normalizeBirthDate(extra.birthDate),
-    photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
+    photoDataUrl: normalizeImageDataUrl(extra.photoDataUrl),
     createdAt: new Date().toISOString(),
     history: [],
     stats: emptyStats(),
@@ -936,7 +936,7 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount, extra 
     gender: normalizeGender(extra.gender),
     clubId: normalizeEntityId(extra.clubId),
     coachId: normalizeEntityId(extra.coachId),
-    photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
+    photoDataUrl: normalizeImageDataUrl(extra.photoDataUrl),
     startNo: currentCount + 1,
     score: 0,
     hadBye: false,
@@ -953,12 +953,7 @@ function normalizeClub(club) {
     name: String(club.name || "").trim().slice(0, 140) || "Без назви",
     city: String(club.city || "").trim().slice(0, 80),
     contact: String(club.contact || club.contacts || "").trim().slice(0, 180),
-    logoDataUrl:
-      typeof club.logoDataUrl === "string" && club.logoDataUrl
-        ? club.logoDataUrl
-        : typeof club.logo_url === "string" && club.logo_url
-          ? club.logo_url
-          : null,
+    logoDataUrl: normalizeImageDataUrl(club.logoDataUrl || club.logo_url),
     createdAt: club.createdAt || club.created_at || new Date().toISOString(),
   };
 }
@@ -1000,6 +995,25 @@ function createCoachRecord(lastName, firstName, clubId, extra = {}) {
 
 function normalizeEntityId(value) {
   return String(value || "").trim();
+}
+
+function normalizeImageDataUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return null;
+  }
+
+  if (!/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(text)) {
+    return null;
+  }
+
+  // Old API versions cut image data at 2000 chars. Those values look like
+  // data URLs but render as broken images, so treat them as missing media.
+  if (text.length === 2000) {
+    return null;
+  }
+
+  return text;
 }
 
 function splitFullName(value) {
