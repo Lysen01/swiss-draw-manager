@@ -5,6 +5,8 @@ const path = require('path');
 const { query, closePool } = require('./lib/db');
 const { ensureSchema } = require('./lib/schema');
 const playersRouter = require('./routes/players');
+const clubsRouter = require('./routes/clubs');
+const coachesRouter = require('./routes/coaches');
 const tournamentsRouter = require('./routes/tournaments');
 
 const app = express();
@@ -53,7 +55,7 @@ app.use((req, res, next) => {
   return next();
 });
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '12mb' }));
 app.use(express.static(ROOT_DIR, { index: false }));
 
 app.get('/api/health', async (_req, res) => {
@@ -66,6 +68,8 @@ app.get('/api/health', async (_req, res) => {
 });
 
 app.use('/api/players', playersRouter);
+app.use('/api/clubs', clubsRouter);
+app.use('/api/coaches', coachesRouter);
 app.use('/api/tournaments', tournamentsRouter);
 app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'API route not found' });

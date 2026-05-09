@@ -148,10 +148,12 @@ async function bootstrapPersistence() {
   render();
 
   try {
-    const { playersRows, tournamentRows } = await fetchRemoteBootstrapPayload();
+    const { clubRows, coachRows, playersRows, tournamentRows } = await fetchRemoteBootstrapPayload();
+    remoteKnownClubIds = new Set(clubRows.map((item) => item.id).filter(Boolean));
+    remoteKnownCoachIds = new Set(coachRows.map((item) => item.id).filter(Boolean));
     remoteKnownPlayerIds = new Set(playersRows.map((item) => item.id).filter(Boolean));
     remoteKnownTournamentIds = new Set(tournamentRows.map((item) => item.id).filter(Boolean));
-    const remoteHasData = playersRows.length > 0 || tournamentRows.length > 0;
+    const remoteHasData = clubRows.length > 0 || coachRows.length > 0 || playersRows.length > 0 || tournamentRows.length > 0;
     const localHasData = hasMeaningfulAppState(state);
 
     setPersistenceInfo({
@@ -170,7 +172,7 @@ async function bootstrapPersistence() {
       });
       scheduleRemoteSync("bootstrap-seed");
     } else if (stateRevision === remoteBootstrapRevision) {
-      state = buildStateFromApi(playersRows, tournamentRows);
+      state = buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows);
       tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
       persistLocalState({ notifyOnError: false });
     } else {
@@ -195,14 +197,22 @@ async function fetchRemoteBootstrapPayload() {
     apiRequest("/api/players", { timeoutMs: 5000 }),
     apiRequest("/api/tournaments", { timeoutMs: 5000 }),
   ]);
+  const [clubRows, coachRows] = await Promise.all([
+    apiRequest("/api/clubs", { timeoutMs: 5000 }),
+    apiRequest("/api/coaches", { timeoutMs: 5000 }),
+  ]);
 
   return {
+    clubRows: Array.isArray(clubRows) ? clubRows : [],
+    coachRows: Array.isArray(coachRows) ? coachRows : [],
     playersRows: Array.isArray(playersRows) ? playersRows : [],
     tournamentRows: Array.isArray(tournamentRows) ? tournamentRows : [],
   };
 }
 
-function buildStateFromApi(playersRows, tournamentRows) {
+function buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows) {
+  const clubs = clubRows.map(mapApiClubToState);
+  const coaches = coachRows.map(mapApiCoachToState);
   const basePlayers = playersRows.map(mapApiPlayerToBasePlayer);
   const mappedTournaments = tournamentRows.map(mapApiTournamentToState);
   const archivedTournaments = mappedTournaments
@@ -220,6 +230,8 @@ function buildStateFromApi(playersRows, tournamentRows) {
     tournamentView: state?.tournamentView || "setup",
     archivePreviewTournamentId: null,
     kyivPresetVersion: KYIV_PRESET_VERSION,
+    clubs,
+    coaches,
     playerBase: basePlayers,
     currentTournament: activeTournament,
     tournamentsArchive: archivedTournaments,
@@ -241,12 +253,37 @@ function mapApiPlayerToBasePlayer(row) {
     firstName: row.first_name,
     rating: row.rating,
     gender: row.gender,
+    clubId: row.club_id,
+    coachId: row.coach_id,
     rank: row.rank,
     birthDate: row.birth_date,
     photoDataUrl: row.photo_url,
     createdAt: row.created_at,
     history: [],
     stats: emptyStats(),
+  });
+}
+
+function mapApiClubToState(row) {
+  return normalizeClub({
+    id: row.id,
+    name: row.name,
+    city: row.city,
+    contact: row.contact,
+    logoDataUrl: row.logo_url,
+    createdAt: row.created_at,
+  });
+}
+
+function mapApiCoachToState(row) {
+  return normalizeCoach({
+    id: row.id,
+    lastName: row.last_name,
+    firstName: row.first_name,
+    clubId: row.club_id,
+    phone: row.phone,
+    email: row.email,
+    createdAt: row.created_at,
   });
 }
 
@@ -353,6 +390,8 @@ function findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer
     base = createBasePlayerRecord(split.lastName, split.firstName, tournamentPlayer.rating, {
       gender: tournamentPlayer.gender,
       photoDataUrl: tournamentPlayer.photoDataUrl,
+      clubId: tournamentPlayer.clubId,
+      coachId: tournamentPlayer.coachId,
     });
     base.id = tournamentPlayer.basePlayerId || base.id;
     basePlayers.push(base);
@@ -366,6 +405,14 @@ function findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer
     base.photoDataUrl = tournamentPlayer.photoDataUrl;
   }
 
+  if (!base.clubId && tournamentPlayer.clubId) {
+    base.clubId = normalizeEntityId(tournamentPlayer.clubId);
+  }
+
+  if (!base.coachId && tournamentPlayer.coachId) {
+    base.coachId = normalizeEntityId(tournamentPlayer.coachId);
+  }
+
   return base;
 }
 
@@ -376,9 +423,32 @@ function buildBasePlayerApiPayload(basePlayer) {
     first_name: basePlayer.firstName,
     rating: Number(basePlayer.rating) || 0,
     gender: normalizeGender(basePlayer.gender),
+    club_id: normalizeEntityId(basePlayer.clubId) || null,
+    coach_id: normalizeEntityId(basePlayer.coachId) || null,
     rank: normalizeRank(basePlayer.rank),
     birth_date: normalizeBirthDate(basePlayer.birthDate) || null,
     photo_url: basePlayer.photoDataUrl || null,
+  };
+}
+
+function buildClubApiPayload(club) {
+  return {
+    id: club.id,
+    name: club.name,
+    city: club.city || "",
+    contact: club.contact || "",
+    logo_url: club.logoDataUrl || null,
+  };
+}
+
+function buildCoachApiPayload(coach) {
+  return {
+    id: coach.id,
+    last_name: coach.lastName,
+    first_name: coach.firstName,
+    club_id: normalizeEntityId(coach.clubId) || null,
+    phone: coach.phone || "",
+    email: coach.email || "",
   };
 }
 
@@ -438,6 +508,8 @@ function hasMeaningfulAppState(appState) {
 
   return Boolean(
     appState.playerBase.length ||
+      appState.clubs.length ||
+      appState.coaches.length ||
       appState.tournamentsArchive.length ||
       hasMeaningfulTournamentData(appState.currentTournament)
   );
@@ -519,6 +591,46 @@ async function flushRemoteSync() {
 }
 
 async function syncRemoteSnapshot(appState) {
+  const desiredClubs = appState.clubs.map(buildClubApiPayload);
+  const desiredClubIds = new Set(desiredClubs.map((item) => item.id));
+
+  for (const clubPayload of desiredClubs) {
+    if (remoteKnownClubIds.has(clubPayload.id)) {
+      await apiRequest(`/api/clubs/${clubPayload.id}`, {
+        method: "PUT",
+        body: clubPayload,
+        timeoutMs: 6000,
+      });
+    } else {
+      await apiRequest("/api/clubs", {
+        method: "POST",
+        body: clubPayload,
+        timeoutMs: 6000,
+      });
+      remoteKnownClubIds.add(clubPayload.id);
+    }
+  }
+
+  const desiredCoaches = appState.coaches.map(buildCoachApiPayload);
+  const desiredCoachIds = new Set(desiredCoaches.map((item) => item.id));
+
+  for (const coachPayload of desiredCoaches) {
+    if (remoteKnownCoachIds.has(coachPayload.id)) {
+      await apiRequest(`/api/coaches/${coachPayload.id}`, {
+        method: "PUT",
+        body: coachPayload,
+        timeoutMs: 6000,
+      });
+    } else {
+      await apiRequest("/api/coaches", {
+        method: "POST",
+        body: coachPayload,
+        timeoutMs: 6000,
+      });
+      remoteKnownCoachIds.add(coachPayload.id);
+    }
+  }
+
   const desiredPlayers = appState.playerBase.map(buildBasePlayerApiPayload);
   const desiredPlayerIds = new Set(desiredPlayers.map((item) => item.id));
 
@@ -545,6 +657,22 @@ async function syncRemoteSnapshot(appState) {
     }
     await apiRequest(`/api/players/${playerId}`, { method: "DELETE", timeoutMs: 6000 });
     remoteKnownPlayerIds.delete(playerId);
+  }
+
+  for (const coachId of [...remoteKnownCoachIds]) {
+    if (desiredCoachIds.has(coachId)) {
+      continue;
+    }
+    await apiRequest(`/api/coaches/${coachId}`, { method: "DELETE", timeoutMs: 6000 });
+    remoteKnownCoachIds.delete(coachId);
+  }
+
+  for (const clubId of [...remoteKnownClubIds]) {
+    if (desiredClubIds.has(clubId)) {
+      continue;
+    }
+    await apiRequest(`/api/clubs/${clubId}`, { method: "DELETE", timeoutMs: 6000 });
+    remoteKnownClubIds.delete(clubId);
   }
 
   const desiredTournaments = buildTournamentsForSync(appState);
@@ -753,6 +881,7 @@ function loadTournamentFromArchive(tournamentId) {
   state.currentTournament.status = "archived_view";
   state.currentTournament.updatedAt = new Date().toISOString();
   state.activeTab = "tournament";
+  manualRoundBuilderOpen = false;
   saveAndRender();
 }
 
@@ -782,6 +911,7 @@ function createNewTournamentFlow() {
 
   state.currentTournament = createDefaultTournament();
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+  manualRoundBuilderOpen = false;
   state.activeTab = "tournament";
   state.tournamentView = "setup";
   state.archivePreviewTournamentId = null;

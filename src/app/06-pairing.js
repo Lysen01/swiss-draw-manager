@@ -48,6 +48,91 @@ function generateNextRound() {
   saveAndRender();
 }
 
+function createManualRoundFromForm() {
+  const t = state.currentTournament;
+
+  if (t.players.length < 2) {
+    alert("Потрібно щонайменше 2 гравці.");
+    return;
+  }
+
+  if (t.currentRound >= t.roundsCount) {
+    alert("Досягнуто максимальної кількості турів.");
+    return;
+  }
+
+  if (!isLastRoundComplete(t)) {
+    alert("Спочатку внесіть усі результати поточного туру.");
+    return;
+  }
+
+  const nextRoundNumber = t.currentRound + 1;
+  const boardsCount = Math.floor(t.players.length / 2);
+  const used = new Set();
+  const pairings = [];
+
+  for (let board = 1; board <= boardsCount; board += 1) {
+    const whiteId = els.manualPairingPanel.querySelector(`[data-manual-white="${board}"]`)?.value || "";
+    const blackId = els.manualPairingPanel.querySelector(`[data-manual-black="${board}"]`)?.value || "";
+
+    if (!whiteId || !blackId) {
+      alert(`Заповніть обох гравців на дошці ${board}.`);
+      return;
+    }
+
+    if (whiteId === blackId) {
+      alert(`На дошці ${board} один гравець не може грати сам із собою.`);
+      return;
+    }
+
+    if (used.has(whiteId) || used.has(blackId)) {
+      alert("Один гравець не може бути в турі більше одного разу.");
+      return;
+    }
+
+    if (!t.players.some((player) => player.id === whiteId) || !t.players.some((player) => player.id === blackId)) {
+      alert("У ручному турі є гравець, якого немає в складі турніру.");
+      return;
+    }
+
+    used.add(whiteId);
+    used.add(blackId);
+    pairings.push({ board, whiteId, blackId, result: "pending" });
+  }
+
+  if (t.players.length % 2 === 1) {
+    const byeId = els.manualPairingPanel.querySelector("[data-manual-bye]")?.value || "";
+    if (!byeId) {
+      alert("Оберіть гравця з BYE.");
+      return;
+    }
+
+    if (used.has(byeId)) {
+      alert("Гравець з BYE не може одночасно грати партію в цьому турі.");
+      return;
+    }
+
+    const byePlayer = t.players.find((player) => player.id === byeId);
+    if (!byePlayer) {
+      alert("Гравця з BYE немає в складі турніру.");
+      return;
+    }
+
+    byePlayer.hadBye = true;
+    byePlayer.score += 1;
+    byePlayer.resultsByRound[nextRoundNumber] = "BYE";
+    pairings.push({ board: pairings.length + 1, whiteId: byePlayer.id, blackId: null, result: "1-0 BYE" });
+  }
+
+  applyPendingMetadata(t, pairings);
+  t.rounds.push({ round: nextRoundNumber, pairings, manual: true });
+  t.currentRound = nextRoundNumber;
+  t.updatedAt = new Date().toISOString();
+  manualRoundBuilderOpen = false;
+
+  saveAndRender();
+}
+
 function swissPairRound(tournament, roundNumber) {
   const sorted = [...tournament.players].sort(comparePlayersForPairing);
   const pairings = [];
@@ -427,4 +512,3 @@ function rollbackResultIfNeeded(tournament, roundNumber, pairing) {
   delete white.resultsByRound[roundNumber];
   delete black.resultsByRound[roundNumber];
 }
-

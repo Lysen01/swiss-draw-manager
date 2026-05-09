@@ -210,6 +210,26 @@ function bindEvents() {
   els.generateRoundBtn.addEventListener("click", () => {
     generateNextRound();
   });
+  els.manualRoundBtn.addEventListener("click", () => {
+    captureTournamentSettingsDraftFromForm();
+    manualRoundBuilderOpen = !manualRoundBuilderOpen;
+    render();
+  });
+  els.manualPairingPanel.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    if (btn.dataset.action === "create-manual-round") {
+      createManualRoundFromForm();
+    }
+
+    if (btn.dataset.action === "cancel-manual-round") {
+      manualRoundBuilderOpen = false;
+      render();
+    }
+  });
   els.printRoundBtn.addEventListener("click", () => {
     printCurrentRound();
   });
@@ -239,11 +259,16 @@ function bindEvents() {
     resetBasePlayerForm();
   });
 
+  els.basePlayerClub.addEventListener("change", () => {
+    renderBasePlayerOwnershipSelectors(null);
+  });
+
   for (const control of [
     els.basePlayersSearch,
     els.basePlayersGenderFilter,
     els.basePlayersRatingFrom,
     els.basePlayersRatingTo,
+    els.basePlayersClubFilter,
   ]) {
     control.addEventListener("input", () => {
       renderBasePlayersTab();
@@ -258,7 +283,89 @@ function bindEvents() {
     els.basePlayersGenderFilter.value = "all";
     els.basePlayersRatingFrom.value = "";
     els.basePlayersRatingTo.value = "";
+    els.basePlayersClubFilter.value = "all";
     renderBasePlayersTab();
+  });
+
+  els.clubForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitClubForm();
+  });
+
+  els.clubCancelEditBtn.addEventListener("click", () => {
+    resetClubForm();
+  });
+
+  els.coachForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitCoachForm();
+  });
+
+  els.clubsList.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    const clubId = btn.dataset.clubId;
+    const action = btn.dataset.action;
+
+    if (action === "view-club") {
+      selectedClubProfileId = clubId || null;
+      selectedClubPlayerProfileId = null;
+      renderClubsTab();
+    }
+
+    if (action === "edit-club") {
+      startEditClub(clubId);
+    }
+
+    if (action === "delete-club") {
+      deleteClub(clubId);
+    }
+  });
+
+  els.clubProfile.addEventListener("submit", async (event) => {
+    const form = event.target.closest("form[data-action]");
+    if (!form) {
+      return;
+    }
+    event.preventDefault();
+    if (form.dataset.action === "quick-add-club-player") {
+      await submitQuickClubPlayerForm(form);
+    }
+    if (form.dataset.action === "attach-existing-player") {
+      submitAttachExistingPlayerToClubForm(form);
+    }
+  });
+
+  els.clubProfile.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    const playerId = btn.dataset.playerId;
+    if (btn.dataset.action === "add-to-tournament") {
+      addBasePlayerToTournament(playerId);
+    }
+
+    if (btn.dataset.action === "view-player-profile") {
+      selectedClubPlayerProfileId = playerId || null;
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "edit-club") {
+      startEditClub(btn.dataset.clubId);
+    }
+
+    if (btn.dataset.action === "edit-club-player") {
+      editClubPlayerInBase(playerId);
+    }
+
+    if (btn.dataset.action === "remove-player-from-club") {
+      removeBasePlayerFromClub(playerId);
+    }
   });
 
   els.basePlayersList.addEventListener("click", (event) => {

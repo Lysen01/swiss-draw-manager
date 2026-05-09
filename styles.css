@@ -268,6 +268,60 @@ button.danger {
   margin: 6px;
 }
 
+.manual-pairing-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #cfd9ea;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.manual-pairing-head,
+.manual-pairing-row,
+.manual-pairing-actions,
+.manual-pairing-bye {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manual-pairing-head {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.manual-pairing-head > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.manual-pairing-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.manual-pairing-board {
+  min-width: 72px;
+  font-weight: 800;
+  color: #183b74;
+}
+
+.manual-pairing-row select,
+.manual-pairing-bye select {
+  min-width: 220px;
+}
+
+.manual-pairing-bye {
+  margin-top: 8px;
+  font-weight: 800;
+  color: #2f6d14;
+}
+
+.manual-pairing-note {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .pair-head {
   display: flex;
   justify-content: space-between;
@@ -661,7 +715,7 @@ label.base-pick-item {
 
 .base-form-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 0.7fr 0.7fr 0.9fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   align-items: center;
 }
@@ -674,6 +728,183 @@ label.base-pick-item {
 .base-form-row--actions {
   grid-template-columns: 1.8fr auto auto auto;
   align-items: center;
+}
+
+.club-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.club-card,
+.club-profile-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.club-card.active {
+  border-color: #2c68b5;
+  box-shadow: 0 0 0 2px rgba(44, 104, 181, 0.12);
+}
+
+.club-card__title {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.club-card__top,
+.club-profile-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.club-card__logo,
+.club-profile-logo {
+  border: 1px solid #c9d5ea;
+  background: #eef3fb;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.club-card__logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.club-profile-logo {
+  width: 70px;
+  height: 70px;
+  border-radius: 12px;
+}
+
+.club-card__logo--empty,
+.club-profile-logo--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7891;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.club-card__meta,
+.club-card__stats {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.club-card .row-actions {
+  margin-top: 8px;
+}
+
+.club-profile {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.club-profile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.club-profile-head h3 {
+  margin: 0 0 4px;
+}
+
+.club-management-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.club-action-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.quick-player-form__title {
+  grid-column: 1 / -1;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.club-action-panel input,
+.club-action-panel select {
+  min-height: 40px;
+  background: #fff;
+}
+
+.club-action-panel button {
+  min-height: 40px;
+}
+
+.club-empty {
+  padding: 12px;
+  color: var(--muted);
+  border: 1px dashed #c9d5ea;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.player-profile-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.player-profile-photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid #c9d5ea;
+  flex: 0 0 96px;
+}
+
+.player-profile-photo--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef3fb;
+  color: #6b7891;
+  font-weight: 800;
+}
+
+.player-profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.player-profile-stats span {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbff;
+  font-size: 13px;
+}
+
+.player-profile-card h4 {
+  margin: 12px 0 8px;
 }
 
 .base-form-row--actions input[type="file"] {
@@ -711,7 +942,7 @@ label.base-pick-item {
 
 .base-list-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1.6fr) 0.7fr 0.8fr 0.8fr auto;
+  grid-template-columns: minmax(220px, 1.4fr) 0.7fr 0.8fr 0.8fr minmax(150px, 1fr) auto;
   gap: 8px;
   align-items: center;
   margin-top: 12px;
@@ -729,7 +960,7 @@ label.base-pick-item {
 }
 
 #basePlayersList .table {
-  min-width: 1020px;
+  min-width: 1260px;
   width: max-content;
   table-layout: fixed;
 }
@@ -780,27 +1011,37 @@ label.base-pick-item {
 
 #basePlayersList .table th:nth-child(5),
 #basePlayersList .table td:nth-child(5) {
-  width: 78px;
+  width: 150px;
 }
 
 #basePlayersList .table th:nth-child(6),
 #basePlayersList .table td:nth-child(6) {
-  width: 90px;
+  width: 140px;
 }
 
 #basePlayersList .table th:nth-child(7),
 #basePlayersList .table td:nth-child(7) {
-  width: 102px;
+  width: 78px;
 }
 
 #basePlayersList .table th:nth-child(8),
-#basePlayersList .table td:nth-child(8),
+#basePlayersList .table td:nth-child(8) {
+  width: 90px;
+}
+
 #basePlayersList .table th:nth-child(9),
-#basePlayersList .table td:nth-child(9),
+#basePlayersList .table td:nth-child(9) {
+  width: 102px;
+}
+
 #basePlayersList .table th:nth-child(10),
 #basePlayersList .table td:nth-child(10),
 #basePlayersList .table th:nth-child(11),
-#basePlayersList .table td:nth-child(11) {
+#basePlayersList .table td:nth-child(11),
+#basePlayersList .table th:nth-child(12),
+#basePlayersList .table td:nth-child(12),
+#basePlayersList .table th:nth-child(13),
+#basePlayersList .table td:nth-child(13) {
   width: 82px;
 }
 
@@ -908,6 +1149,34 @@ label.base-pick-item {
   .pair-card--row {
     flex-wrap: wrap;
     align-items: flex-start;
+  }
+
+  .manual-pairing-head,
+  .manual-pairing-row,
+  .manual-pairing-bye {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manual-pairing-actions {
+    flex-wrap: wrap;
+  }
+
+  .club-management-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .club-profile-head,
+  .club-profile-title,
+  .player-profile-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manual-pairing-row select,
+  .manual-pairing-bye select {
+    min-width: 0;
+    width: 100%;
   }
 
   .pair-actions {

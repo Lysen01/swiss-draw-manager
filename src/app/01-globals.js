@@ -2,12 +2,18 @@ let state;
 let stateRevision = 0;
 let hasStoredLocalState = false;
 let editingBasePlayerId = null;
+let editingClubId = null;
 let tournamentSettingsDraft = null;
 let tournamentBaseLookup = [];
 let filteredTournamentBaseLookup = [];
 let selectedBasePlayerIds = new Set();
 let basePlayersSort = { key: "rating", dir: "desc" };
+let manualRoundBuilderOpen = false;
+let selectedClubProfileId = null;
+let selectedClubPlayerProfileId = null;
 let remoteApiBaseUrl = null;
+let remoteKnownClubIds = new Set();
+let remoteKnownCoachIds = new Set();
 let remoteKnownPlayerIds = new Set();
 let remoteKnownTournamentIds = new Set();
 let remoteSyncTimerId = null;
@@ -27,6 +33,7 @@ const els = {
   tabPanels: {
     tournament: document.getElementById("tab-tournament"),
     players: document.getElementById("tab-players"),
+    clubs: document.getElementById("tab-clubs"),
     archive: document.getElementById("tab-archive"),
   },
   tournamentSubtabs: document.getElementById("tournamentSubtabs"),
@@ -57,6 +64,8 @@ const els = {
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
   generateRoundBtn: document.getElementById("generateRoundBtn"),
+  manualRoundBtn: document.getElementById("manualRoundBtn"),
+  manualPairingPanel: document.getElementById("manualPairingPanel"),
   printRoundBtn: document.getElementById("printRoundBtn"),
   roundMeta: document.getElementById("roundMeta"),
   pairings: document.getElementById("pairings"),
@@ -71,6 +80,8 @@ const els = {
   basePlayerGender: document.getElementById("basePlayerGender"),
   basePlayerRank: document.getElementById("basePlayerRank"),
   basePlayerBirthDate: document.getElementById("basePlayerBirthDate"),
+  basePlayerClub: document.getElementById("basePlayerClub"),
+  basePlayerCoach: document.getElementById("basePlayerCoach"),
   basePlayerPhoto: document.getElementById("basePlayerPhoto"),
   basePlayerRemovePhoto: document.getElementById("basePlayerRemovePhoto"),
   basePlayerSubmitBtn: document.getElementById("basePlayerSubmitBtn"),
@@ -80,9 +91,28 @@ const els = {
   basePlayersGenderFilter: document.getElementById("basePlayersGenderFilter"),
   basePlayersRatingFrom: document.getElementById("basePlayersRatingFrom"),
   basePlayersRatingTo: document.getElementById("basePlayersRatingTo"),
+  basePlayersClubFilter: document.getElementById("basePlayersClubFilter"),
   basePlayersClearFilters: document.getElementById("basePlayersClearFilters"),
   basePlayersSummary: document.getElementById("basePlayersSummary"),
   basePlayersList: document.getElementById("basePlayersList"),
+  clubForm: document.getElementById("clubForm"),
+  clubName: document.getElementById("clubName"),
+  clubCity: document.getElementById("clubCity"),
+  clubContact: document.getElementById("clubContact"),
+  clubLogo: document.getElementById("clubLogo"),
+  clubRemoveLogo: document.getElementById("clubRemoveLogo"),
+  clubSubmitBtn: document.getElementById("clubSubmitBtn"),
+  clubCancelEditBtn: document.getElementById("clubCancelEditBtn"),
+  clubEditHint: document.getElementById("clubEditHint"),
+  coachForm: document.getElementById("coachForm"),
+  coachLastName: document.getElementById("coachLastName"),
+  coachFirstName: document.getElementById("coachFirstName"),
+  coachClub: document.getElementById("coachClub"),
+  coachPhone: document.getElementById("coachPhone"),
+  coachEmail: document.getElementById("coachEmail"),
+  coachSubmitBtn: document.getElementById("coachSubmitBtn"),
+  clubsList: document.getElementById("clubsList"),
+  clubProfile: document.getElementById("clubProfile"),
   archiveList: document.getElementById("archiveList"),
   storageModeLabel: document.getElementById("storageModeLabel"),
   syncStatus: document.getElementById("syncStatus"),

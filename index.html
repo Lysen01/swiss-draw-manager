@@ -23,6 +23,7 @@
     <nav class="tabs" id="tabsNav">
       <button class="tab-btn active" data-tab="tournament" type="button">Турнір</button>
       <button class="tab-btn" data-tab="players" type="button">База гравців</button>
+      <button class="tab-btn" data-tab="clubs" type="button">Клуби</button>
       <button class="tab-btn" data-tab="archive" type="button">Архів турнірів</button>
     </nav>
 
@@ -133,10 +134,12 @@
           <h2>Раунди</h2>
           <div class="toolbar">
             <button id="generateRoundBtn" type="button">Згенерувати наступний тур</button>
+            <button id="manualRoundBtn" type="button">Додати тур вручну</button>
             <button id="printRoundBtn" type="button">Друкувати тур</button>
             <button id="finishTournamentBtn" type="button">Завершити турнір</button>
           </div>
           <div id="roundMeta" class="meta"></div>
+          <div id="manualPairingPanel" class="manual-pairing-panel" hidden></div>
           <div id="pairings" class="scroll"></div>
         </section>
 
@@ -188,6 +191,14 @@
                 <span class="base-field__label">Дата народження</span>
                 <input id="basePlayerBirthDate" type="date" />
               </label>
+              <label class="base-field">
+                <span class="base-field__label">Клуб</span>
+                <select id="basePlayerClub"></select>
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Тренер</span>
+                <select id="basePlayerCoach"></select>
+              </label>
             </div>
 
             <div class="base-form-row base-form-row--actions">
@@ -213,10 +224,79 @@
             </select>
             <input id="basePlayersRatingFrom" type="number" min="0" placeholder="Рейтинг від" />
             <input id="basePlayersRatingTo" type="number" min="0" placeholder="Рейтинг до" />
+            <select id="basePlayersClubFilter"></select>
             <button id="basePlayersClearFilters" type="button">Скинути</button>
           </div>
           <div id="basePlayersSummary" class="meta"></div>
           <div id="basePlayersList" class="scroll tall"></div>
+        </section>
+      </section>
+
+      <section id="tab-clubs" class="layout tab-panel">
+        <section class="card">
+          <h2>Клуб</h2>
+          <form id="clubForm" class="base-form">
+            <div class="base-form-row">
+              <label class="base-field">
+                <span class="base-field__label">Назва клубу</span>
+                <input id="clubName" type="text" placeholder="Наприклад: ДЮСШ Київ" required />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Місто</span>
+                <input id="clubCity" type="text" placeholder="Київ" />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Контакти</span>
+                <input id="clubContact" type="text" placeholder="Телефон, email або сайт" />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Логотип клубу</span>
+                <input id="clubLogo" type="file" accept="image/*" />
+              </label>
+              <label class="check-inline">
+                <input id="clubRemoveLogo" type="checkbox" />
+                Видалити логотип
+              </label>
+            </div>
+            <button id="clubSubmitBtn" type="submit">Додати клуб</button>
+            <button id="clubCancelEditBtn" type="button" hidden>Скасувати редагування</button>
+          </form>
+          <div id="clubEditHint" class="edit-hint" hidden></div>
+        </section>
+
+        <section class="card">
+          <h2>Тренер</h2>
+          <form id="coachForm" class="base-form">
+            <div class="base-form-row">
+              <label class="base-field">
+                <span class="base-field__label">Прізвище</span>
+                <input id="coachLastName" type="text" placeholder="Прізвище" required />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Ім'я</span>
+                <input id="coachFirstName" type="text" placeholder="Ім'я" required />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Клуб</span>
+                <select id="coachClub"></select>
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Телефон</span>
+                <input id="coachPhone" type="text" placeholder="+380..." />
+              </label>
+              <label class="base-field">
+                <span class="base-field__label">Email</span>
+                <input id="coachEmail" type="email" placeholder="coach@example.com" />
+              </label>
+            </div>
+            <button id="coachSubmitBtn" type="submit">Додати тренера</button>
+          </form>
+        </section>
+
+        <section class="card full">
+          <h2>Клуби та гравці</h2>
+          <div id="clubsList" class="club-grid"></div>
+          <div id="clubProfile" class="club-profile"></div>
         </section>
       </section>
 

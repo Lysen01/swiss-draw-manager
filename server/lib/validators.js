@@ -2,6 +2,10 @@ function asSafeString(value, max = 255) {
   return String(value || '').trim().slice(0, max);
 }
 
+function asLongString(value, max = 1800000) {
+  return String(value || '').trim().slice(0, max);
+}
+
 function asUuidOrNull(value) {
   const text = asSafeString(value, 64).toLowerCase();
   if (!text) {
@@ -36,6 +40,7 @@ function asDateOrNull(value) {
 
 module.exports = {
   asSafeString,
+  asLongString,
   asUuidOrNull,
   asRating,
   asGender,

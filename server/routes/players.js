@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../lib/db');
-const { asSafeString, asUuidOrNull, asRating, asGender, asDateOrNull } = require('../lib/validators');
+const { asSafeString, asLongString, asUuidOrNull, asRating, asGender, asDateOrNull } = require('../lib/validators');
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ router.get('/', async (req, res, next) => {
     const search = asSafeString(req.query.search || '', 100);
     if (!search) {
       const result = await query(
-        `SELECT id, last_name, first_name, rating, gender, rank, birth_date, photo_url, created_at, updated_at
+        `SELECT id, last_name, first_name, rating, gender, club_id, coach_id, rank, birth_date, photo_url, created_at, updated_at
          FROM players
          ORDER BY last_name ASC, first_name ASC`
       );
@@ -18,7 +18,7 @@ router.get('/', async (req, res, next) => {
 
     const token = `%${search.toLowerCase()}%`;
     const result = await query(
-      `SELECT id, last_name, first_name, rating, gender, rank, birth_date, photo_url, created_at, updated_at
+      `SELECT id, last_name, first_name, rating, gender, club_id, coach_id, rank, birth_date, photo_url, created_at, updated_at
        FROM players
        WHERE lower(last_name) LIKE $1 OR lower(first_name) LIKE $1 OR CAST(rating AS TEXT) LIKE $1
        ORDER BY last_name ASC, first_name ASC`,
@@ -37,19 +37,21 @@ router.post('/', async (req, res, next) => {
     const firstName = asSafeString(req.body.first_name || req.body.firstName, 120);
     const rating = asRating(req.body.rating);
     const gender = asGender(req.body.gender);
+    const clubId = asUuidOrNull(req.body.club_id || req.body.clubId);
+    const coachId = asUuidOrNull(req.body.coach_id || req.body.coachId);
     const rank = asSafeString(req.body.rank || 'б/р', 32) || 'б/р';
     const birthDate = asDateOrNull(req.body.birth_date || req.body.birthDate);
-    const photoUrl = asSafeString(req.body.photo_url || req.body.photoUrl, 2000) || null;
+    const photoUrl = asLongString(req.body.photo_url || req.body.photoUrl) || null;
 
     if (!lastName || !firstName) {
       return res.status(400).json({ error: 'last_name та first_name обов\'язкові' });
     }
 
     const result = await query(
-      `INSERT INTO players (id, last_name, first_name, rating, gender, rank, birth_date, photo_url)
-       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, last_name, first_name, rating, gender, rank, birth_date, photo_url, created_at, updated_at`,
-      [id, lastName, firstName, rating, gender, rank, birthDate, photoUrl]
+      `INSERT INTO players (id, last_name, first_name, rating, gender, club_id, coach_id, rank, birth_date, photo_url)
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, last_name, first_name, rating, gender, club_id, coach_id, rank, birth_date, photo_url, created_at, updated_at`,
+      [id, lastName, firstName, rating, gender, clubId, coachId, rank, birthDate, photoUrl]
     );
 
     return res.status(201).json(result.rows[0]);
@@ -65,9 +67,11 @@ router.put('/:id', async (req, res, next) => {
     const firstName = asSafeString(req.body.first_name || req.body.firstName, 120);
     const rating = asRating(req.body.rating);
     const gender = asGender(req.body.gender);
+    const clubId = asUuidOrNull(req.body.club_id || req.body.clubId);
+    const coachId = asUuidOrNull(req.body.coach_id || req.body.coachId);
     const rank = asSafeString(req.body.rank || 'б/р', 32) || 'б/р';
     const birthDate = asDateOrNull(req.body.birth_date || req.body.birthDate);
-    const photoUrl = asSafeString(req.body.photo_url || req.body.photoUrl, 2000) || null;
+    const photoUrl = asLongString(req.body.photo_url || req.body.photoUrl) || null;
 
     if (!lastName || !firstName) {
       return res.status(400).json({ error: 'last_name та first_name обов\'язкові' });
@@ -79,13 +83,15 @@ router.put('/:id', async (req, res, next) => {
            first_name = $3,
            rating = $4,
            gender = $5,
-           rank = $6,
-           birth_date = $7,
-           photo_url = $8,
+           club_id = $6,
+           coach_id = $7,
+           rank = $8,
+           birth_date = $9,
+           photo_url = $10,
            updated_at = NOW()
        WHERE id = $1
-       RETURNING id, last_name, first_name, rating, gender, rank, birth_date, photo_url, created_at, updated_at`,
-      [id, lastName, firstName, rating, gender, rank, birthDate, photoUrl]
+       RETURNING id, last_name, first_name, rating, gender, club_id, coach_id, rank, birth_date, photo_url, created_at, updated_at`,
+      [id, lastName, firstName, rating, gender, clubId, coachId, rank, birthDate, photoUrl]
     );
 
     if (result.rowCount === 0) {

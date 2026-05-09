@@ -25,18 +25,26 @@ const MAX_TOURNAMENT_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_TOURNAMENT_PHOTO_STORE_BYTES = 1_600_000;
 const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;
 const MAX_BASE_PLAYER_PHOTO_STORE_BYTES = 320_000;
+const MAX_CLUB_LOGO_BYTES = 8 * 1024 * 1024;
+const MAX_CLUB_LOGO_STORE_BYTES = 260_000;
 
 // ===== 01-globals.js =====
 let state;
 let stateRevision = 0;
 let hasStoredLocalState = false;
 let editingBasePlayerId = null;
+let editingClubId = null;
 let tournamentSettingsDraft = null;
 let tournamentBaseLookup = [];
 let filteredTournamentBaseLookup = [];
 let selectedBasePlayerIds = new Set();
 let basePlayersSort = { key: "rating", dir: "desc" };
+let manualRoundBuilderOpen = false;
+let selectedClubProfileId = null;
+let selectedClubPlayerProfileId = null;
 let remoteApiBaseUrl = null;
+let remoteKnownClubIds = new Set();
+let remoteKnownCoachIds = new Set();
 let remoteKnownPlayerIds = new Set();
 let remoteKnownTournamentIds = new Set();
 let remoteSyncTimerId = null;
@@ -56,6 +64,7 @@ const els = {
   tabPanels: {
     tournament: document.getElementById("tab-tournament"),
     players: document.getElementById("tab-players"),
+    clubs: document.getElementById("tab-clubs"),
     archive: document.getElementById("tab-archive"),
   },
   tournamentSubtabs: document.getElementById("tournamentSubtabs"),
@@ -86,6 +95,8 @@ const els = {
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
   generateRoundBtn: document.getElementById("generateRoundBtn"),
+  manualRoundBtn: document.getElementById("manualRoundBtn"),
+  manualPairingPanel: document.getElementById("manualPairingPanel"),
   printRoundBtn: document.getElementById("printRoundBtn"),
   roundMeta: document.getElementById("roundMeta"),
   pairings: document.getElementById("pairings"),
@@ -100,6 +111,8 @@ const els = {
   basePlayerGender: document.getElementById("basePlayerGender"),
   basePlayerRank: document.getElementById("basePlayerRank"),
   basePlayerBirthDate: document.getElementById("basePlayerBirthDate"),
+  basePlayerClub: document.getElementById("basePlayerClub"),
+  basePlayerCoach: document.getElementById("basePlayerCoach"),
   basePlayerPhoto: document.getElementById("basePlayerPhoto"),
   basePlayerRemovePhoto: document.getElementById("basePlayerRemovePhoto"),
   basePlayerSubmitBtn: document.getElementById("basePlayerSubmitBtn"),
@@ -109,9 +122,28 @@ const els = {
   basePlayersGenderFilter: document.getElementById("basePlayersGenderFilter"),
   basePlayersRatingFrom: document.getElementById("basePlayersRatingFrom"),
   basePlayersRatingTo: document.getElementById("basePlayersRatingTo"),
+  basePlayersClubFilter: document.getElementById("basePlayersClubFilter"),
   basePlayersClearFilters: document.getElementById("basePlayersClearFilters"),
   basePlayersSummary: document.getElementById("basePlayersSummary"),
   basePlayersList: document.getElementById("basePlayersList"),
+  clubForm: document.getElementById("clubForm"),
+  clubName: document.getElementById("clubName"),
+  clubCity: document.getElementById("clubCity"),
+  clubContact: document.getElementById("clubContact"),
+  clubLogo: document.getElementById("clubLogo"),
+  clubRemoveLogo: document.getElementById("clubRemoveLogo"),
+  clubSubmitBtn: document.getElementById("clubSubmitBtn"),
+  clubCancelEditBtn: document.getElementById("clubCancelEditBtn"),
+  clubEditHint: document.getElementById("clubEditHint"),
+  coachForm: document.getElementById("coachForm"),
+  coachLastName: document.getElementById("coachLastName"),
+  coachFirstName: document.getElementById("coachFirstName"),
+  coachClub: document.getElementById("coachClub"),
+  coachPhone: document.getElementById("coachPhone"),
+  coachEmail: document.getElementById("coachEmail"),
+  coachSubmitBtn: document.getElementById("coachSubmitBtn"),
+  clubsList: document.getElementById("clubsList"),
+  clubProfile: document.getElementById("clubProfile"),
   archiveList: document.getElementById("archiveList"),
   storageModeLabel: document.getElementById("storageModeLabel"),
   syncStatus: document.getElementById("syncStatus"),
@@ -330,6 +362,26 @@ function bindEvents() {
   els.generateRoundBtn.addEventListener("click", () => {
     generateNextRound();
   });
+  els.manualRoundBtn.addEventListener("click", () => {
+    captureTournamentSettingsDraftFromForm();
+    manualRoundBuilderOpen = !manualRoundBuilderOpen;
+    render();
+  });
+  els.manualPairingPanel.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    if (btn.dataset.action === "create-manual-round") {
+      createManualRoundFromForm();
+    }
+
+    if (btn.dataset.action === "cancel-manual-round") {
+      manualRoundBuilderOpen = false;
+      render();
+    }
+  });
   els.printRoundBtn.addEventListener("click", () => {
     printCurrentRound();
   });
@@ -359,11 +411,16 @@ function bindEvents() {
     resetBasePlayerForm();
   });
 
+  els.basePlayerClub.addEventListener("change", () => {
+    renderBasePlayerOwnershipSelectors(null);
+  });
+
   for (const control of [
     els.basePlayersSearch,
     els.basePlayersGenderFilter,
     els.basePlayersRatingFrom,
     els.basePlayersRatingTo,
+    els.basePlayersClubFilter,
   ]) {
     control.addEventListener("input", () => {
       renderBasePlayersTab();
@@ -378,7 +435,89 @@ function bindEvents() {
     els.basePlayersGenderFilter.value = "all";
     els.basePlayersRatingFrom.value = "";
     els.basePlayersRatingTo.value = "";
+    els.basePlayersClubFilter.value = "all";
     renderBasePlayersTab();
+  });
+
+  els.clubForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitClubForm();
+  });
+
+  els.clubCancelEditBtn.addEventListener("click", () => {
+    resetClubForm();
+  });
+
+  els.coachForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitCoachForm();
+  });
+
+  els.clubsList.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    const clubId = btn.dataset.clubId;
+    const action = btn.dataset.action;
+
+    if (action === "view-club") {
+      selectedClubProfileId = clubId || null;
+      selectedClubPlayerProfileId = null;
+      renderClubsTab();
+    }
+
+    if (action === "edit-club") {
+      startEditClub(clubId);
+    }
+
+    if (action === "delete-club") {
+      deleteClub(clubId);
+    }
+  });
+
+  els.clubProfile.addEventListener("submit", async (event) => {
+    const form = event.target.closest("form[data-action]");
+    if (!form) {
+      return;
+    }
+    event.preventDefault();
+    if (form.dataset.action === "quick-add-club-player") {
+      await submitQuickClubPlayerForm(form);
+    }
+    if (form.dataset.action === "attach-existing-player") {
+      submitAttachExistingPlayerToClubForm(form);
+    }
+  });
+
+  els.clubProfile.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    const playerId = btn.dataset.playerId;
+    if (btn.dataset.action === "add-to-tournament") {
+      addBasePlayerToTournament(playerId);
+    }
+
+    if (btn.dataset.action === "view-player-profile") {
+      selectedClubPlayerProfileId = playerId || null;
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "edit-club") {
+      startEditClub(btn.dataset.clubId);
+    }
+
+    if (btn.dataset.action === "edit-club-player") {
+      editClubPlayerInBase(playerId);
+    }
+
+    if (btn.dataset.action === "remove-player-from-club") {
+      removeBasePlayerFromClub(playerId);
+    }
   });
 
   els.basePlayersList.addEventListener("click", (event) => {
@@ -511,6 +650,8 @@ function normalizeState(raw) {
       tournamentView: normalizeTournamentView(raw),
       archivePreviewTournamentId: raw.archivePreviewTournamentId || null,
       kyivPresetVersion: raw.kyivPresetVersion || null,
+      clubs: Array.isArray(raw.clubs) ? raw.clubs.map(normalizeClub) : [],
+      coaches: Array.isArray(raw.coaches) ? raw.coaches.map(normalizeCoach) : [],
       playerBase: raw.playerBase.map(normalizeBasePlayer),
       currentTournament: normalizeTournament(raw.currentTournament),
       tournamentsArchive: raw.tournamentsArchive.map(normalizeArchivedTournament),
@@ -589,6 +730,8 @@ function createDefaultState() {
     tournamentView: "setup",
     archivePreviewTournamentId: null,
     kyivPresetVersion: null,
+    clubs: [],
+    coaches: [],
     playerBase: [],
     currentTournament: createDefaultTournament(),
     tournamentsArchive: [],
@@ -601,9 +744,9 @@ function applyKyivPresetIfNeeded(stateObj) {
   }
 
   stateObj.playerBase = createKyivPresetPlayers();
-  stateObj.currentTournament = createDefaultTournament();
-  stateObj.tournamentView = "setup";
-  stateObj.archivePreviewTournamentId = null;
+    stateObj.currentTournament = createDefaultTournament();
+    stateObj.tournamentView = "setup";
+    stateObj.archivePreviewTournamentId = null;
   stateObj.kyivPresetVersion = KYIV_PRESET_VERSION;
   return stateObj;
 }
@@ -676,6 +819,8 @@ function normalizeTournament(tournament) {
           name: p.name,
           rating: Number(p.rating) || 0,
           gender: normalizeGender(p.gender),
+          clubId: normalizeEntityId(p.clubId),
+          coachId: normalizeEntityId(p.coachId),
           photoDataUrl: typeof p.photoDataUrl === "string" && p.photoDataUrl ? p.photoDataUrl : null,
           startNo: Number.isInteger(p.startNo) ? p.startNo : idx + 1,
           score: Number(p.score) || 0,
@@ -717,6 +862,8 @@ function normalizeBasePlayer(player) {
     lastName: player.lastName || parsed.lastName || "Без",
     rating: Number(player.rating) || 0,
     gender: normalizeGender(player.gender),
+    clubId: normalizeEntityId(player.clubId),
+    coachId: normalizeEntityId(player.coachId),
     rank: normalizeRank(player.rank),
     birthDate: normalizeBirthDate(player.birthDate),
     photoDataUrl: typeof player.photoDataUrl === "string" && player.photoDataUrl ? player.photoDataUrl : null,
@@ -754,6 +901,8 @@ function ensureTournamentPlayersLinkedToBase(tournament, basePlayers) {
     const created = createBasePlayerRecord(split.lastName, split.firstName, p.rating, {
       gender: p.gender,
       photoDataUrl: p.photoDataUrl,
+      clubId: p.clubId,
+      coachId: p.coachId,
     });
     basePlayers.push(created);
     p.basePlayerId = created.id;
@@ -767,6 +916,8 @@ function createBasePlayerRecord(lastName, firstName, rating, extra = {}) {
     lastName,
     rating,
     gender: normalizeGender(extra.gender),
+    clubId: normalizeEntityId(extra.clubId),
+    coachId: normalizeEntityId(extra.coachId),
     rank: normalizeRank(extra.rank),
     birthDate: normalizeBirthDate(extra.birthDate),
     photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
@@ -783,6 +934,8 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount, extra 
     name,
     rating,
     gender: normalizeGender(extra.gender),
+    clubId: normalizeEntityId(extra.clubId),
+    coachId: normalizeEntityId(extra.coachId),
     photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
     startNo: currentCount + 1,
     score: 0,
@@ -792,6 +945,61 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount, extra 
     colors: [],
     resultsByRound: {},
   };
+}
+
+function normalizeClub(club) {
+  return {
+    id: normalizeEntityId(club.id) || crypto.randomUUID(),
+    name: String(club.name || "").trim().slice(0, 140) || "Без назви",
+    city: String(club.city || "").trim().slice(0, 80),
+    contact: String(club.contact || club.contacts || "").trim().slice(0, 180),
+    logoDataUrl:
+      typeof club.logoDataUrl === "string" && club.logoDataUrl
+        ? club.logoDataUrl
+        : typeof club.logo_url === "string" && club.logo_url
+          ? club.logo_url
+          : null,
+    createdAt: club.createdAt || club.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeCoach(coach) {
+  return {
+    id: normalizeEntityId(coach.id) || crypto.randomUUID(),
+    firstName: String(coach.firstName || coach.first_name || "").trim().slice(0, 80),
+    lastName: String(coach.lastName || coach.last_name || "").trim().slice(0, 80),
+    clubId: normalizeEntityId(coach.clubId || coach.club_id),
+    phone: String(coach.phone || "").trim().slice(0, 80),
+    email: String(coach.email || "").trim().slice(0, 120),
+    createdAt: coach.createdAt || coach.created_at || new Date().toISOString(),
+  };
+}
+
+function createClubRecord(name, city, contact, extra = {}) {
+  return normalizeClub({
+    id: crypto.randomUUID(),
+    name,
+    city,
+    contact,
+    logoDataUrl: extra.logoDataUrl,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+function createCoachRecord(lastName, firstName, clubId, extra = {}) {
+  return normalizeCoach({
+    id: crypto.randomUUID(),
+    firstName,
+    lastName,
+    clubId,
+    phone: extra.phone,
+    email: extra.email,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+function normalizeEntityId(value) {
+  return String(value || "").trim();
 }
 
 function splitFullName(value) {
@@ -810,6 +1018,20 @@ function splitFullName(value) {
 
 function getBaseFullName(basePlayer) {
   return `${basePlayer.lastName || ""} ${basePlayer.firstName || ""}`.trim();
+}
+
+function getCoachFullName(coach) {
+  return `${coach?.lastName || ""} ${coach?.firstName || ""}`.trim();
+}
+
+function getClubName(clubId) {
+  const club = state?.clubs?.find((item) => item.id === clubId);
+  return club ? club.name : "";
+}
+
+function getCoachName(coachId) {
+  const coach = state?.coaches?.find((item) => item.id === coachId);
+  return coach ? getCoachFullName(coach) : "";
 }
 
 function normalizeRank(value) {
@@ -933,11 +1155,24 @@ function isValidBasePlayerPhotoFile(file) {
   return false;
 }
 
+function isValidClubLogoFile(file) {
+  if (!file) {
+    return false;
+  }
+  if (file.size <= MAX_CLUB_LOGO_BYTES) {
+    return true;
+  }
+
+  alert("Логотип клубу занадто великий. Оберіть файл до 8 MB.");
+  return false;
+}
+
 // ===== 04-render.js =====
 function render() {
   renderTabs();
   renderTournamentTab();
   renderBasePlayersTab();
+  renderClubsTab();
   renderArchiveTab();
   renderPersistenceFooter();
 }
@@ -996,6 +1231,8 @@ function renderTournamentTab() {
 
   renderBaseSelect();
   els.generateRoundBtn.disabled = archiveView;
+  els.manualRoundBtn.disabled = archiveView;
+  els.manualRoundBtn.textContent = manualRoundBuilderOpen ? "Закрити ручний тур" : "Додати тур вручну";
   els.printRoundBtn.disabled = archiveView || t.rounds.length === 0;
   els.finishTournamentBtn.disabled = archiveView;
   if (els.seedDemoBtn) {
@@ -1012,6 +1249,7 @@ function renderTournamentTab() {
 
   renderTournamentSubtabs();
   renderTournamentPlayers();
+  renderManualPairingPanel();
   renderRounds();
   renderStandings();
 }
@@ -1214,8 +1452,8 @@ function renderBaseSelect() {
     .map((p) => ({
       player: p,
       id: p.id,
-      token: `${getBaseFullName(p)} (${p.rating})`,
-      search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)}`.toLowerCase(),
+      token: `${getBaseFullName(p)} (${p.rating})${p.clubId ? ` | ${getClubName(p.clubId)}` : " | Без клубу"}`,
+      search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)} ${getClubName(p.clubId)} ${getCoachName(p.coachId)}`.toLowerCase(),
     }));
 
   const allowedIds = new Set(tournamentBaseLookup.map((item) => item.id));
@@ -1265,6 +1503,7 @@ function renderTournamentPlayers() {
       <tr>
         <td>${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(getClubName(p.clubId) || "Без клубу")}</td>
         <td>${p.rating}</td>
         <td>${p.score.toFixed(1)}</td>
         <td>${p.hadBye ? "Так" : "Ні"}</td>
@@ -1283,6 +1522,7 @@ function renderTournamentPlayers() {
         <tr>
           <th>#</th>
           <th>Гравець</th>
+          <th>Клуб</th>
           <th>Рейтинг</th>
           <th>Очки</th>
           <th>BYE</th>
@@ -1355,6 +1595,89 @@ function renderRounds() {
     .join("");
 
   els.pairings.innerHTML = blocks;
+}
+
+function renderManualPairingPanel() {
+  const t = state.currentTournament;
+  if (!els.manualPairingPanel) {
+    return;
+  }
+
+  if (!manualRoundBuilderOpen || t.status === "archived_view") {
+    els.manualPairingPanel.hidden = true;
+    els.manualPairingPanel.innerHTML = "";
+    return;
+  }
+
+  els.manualPairingPanel.hidden = false;
+
+  if (t.players.length < 2) {
+    els.manualPairingPanel.innerHTML = '<div class="manual-pairing-note">Потрібно щонайменше 2 учасники.</div>';
+    return;
+  }
+
+  if (t.currentRound >= t.roundsCount) {
+    els.manualPairingPanel.innerHTML = '<div class="manual-pairing-note">Досягнуто максимальної кількості турів.</div>';
+    return;
+  }
+
+  if (!isLastRoundComplete(t)) {
+    els.manualPairingPanel.innerHTML =
+      '<div class="manual-pairing-note">Спочатку внесіть усі результати поточного туру.</div>';
+    return;
+  }
+
+  const nextRound = t.currentRound + 1;
+  const boardsCount = Math.floor(t.players.length / 2);
+  const options = buildManualPlayerOptions();
+  const rows = Array.from({ length: boardsCount }, (_, idx) => {
+    const board = idx + 1;
+    return `
+      <div class="manual-pairing-row">
+        <span class="manual-pairing-board">Дошка ${board}</span>
+        <select data-manual-white="${board}">
+          <option value="">Білі</option>
+          ${options}
+        </select>
+        <select data-manual-black="${board}">
+          <option value="">Чорні</option>
+          ${options}
+        </select>
+      </div>`;
+  }).join("");
+
+  const byeSelect =
+    t.players.length % 2 === 1
+      ? `
+        <label class="manual-pairing-bye">
+          BYE
+          <select data-manual-bye>
+            <option value="">Оберіть гравця</option>
+            ${options}
+          </select>
+        </label>`
+      : "";
+
+  els.manualPairingPanel.innerHTML = `
+    <div class="manual-pairing-head">
+      <div>
+        <strong>Ручний тур ${nextRound}</strong>
+        <span class="meta">Для введення минулого турніру: оберіть пари, створіть тур і внесіть результати.</span>
+      </div>
+      <div class="manual-pairing-actions">
+        <button type="button" data-action="cancel-manual-round">Скасувати</button>
+        <button type="button" data-action="create-manual-round">Створити тур</button>
+      </div>
+    </div>
+    <div class="manual-pairing-grid">${rows}</div>
+    ${byeSelect}`;
+}
+
+function buildManualPlayerOptions() {
+  return [...state.currentTournament.players]
+    .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+    .map((player) => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.name)}</option>`)
+    .join("");
 }
 
 function buildPairResultButton(roundIdx, board, currentResult, nextResult, label, title, disabled) {
@@ -1573,6 +1896,8 @@ function getTournamentPlayerPhotoDataUrl(player) {
 }
 
 function renderBasePlayersTab() {
+  renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
+  renderBasePlayersClubFilter();
   const filteredPlayers = filterBasePlayers(state.playerBase);
   const sortedPlayers = sortBasePlayers(filteredPlayers);
   const totalPlayers = state.playerBase.length;
@@ -1580,7 +1905,8 @@ function renderBasePlayersTab() {
     Boolean(String(els.basePlayersSearch.value || "").trim()) ||
     els.basePlayersGenderFilter.value !== "all" ||
     els.basePlayersRatingFrom.value !== "" ||
-    els.basePlayersRatingTo.value !== "";
+    els.basePlayersRatingTo.value !== "" ||
+    els.basePlayersClubFilter.value !== "all";
   els.basePlayersSummary.textContent = `Показано ${sortedPlayers.length} з ${totalPlayers} гравців${filtersActive ? " за фільтром" : ""}.`;
   const rows = sortedPlayers
     .map((p) => {
@@ -1597,6 +1923,8 @@ function renderBasePlayersTab() {
         <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
         <td class="player-name-cell">${escapeHtml(getBaseFullName(p))}</td>
         <td>${formatGenderLabel(p.gender)}</td>
+        <td>${escapeHtml(getClubName(p.clubId) || "Без клубу")}</td>
+        <td>${escapeHtml(getCoachName(p.coachId) || "-")}</td>
         <td>${p.rating}</td>
         <td>${escapeHtml(p.rank || "б/р")}</td>
         <td>${p.birthDate || "-"}</td>
@@ -1622,6 +1950,8 @@ function renderBasePlayersTab() {
           <th>${head("Фото", "photo")}</th>
           <th>${head("Гравець", "name")}</th>
           <th>${head("Стать", "gender")}</th>
+          <th>${head("Клуб", "club")}</th>
+          <th>${head("Тренер", "coach")}</th>
           <th>${head("Рейт.", "rating")}</th>
           <th>${head("Звання", "rank")}</th>
           <th>${head("Дата нар.", "birthDate")}</th>
@@ -1631,8 +1961,54 @@ function renderBasePlayersTab() {
           <th>${head("Очки", "score")}</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="11">База порожня.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="13">База порожня.</td></tr>'}</tbody>
     </table>`;
+}
+
+function renderBasePlayerOwnershipSelectors(basePlayer) {
+  if (!els.basePlayerClub || !els.basePlayerCoach) {
+    return;
+  }
+
+  const selectedClubId = normalizeEntityId(basePlayer?.clubId || els.basePlayerClub.value);
+  const selectedCoachId = normalizeEntityId(basePlayer?.coachId || els.basePlayerCoach.value);
+  els.basePlayerClub.innerHTML = [
+    '<option value="">Без клубу</option>',
+    ...state.clubs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+      .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`),
+  ].join("");
+  els.basePlayerClub.value = selectedClubId;
+
+  const coaches = state.coaches
+    .filter((coach) => !selectedClubId || coach.clubId === selectedClubId)
+    .slice()
+    .sort((a, b) => getCoachFullName(a).localeCompare(getCoachFullName(b), "uk"));
+  els.basePlayerCoach.innerHTML = [
+    '<option value="">Без тренера</option>',
+    ...coaches.map((coach) => `<option value="${escapeHtml(coach.id)}">${escapeHtml(getCoachFullName(coach))}</option>`),
+  ].join("");
+  els.basePlayerCoach.value = coaches.some((coach) => coach.id === selectedCoachId) ? selectedCoachId : "";
+}
+
+function renderBasePlayersClubFilter() {
+  if (!els.basePlayersClubFilter) {
+    return;
+  }
+
+  const current = els.basePlayersClubFilter.value || "all";
+  els.basePlayersClubFilter.innerHTML = [
+    '<option value="all">Усі клуби</option>',
+    '<option value="none">Без клубу</option>',
+    ...state.clubs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+      .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`),
+  ].join("");
+  els.basePlayersClubFilter.value = [...els.basePlayersClubFilter.options].some((option) => option.value === current)
+    ? current
+    : "all";
 }
 
 function filterBasePlayers(players) {
@@ -1642,9 +2018,11 @@ function filterBasePlayers(players) {
   const ratingTo = Number(els.basePlayersRatingTo.value);
   const hasRatingFrom = Number.isFinite(ratingFrom) && els.basePlayersRatingFrom.value !== "";
   const hasRatingTo = Number.isFinite(ratingTo) && els.basePlayersRatingTo.value !== "";
+  const clubFilter = els.basePlayersClubFilter.value || "all";
 
   return players.filter((player) => {
-    const searchText = `${player.lastName || ""} ${player.firstName || ""} ${player.firstName || ""} ${player.lastName || ""}`.toLowerCase();
+    const searchText =
+      `${player.lastName || ""} ${player.firstName || ""} ${player.firstName || ""} ${player.lastName || ""} ${getClubName(player.clubId)} ${getCoachName(player.coachId)}`.toLowerCase();
     if (query && !searchText.includes(query)) {
       return false;
     }
@@ -1658,6 +2036,14 @@ function filterBasePlayers(players) {
     }
 
     if (hasRatingTo && Number(player.rating) > ratingTo) {
+      return false;
+    }
+
+    if (clubFilter === "none" && player.clubId) {
+      return false;
+    }
+
+    if (clubFilter !== "all" && clubFilter !== "none" && player.clubId !== clubFilter) {
       return false;
     }
 
@@ -1686,6 +2072,10 @@ function sortBasePlayers(players) {
         cmp = compareText(getBaseFullName(a), getBaseFullName(b));
       } else if (key === "gender") {
         cmp = compareText(normalizeGender(a.gender), normalizeGender(b.gender));
+      } else if (key === "club") {
+        cmp = compareText(getClubName(a.clubId) || "яяя", getClubName(b.clubId) || "яяя");
+      } else if (key === "coach") {
+        cmp = compareText(getCoachName(a.coachId) || "яяя", getCoachName(b.coachId) || "яяя");
       } else if (key === "rating") {
         cmp = compareNum(a.rating, b.rating);
       } else if (key === "rank") {
@@ -1726,6 +2116,320 @@ function formatGenderLabel(value) {
     return "Ж";
   }
   return "-";
+}
+
+function renderClubsTab() {
+  renderCoachClubSelector();
+  if (!els.clubsList || !els.clubProfile) {
+    return;
+  }
+
+  const clubs = state.clubs.slice().sort((a, b) => a.name.localeCompare(b.name, "uk"));
+  if (!selectedClubProfileId && clubs.length) {
+    selectedClubProfileId = clubs[0].id;
+  }
+  if (selectedClubProfileId && !state.clubs.some((club) => club.id === selectedClubProfileId)) {
+    selectedClubProfileId = clubs[0]?.id || null;
+  }
+
+  if (!clubs.length) {
+    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Додайте перший клуб зліва.</div>';
+    els.clubProfile.innerHTML = renderIndependentPlayersBlock();
+    return;
+  }
+
+  els.clubsList.innerHTML = clubs
+    .map((club) => {
+      const playersCount = state.playerBase.filter((player) => player.clubId === club.id).length;
+      const coachesCount = state.coaches.filter((coach) => coach.clubId === club.id).length;
+      const active = club.id === selectedClubProfileId ? " active" : "";
+      const logo = club.logoDataUrl
+        ? `<img class="club-card__logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
+        : '<span class="club-card__logo club-card__logo--empty">Лого</span>';
+      return `
+        <article class="club-card${active}">
+          <div class="club-card__top">
+            ${logo}
+            <div>
+              <div class="club-card__title">${escapeHtml(club.name)}</div>
+              <div class="club-card__meta">${escapeHtml(club.city || "місто не вказано")}</div>
+            </div>
+          </div>
+          <div class="club-card__stats">${coachesCount} тренерів | ${playersCount} гравців</div>
+          <div class="row-actions">
+            <button type="button" data-action="view-club" data-club-id="${club.id}">Відкрити</button>
+            <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
+            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>
+          </div>
+        </article>`;
+    })
+    .join("");
+
+  els.clubProfile.innerHTML =
+    renderClubProfile(selectedClubProfileId) + renderClubPlayerProfileCard(selectedClubPlayerProfileId) + renderIndependentPlayersBlock();
+}
+
+function renderCoachClubSelector() {
+  if (!els.coachClub) {
+    return;
+  }
+  const current = els.coachClub.value || "";
+  els.coachClub.innerHTML = [
+    '<option value="">Оберіть клуб</option>',
+    ...state.clubs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+      .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`),
+  ].join("");
+  els.coachClub.value = state.clubs.some((club) => club.id === current) ? current : "";
+}
+
+function renderClubProfile(clubId) {
+  const club = state.clubs.find((item) => item.id === clubId);
+  if (!club) {
+    return "";
+  }
+
+  const coaches = state.coaches.filter((coach) => coach.clubId === club.id);
+  const players = state.playerBase
+    .filter((player) => player.clubId === club.id)
+    .slice()
+    .sort((a, b) => b.rating - a.rating || getBaseFullName(a).localeCompare(getBaseFullName(b), "uk"));
+  const coachesText = coaches.length
+    ? coaches.map((coach) => `${escapeHtml(getCoachFullName(coach))}${coach.phone ? ` (${escapeHtml(coach.phone)})` : ""}`).join(", ")
+    : "тренерів ще не додано";
+  const logo = club.logoDataUrl
+    ? `<img class="club-profile-logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
+    : '<span class="club-profile-logo club-profile-logo--empty">Лого</span>';
+
+  return `
+    <section class="club-profile-card">
+      <div class="club-profile-head">
+        <div class="club-profile-title">
+          ${logo}
+          <div>
+            <h3>${escapeHtml(club.name)}</h3>
+            <div class="meta">${escapeHtml(club.city || "місто не вказано")} | ${escapeHtml(club.contact || "контакти не вказані")}</div>
+            <div class="meta">Тренери: ${coachesText}</div>
+          </div>
+        </div>
+        <div class="row-actions">
+          <strong>${players.length} гравців</strong>
+          <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
+        </div>
+      </div>
+      <div class="club-management-grid">
+        ${renderAttachExistingPlayerForm(club, coaches)}
+        ${renderQuickClubPlayerForm(club, coaches)}
+      </div>
+      ${renderClubPlayersTable(players)}
+    </section>`;
+}
+
+function renderAttachExistingPlayerForm(club, coaches) {
+  const candidates = state.playerBase
+    .filter((player) => player.clubId !== club.id)
+    .slice()
+    .sort((a, b) => getBaseFullName(a).localeCompare(getBaseFullName(b), "uk"));
+  const coachOptions = buildCoachOptions(coaches);
+
+  if (!candidates.length) {
+    return `
+      <div class="club-action-panel">
+        <div class="quick-player-form__title">Існуючі гравці</div>
+        <div class="club-empty">Усі гравці з бази вже привʼязані до цього клубу.</div>
+      </div>`;
+  }
+
+  const playerOptions = candidates
+    .map((player) => {
+      const currentClub = getClubName(player.clubId) || "Без клубу";
+      return `<option value="${escapeHtml(player.id)}">${escapeHtml(getBaseFullName(player))} | ${player.rating} | ${escapeHtml(currentClub)}</option>`;
+    })
+    .join("");
+
+  return `
+    <form class="club-action-panel" data-action="attach-existing-player" data-club-id="${club.id}">
+      <div class="quick-player-form__title">Привʼязати існуючого гравця</div>
+      <select name="existingPlayerId" required>
+        <option value="">Оберіть гравця з бази</option>
+        ${playerOptions}
+      </select>
+      <select name="coachId">${coachOptions}</select>
+      <button type="submit">Додати в клуб</button>
+    </form>`;
+}
+
+function renderQuickClubPlayerForm(club, coaches) {
+  const coachOptions = buildCoachOptions(coaches);
+  const rankOptions = ["б/р", "юнацький", "3", "2", "1", "кмс", "мс", "гр"]
+    .map((rank) => `<option value="${escapeHtml(rank)}">${escapeHtml(rank)}</option>`)
+    .join("");
+
+  return `
+    <form class="club-action-panel quick-player-form" data-action="quick-add-club-player" data-club-id="${club.id}">
+      <div class="quick-player-form__title">Створити нового гравця</div>
+      <input name="lastName" type="text" placeholder="Прізвище" required />
+      <input name="firstName" type="text" placeholder="Ім'я" required />
+      <input name="rating" type="number" min="0" max="4000" placeholder="Рейтинг" required />
+      <select name="gender">
+        <option value="">Стать</option>
+        <option value="M">М</option>
+        <option value="F">Ж</option>
+      </select>
+      <select name="rank">${rankOptions}</select>
+      <input name="birthDate" type="date" />
+      <select name="coachId">${coachOptions}</select>
+      <input name="photo" type="file" accept="image/*" />
+      <button type="submit">Додати</button>
+    </form>`;
+}
+
+function buildCoachOptions(coaches) {
+  return [
+    '<option value="">Без тренера</option>',
+    ...coaches
+      .slice()
+      .sort((a, b) => getCoachFullName(a).localeCompare(getCoachFullName(b), "uk"))
+      .map((coach) => `<option value="${escapeHtml(coach.id)}">${escapeHtml(getCoachFullName(coach))}</option>`),
+  ].join("");
+}
+
+function renderIndependentPlayersBlock() {
+  const players = state.playerBase
+    .filter((player) => !player.clubId)
+    .slice()
+    .sort((a, b) => b.rating - a.rating || getBaseFullName(a).localeCompare(getBaseFullName(b), "uk"));
+  if (!players.length) {
+    return "";
+  }
+
+  return `
+    <section class="club-profile-card">
+      <div class="club-profile-head">
+        <div>
+          <h3>Незалежні гравці</h3>
+          <div class="meta">Гравці без клубу також можуть брати участь у турнірах.</div>
+        </div>
+        <strong>${players.length} гравців</strong>
+      </div>
+      ${renderClubPlayersTable(players, { compactActions: true })}
+    </section>`;
+}
+
+function renderClubPlayersTable(players, options = {}) {
+  const { compactActions = false } = options;
+  if (!players.length) {
+    return '<div class="club-empty">У цьому клубі поки немає гравців.</div>';
+  }
+
+  const rows = players
+    .map((player) => {
+      const coachName = getCoachName(player.coachId) || "-";
+      const stats = player.stats || emptyStats();
+      return `
+        <tr>
+          <td>${player.photoDataUrl ? `<img class="avatar" src="${player.photoDataUrl}" alt="${escapeHtml(getBaseFullName(player))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
+          <td class="player-name-cell">${escapeHtml(getBaseFullName(player))}</td>
+          <td>${formatGenderLabel(player.gender)}</td>
+          <td>${player.rating}</td>
+          <td>${escapeHtml(player.rank || "б/р")}</td>
+          <td>${escapeHtml(coachName)}</td>
+          <td>${stats.tournaments}</td>
+          <td>${stats.games}</td>
+          <td>${stats.wins}/${stats.draws}/${stats.losses}</td>
+          <td>
+            <div class="row-actions">
+              <button type="button" data-action="view-player-profile" data-player-id="${player.id}">Профіль</button>
+              <button type="button" data-action="edit-club-player" data-player-id="${player.id}">Ред.</button>
+              <button type="button" data-action="add-to-tournament" data-player-id="${player.id}">У турнір</button>
+              ${
+                player.clubId && !compactActions
+                  ? `<button type="button" class="danger" data-action="remove-player-from-club" data-player-id="${player.id}">Відвʼязати</button>`
+                  : ""
+              }
+            </div>
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  return `
+    <div class="scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Фото</th>
+            <th>Гравець</th>
+            <th>Стать</th>
+            <th>Рейт.</th>
+            <th>Звання</th>
+            <th>Тренер</th>
+            <th>Турніри</th>
+            <th>Партії</th>
+            <th>W/D/L</th>
+            <th>Дії</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderClubPlayerProfileCard(playerId) {
+  const player = state.playerBase.find((item) => item.id === playerId);
+  if (!player) {
+    return "";
+  }
+
+  const stats = player.stats || emptyStats();
+  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt)) : [];
+  const historyRows = history
+    .slice(0, 8)
+    .map(
+      (item) => `
+        <tr>
+          <td>${escapeHtml(item.tournamentName || "-")}</td>
+          <td>${formatDate(item.finishedAt)}</td>
+          <td>${item.place ?? "-"}</td>
+          <td>${Number(item.score || 0).toFixed(1)}</td>
+          <td>${item.wins}/${item.draws}/${item.losses}</td>
+        </tr>`
+    )
+    .join("");
+
+  return `
+    <section class="club-profile-card player-profile-card">
+      <div class="player-profile-head">
+        ${
+          player.photoDataUrl
+            ? `<img class="player-profile-photo" src="${player.photoDataUrl}" alt="${escapeHtml(getBaseFullName(player))}" />`
+            : '<span class="player-profile-photo player-profile-photo--empty">Фото</span>'
+        }
+        <div>
+          <h3>${escapeHtml(getBaseFullName(player))}</h3>
+          <div class="meta">Клуб: ${escapeHtml(getClubName(player.clubId) || "Без клубу")} | Тренер: ${escapeHtml(getCoachName(player.coachId) || "-")}</div>
+          <div class="meta">Стать: ${formatGenderLabel(player.gender)} | Дата нар.: ${escapeHtml(player.birthDate || "-")} | Звання: ${escapeHtml(player.rank || "б/р")}</div>
+          <div class="player-profile-stats">
+            <span>Рейтинг: <strong>${player.rating}</strong></span>
+            <span>Турніри: <strong>${stats.tournaments}</strong></span>
+            <span>Партії: <strong>${stats.games}</strong></span>
+            <span>W/D/L: <strong>${stats.wins}/${stats.draws}/${stats.losses}</strong></span>
+          </div>
+        </div>
+      </div>
+      <h4>Останні турніри</h4>
+      ${
+        historyRows
+          ? `<table class="table">
+              <thead>
+                <tr><th>Турнір</th><th>Дата</th><th>Місце</th><th>Очки</th><th>W/D/L</th></tr>
+              </thead>
+              <tbody>${historyRows}</tbody>
+            </table>`
+          : '<div class="club-empty">Історії турнірів поки немає.</div>'
+      }
+    </section>`;
 }
 
 function renderArchiveTab() {
@@ -1961,6 +2665,8 @@ function addTournamentPlayer(basePlayerId, name, rating, options = {}) {
     createTournamentPlayer(name, rating, basePlayerId, t.players.length, {
       gender: basePlayer?.gender,
       photoDataUrl: basePlayer?.photoDataUrl,
+      clubId: basePlayer?.clubId,
+      coachId: basePlayer?.coachId,
     })
   );
   if (shouldSave) {
@@ -1978,6 +2684,8 @@ async function submitBasePlayerForm() {
   const gender = normalizeGender(els.basePlayerGender.value);
   const rank = els.basePlayerRank.value;
   const birthDate = normalizeBirthDate(els.basePlayerBirthDate.value);
+  const clubId = normalizeEntityId(els.basePlayerClub.value);
+  const coachId = normalizeEntityId(els.basePlayerCoach.value);
   const removePhoto = els.basePlayerRemovePhoto.checked;
   const photoFile = els.basePlayerPhoto.files?.[0] || null;
 
@@ -2022,6 +2730,8 @@ async function submitBasePlayerForm() {
     base.firstName = firstName;
     base.rating = Math.round(rating);
     base.gender = gender;
+    base.clubId = clubId;
+    base.coachId = coachId;
     base.rank = normalizeRank(rank);
     base.birthDate = birthDate;
 
@@ -2045,6 +2755,8 @@ async function submitBasePlayerForm() {
     state.playerBase.push(
       createBasePlayerRecord(lastName, firstName, Math.round(rating), {
         gender,
+        clubId,
+        coachId,
         rank,
         birthDate,
         photoDataUrl: photoDataUrl || null,
@@ -2085,6 +2797,7 @@ function startEditBasePlayer(playerId) {
   els.basePlayerGender.value = normalizeGender(base.gender);
   els.basePlayerRank.value = normalizeRank(base.rank);
   els.basePlayerBirthDate.value = normalizeBirthDate(base.birthDate);
+  renderBasePlayerOwnershipSelectors(base);
   els.basePlayerPhoto.value = "";
   els.basePlayerRemovePhoto.checked = false;
   els.basePlayerSubmitBtn.textContent = "Зберегти зміни";
@@ -2100,6 +2813,7 @@ function resetBasePlayerForm() {
   els.basePlayerForm.reset();
   els.basePlayerGender.value = "";
   els.basePlayerRank.value = "б/р";
+  renderBasePlayerOwnershipSelectors(null);
   els.basePlayerRemovePhoto.checked = false;
   els.basePlayerSubmitBtn.textContent = "Додати в базу";
   els.basePlayerCancelEditBtn.hidden = true;
@@ -2133,6 +2847,16 @@ async function readBasePlayerPhotoDataUrl(file) {
     qualityStart: 0.82,
     qualityMin: 0.45,
     targetBytes: MAX_BASE_PLAYER_PHOTO_STORE_BYTES,
+  });
+}
+
+async function readClubLogoDataUrl(file) {
+  const rawDataUrl = await readFileAsDataUrl(file);
+  return optimizeImageDataUrl(rawDataUrl, {
+    maxSide: 520,
+    qualityStart: 0.84,
+    qualityMin: 0.48,
+    targetBytes: MAX_CLUB_LOGO_STORE_BYTES,
   });
 }
 
@@ -2213,6 +2937,8 @@ function syncBasePlayerChangesToCurrentTournament(basePlayerId) {
     tp.name = getBaseFullName(base);
     tp.gender = normalizeGender(base.gender);
     tp.photoDataUrl = base.photoDataUrl || null;
+    tp.clubId = normalizeEntityId(base.clubId);
+    tp.coachId = normalizeEntityId(base.coachId);
     if (t.currentRound === 0) {
       tp.rating = base.rating;
     }
@@ -2326,12 +3052,266 @@ function addDemoPlayers() {
       createTournamentPlayer(getBaseFullName(base), rating, base.id, t.players.length, {
         gender: base.gender,
         photoDataUrl: base.photoDataUrl,
+        clubId: base.clubId,
+        coachId: base.coachId,
       })
     );
   }
 
   normalizeRoundsCountForCurrentFormat(t);
   saveAndRender();
+}
+
+async function submitClubForm() {
+  const name = els.clubName.value.trim();
+  const city = els.clubCity.value.trim();
+  const contact = els.clubContact.value.trim();
+  const removeLogo = els.clubRemoveLogo.checked;
+  const logoFile = els.clubLogo.files?.[0] || null;
+
+  if (!name) {
+    alert("Назва клубу обов'язкова.");
+    return;
+  }
+
+  if (state.clubs.some((club) => club.id !== editingClubId && club.name.toLowerCase() === name.toLowerCase())) {
+    alert("Клуб з такою назвою вже є.");
+    return;
+  }
+
+  let logoDataUrl = null;
+  if (logoFile) {
+    if (!isValidClubLogoFile(logoFile)) {
+      return;
+    }
+    logoDataUrl = await readClubLogoDataUrl(logoFile);
+  }
+
+  let club = editingClubId ? state.clubs.find((item) => item.id === editingClubId) : null;
+  if (club) {
+    club.name = name;
+    club.city = city;
+    club.contact = contact;
+    if (logoDataUrl) {
+      club.logoDataUrl = logoDataUrl;
+    } else if (removeLogo) {
+      club.logoDataUrl = null;
+    }
+  } else {
+    club = createClubRecord(name, city, contact, { logoDataUrl });
+    state.clubs.push(club);
+  }
+
+  selectedClubProfileId = club.id;
+  resetClubForm();
+  saveAndRender();
+}
+
+function startEditClub(clubId) {
+  const club = state.clubs.find((item) => item.id === clubId);
+  if (!club) {
+    return;
+  }
+
+  editingClubId = club.id;
+  selectedClubProfileId = club.id;
+  els.clubName.value = club.name || "";
+  els.clubCity.value = club.city || "";
+  els.clubContact.value = club.contact || "";
+  els.clubLogo.value = "";
+  els.clubRemoveLogo.checked = false;
+  els.clubSubmitBtn.textContent = "Зберегти клуб";
+  els.clubCancelEditBtn.hidden = false;
+  els.clubEditHint.hidden = false;
+  els.clubEditHint.textContent = `Редагування клубу: ${club.name}. Можна змінити назву, місто, контакти і логотип.`;
+  els.clubForm.scrollIntoView({ behavior: "smooth", block: "center" });
+  els.clubName.focus();
+  renderClubsTab();
+}
+
+function resetClubForm() {
+  editingClubId = null;
+  els.clubForm.reset();
+  els.clubRemoveLogo.checked = false;
+  els.clubSubmitBtn.textContent = "Додати клуб";
+  els.clubCancelEditBtn.hidden = true;
+  els.clubEditHint.hidden = true;
+  els.clubEditHint.textContent = "";
+}
+
+async function submitQuickClubPlayerForm(form) {
+  const clubId = normalizeEntityId(form.dataset.clubId);
+  const club = state.clubs.find((item) => item.id === clubId);
+  if (!club) {
+    alert("Клуб не знайдено.");
+    return;
+  }
+
+  const lastName = form.querySelector("[name='lastName']")?.value.trim() || "";
+  const firstName = form.querySelector("[name='firstName']")?.value.trim() || "";
+  const rating = Number(form.querySelector("[name='rating']")?.value || 0);
+  const gender = normalizeGender(form.querySelector("[name='gender']")?.value || "");
+  const rank = normalizeRank(form.querySelector("[name='rank']")?.value || "б/р");
+  const birthDate = normalizeBirthDate(form.querySelector("[name='birthDate']")?.value || "");
+  const coachId = normalizeEntityId(form.querySelector("[name='coachId']")?.value || "");
+  const photoFile = form.querySelector("[name='photo']")?.files?.[0] || null;
+
+  if (!lastName || !firstName) {
+    alert("Прізвище та ім'я гравця обов'язкові.");
+    return;
+  }
+
+  if (!Number.isFinite(rating) || rating < 0) {
+    alert("Рейтинг має бути невід'ємним числом.");
+    return;
+  }
+
+  if (
+    state.playerBase.some(
+      (player) =>
+        player.lastName.toLowerCase() === lastName.toLowerCase() &&
+        player.firstName.toLowerCase() === firstName.toLowerCase()
+    )
+  ) {
+    alert("Гравець з таким прізвищем та ім'ям уже є в базі.");
+    return;
+  }
+
+  let photoDataUrl = null;
+  if (photoFile) {
+    if (!isValidBasePlayerPhotoFile(photoFile)) {
+      return;
+    }
+    photoDataUrl = await readBasePlayerPhotoDataUrl(photoFile);
+  }
+
+  const player = createBasePlayerRecord(lastName, firstName, Math.round(rating), {
+    gender,
+    rank,
+    birthDate,
+    photoDataUrl,
+    clubId,
+    coachId,
+  });
+  state.playerBase.push(player);
+  selectedClubPlayerProfileId = player.id;
+  form.reset();
+  saveAndRender();
+}
+
+function submitCoachForm() {
+  const lastName = els.coachLastName.value.trim();
+  const firstName = els.coachFirstName.value.trim();
+  const clubId = normalizeEntityId(els.coachClub.value);
+  const phone = els.coachPhone.value.trim();
+  const email = els.coachEmail.value.trim();
+
+  if (!lastName || !firstName) {
+    alert("Прізвище та ім'я тренера обов'язкові.");
+    return;
+  }
+
+  if (!clubId) {
+    alert("Оберіть клуб для тренера.");
+    return;
+  }
+
+  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email });
+  state.coaches.push(coach);
+  selectedClubProfileId = clubId;
+  els.coachForm.reset();
+  saveAndRender();
+}
+
+function deleteClub(clubId) {
+  const club = state.clubs.find((item) => item.id === clubId);
+  if (!club) {
+    return;
+  }
+
+  const playersCount = state.playerBase.filter((player) => player.clubId === clubId).length;
+  const coachesCount = state.coaches.filter((coach) => coach.clubId === clubId).length;
+  const message = `Видалити клуб "${club.name}"? Гравці стануть незалежними, тренери будуть відв'язані.`;
+  if ((playersCount > 0 || coachesCount > 0) && !confirm(message)) {
+    return;
+  }
+  if (playersCount === 0 && coachesCount === 0 && !confirm(`Видалити клуб "${club.name}"?`)) {
+    return;
+  }
+
+  state.clubs = state.clubs.filter((item) => item.id !== clubId);
+  for (const coach of state.coaches) {
+    if (coach.clubId === clubId) {
+      coach.clubId = "";
+    }
+  }
+  for (const player of state.playerBase) {
+    if (player.clubId === clubId) {
+      player.clubId = "";
+      player.coachId = "";
+      syncBasePlayerChangesToCurrentTournament(player.id);
+    }
+  }
+  if (selectedClubProfileId === clubId) {
+    selectedClubProfileId = null;
+  }
+  saveAndRender();
+}
+
+function submitAttachExistingPlayerToClubForm(form) {
+  const clubId = normalizeEntityId(form.dataset.clubId);
+  const playerId = normalizeEntityId(form.querySelector("[name='existingPlayerId']")?.value || "");
+  const coachId = normalizeEntityId(form.querySelector("[name='coachId']")?.value || "");
+  const club = state.clubs.find((item) => item.id === clubId);
+  const player = state.playerBase.find((item) => item.id === playerId);
+
+  if (!club) {
+    alert("Клуб не знайдено.");
+    return;
+  }
+
+  if (!player) {
+    alert("Оберіть гравця з бази.");
+    return;
+  }
+
+  player.clubId = club.id;
+  player.coachId = coachId;
+  syncBasePlayerChangesToCurrentTournament(player.id);
+  selectedClubProfileId = club.id;
+  selectedClubPlayerProfileId = player.id;
+  form.reset();
+  saveAndRender();
+}
+
+function removeBasePlayerFromClub(playerId) {
+  const player = state.playerBase.find((item) => item.id === playerId);
+  if (!player) {
+    return;
+  }
+
+  if (!confirm(`Відв'язати ${getBaseFullName(player)} від клубу?`)) {
+    return;
+  }
+
+  player.clubId = "";
+  player.coachId = "";
+  syncBasePlayerChangesToCurrentTournament(player.id);
+  if (selectedClubPlayerProfileId === player.id) {
+    selectedClubPlayerProfileId = null;
+  }
+  saveAndRender();
+}
+
+function editClubPlayerInBase(playerId) {
+  const player = state.playerBase.find((item) => item.id === playerId);
+  if (!player) {
+    return;
+  }
+
+  state.activeTab = "players";
+  saveAndRender();
+  startEditBasePlayer(playerId);
 }
 
 // ===== 06-pairing.js =====
@@ -2381,6 +3361,91 @@ function generateNextRound() {
   t.rounds.push({ round: nextRoundNumber, pairings });
   t.currentRound = nextRoundNumber;
   t.updatedAt = new Date().toISOString();
+
+  saveAndRender();
+}
+
+function createManualRoundFromForm() {
+  const t = state.currentTournament;
+
+  if (t.players.length < 2) {
+    alert("Потрібно щонайменше 2 гравці.");
+    return;
+  }
+
+  if (t.currentRound >= t.roundsCount) {
+    alert("Досягнуто максимальної кількості турів.");
+    return;
+  }
+
+  if (!isLastRoundComplete(t)) {
+    alert("Спочатку внесіть усі результати поточного туру.");
+    return;
+  }
+
+  const nextRoundNumber = t.currentRound + 1;
+  const boardsCount = Math.floor(t.players.length / 2);
+  const used = new Set();
+  const pairings = [];
+
+  for (let board = 1; board <= boardsCount; board += 1) {
+    const whiteId = els.manualPairingPanel.querySelector(`[data-manual-white="${board}"]`)?.value || "";
+    const blackId = els.manualPairingPanel.querySelector(`[data-manual-black="${board}"]`)?.value || "";
+
+    if (!whiteId || !blackId) {
+      alert(`Заповніть обох гравців на дошці ${board}.`);
+      return;
+    }
+
+    if (whiteId === blackId) {
+      alert(`На дошці ${board} один гравець не може грати сам із собою.`);
+      return;
+    }
+
+    if (used.has(whiteId) || used.has(blackId)) {
+      alert("Один гравець не може бути в турі більше одного разу.");
+      return;
+    }
+
+    if (!t.players.some((player) => player.id === whiteId) || !t.players.some((player) => player.id === blackId)) {
+      alert("У ручному турі є гравець, якого немає в складі турніру.");
+      return;
+    }
+
+    used.add(whiteId);
+    used.add(blackId);
+    pairings.push({ board, whiteId, blackId, result: "pending" });
+  }
+
+  if (t.players.length % 2 === 1) {
+    const byeId = els.manualPairingPanel.querySelector("[data-manual-bye]")?.value || "";
+    if (!byeId) {
+      alert("Оберіть гравця з BYE.");
+      return;
+    }
+
+    if (used.has(byeId)) {
+      alert("Гравець з BYE не може одночасно грати партію в цьому турі.");
+      return;
+    }
+
+    const byePlayer = t.players.find((player) => player.id === byeId);
+    if (!byePlayer) {
+      alert("Гравця з BYE немає в складі турніру.");
+      return;
+    }
+
+    byePlayer.hadBye = true;
+    byePlayer.score += 1;
+    byePlayer.resultsByRound[nextRoundNumber] = "BYE";
+    pairings.push({ board: pairings.length + 1, whiteId: byePlayer.id, blackId: null, result: "1-0 BYE" });
+  }
+
+  applyPendingMetadata(t, pairings);
+  t.rounds.push({ round: nextRoundNumber, pairings, manual: true });
+  t.currentRound = nextRoundNumber;
+  t.updatedAt = new Date().toISOString();
+  manualRoundBuilderOpen = false;
 
   saveAndRender();
 }
@@ -3141,10 +4206,12 @@ async function bootstrapPersistence() {
   render();
 
   try {
-    const { playersRows, tournamentRows } = await fetchRemoteBootstrapPayload();
+    const { clubRows, coachRows, playersRows, tournamentRows } = await fetchRemoteBootstrapPayload();
+    remoteKnownClubIds = new Set(clubRows.map((item) => item.id).filter(Boolean));
+    remoteKnownCoachIds = new Set(coachRows.map((item) => item.id).filter(Boolean));
     remoteKnownPlayerIds = new Set(playersRows.map((item) => item.id).filter(Boolean));
     remoteKnownTournamentIds = new Set(tournamentRows.map((item) => item.id).filter(Boolean));
-    const remoteHasData = playersRows.length > 0 || tournamentRows.length > 0;
+    const remoteHasData = clubRows.length > 0 || coachRows.length > 0 || playersRows.length > 0 || tournamentRows.length > 0;
     const localHasData = hasMeaningfulAppState(state);
 
     setPersistenceInfo({
@@ -3163,7 +4230,7 @@ async function bootstrapPersistence() {
       });
       scheduleRemoteSync("bootstrap-seed");
     } else if (stateRevision === remoteBootstrapRevision) {
-      state = buildStateFromApi(playersRows, tournamentRows);
+      state = buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows);
       tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
       persistLocalState({ notifyOnError: false });
     } else {
@@ -3188,14 +4255,22 @@ async function fetchRemoteBootstrapPayload() {
     apiRequest("/api/players", { timeoutMs: 5000 }),
     apiRequest("/api/tournaments", { timeoutMs: 5000 }),
   ]);
+  const [clubRows, coachRows] = await Promise.all([
+    apiRequest("/api/clubs", { timeoutMs: 5000 }),
+    apiRequest("/api/coaches", { timeoutMs: 5000 }),
+  ]);
 
   return {
+    clubRows: Array.isArray(clubRows) ? clubRows : [],
+    coachRows: Array.isArray(coachRows) ? coachRows : [],
     playersRows: Array.isArray(playersRows) ? playersRows : [],
     tournamentRows: Array.isArray(tournamentRows) ? tournamentRows : [],
   };
 }
 
-function buildStateFromApi(playersRows, tournamentRows) {
+function buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows) {
+  const clubs = clubRows.map(mapApiClubToState);
+  const coaches = coachRows.map(mapApiCoachToState);
   const basePlayers = playersRows.map(mapApiPlayerToBasePlayer);
   const mappedTournaments = tournamentRows.map(mapApiTournamentToState);
   const archivedTournaments = mappedTournaments
@@ -3213,6 +4288,8 @@ function buildStateFromApi(playersRows, tournamentRows) {
     tournamentView: state?.tournamentView || "setup",
     archivePreviewTournamentId: null,
     kyivPresetVersion: KYIV_PRESET_VERSION,
+    clubs,
+    coaches,
     playerBase: basePlayers,
     currentTournament: activeTournament,
     tournamentsArchive: archivedTournaments,
@@ -3234,12 +4311,37 @@ function mapApiPlayerToBasePlayer(row) {
     firstName: row.first_name,
     rating: row.rating,
     gender: row.gender,
+    clubId: row.club_id,
+    coachId: row.coach_id,
     rank: row.rank,
     birthDate: row.birth_date,
     photoDataUrl: row.photo_url,
     createdAt: row.created_at,
     history: [],
     stats: emptyStats(),
+  });
+}
+
+function mapApiClubToState(row) {
+  return normalizeClub({
+    id: row.id,
+    name: row.name,
+    city: row.city,
+    contact: row.contact,
+    logoDataUrl: row.logo_url,
+    createdAt: row.created_at,
+  });
+}
+
+function mapApiCoachToState(row) {
+  return normalizeCoach({
+    id: row.id,
+    lastName: row.last_name,
+    firstName: row.first_name,
+    clubId: row.club_id,
+    phone: row.phone,
+    email: row.email,
+    createdAt: row.created_at,
   });
 }
 
@@ -3346,6 +4448,8 @@ function findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer
     base = createBasePlayerRecord(split.lastName, split.firstName, tournamentPlayer.rating, {
       gender: tournamentPlayer.gender,
       photoDataUrl: tournamentPlayer.photoDataUrl,
+      clubId: tournamentPlayer.clubId,
+      coachId: tournamentPlayer.coachId,
     });
     base.id = tournamentPlayer.basePlayerId || base.id;
     basePlayers.push(base);
@@ -3359,6 +4463,14 @@ function findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer
     base.photoDataUrl = tournamentPlayer.photoDataUrl;
   }
 
+  if (!base.clubId && tournamentPlayer.clubId) {
+    base.clubId = normalizeEntityId(tournamentPlayer.clubId);
+  }
+
+  if (!base.coachId && tournamentPlayer.coachId) {
+    base.coachId = normalizeEntityId(tournamentPlayer.coachId);
+  }
+
   return base;
 }
 
@@ -3369,9 +4481,32 @@ function buildBasePlayerApiPayload(basePlayer) {
     first_name: basePlayer.firstName,
     rating: Number(basePlayer.rating) || 0,
     gender: normalizeGender(basePlayer.gender),
+    club_id: normalizeEntityId(basePlayer.clubId) || null,
+    coach_id: normalizeEntityId(basePlayer.coachId) || null,
     rank: normalizeRank(basePlayer.rank),
     birth_date: normalizeBirthDate(basePlayer.birthDate) || null,
     photo_url: basePlayer.photoDataUrl || null,
+  };
+}
+
+function buildClubApiPayload(club) {
+  return {
+    id: club.id,
+    name: club.name,
+    city: club.city || "",
+    contact: club.contact || "",
+    logo_url: club.logoDataUrl || null,
+  };
+}
+
+function buildCoachApiPayload(coach) {
+  return {
+    id: coach.id,
+    last_name: coach.lastName,
+    first_name: coach.firstName,
+    club_id: normalizeEntityId(coach.clubId) || null,
+    phone: coach.phone || "",
+    email: coach.email || "",
   };
 }
 
@@ -3431,6 +4566,8 @@ function hasMeaningfulAppState(appState) {
 
   return Boolean(
     appState.playerBase.length ||
+      appState.clubs.length ||
+      appState.coaches.length ||
       appState.tournamentsArchive.length ||
       hasMeaningfulTournamentData(appState.currentTournament)
   );
@@ -3512,6 +4649,46 @@ async function flushRemoteSync() {
 }
 
 async function syncRemoteSnapshot(appState) {
+  const desiredClubs = appState.clubs.map(buildClubApiPayload);
+  const desiredClubIds = new Set(desiredClubs.map((item) => item.id));
+
+  for (const clubPayload of desiredClubs) {
+    if (remoteKnownClubIds.has(clubPayload.id)) {
+      await apiRequest(`/api/clubs/${clubPayload.id}`, {
+        method: "PUT",
+        body: clubPayload,
+        timeoutMs: 6000,
+      });
+    } else {
+      await apiRequest("/api/clubs", {
+        method: "POST",
+        body: clubPayload,
+        timeoutMs: 6000,
+      });
+      remoteKnownClubIds.add(clubPayload.id);
+    }
+  }
+
+  const desiredCoaches = appState.coaches.map(buildCoachApiPayload);
+  const desiredCoachIds = new Set(desiredCoaches.map((item) => item.id));
+
+  for (const coachPayload of desiredCoaches) {
+    if (remoteKnownCoachIds.has(coachPayload.id)) {
+      await apiRequest(`/api/coaches/${coachPayload.id}`, {
+        method: "PUT",
+        body: coachPayload,
+        timeoutMs: 6000,
+      });
+    } else {
+      await apiRequest("/api/coaches", {
+        method: "POST",
+        body: coachPayload,
+        timeoutMs: 6000,
+      });
+      remoteKnownCoachIds.add(coachPayload.id);
+    }
+  }
+
   const desiredPlayers = appState.playerBase.map(buildBasePlayerApiPayload);
   const desiredPlayerIds = new Set(desiredPlayers.map((item) => item.id));
 
@@ -3538,6 +4715,22 @@ async function syncRemoteSnapshot(appState) {
     }
     await apiRequest(`/api/players/${playerId}`, { method: "DELETE", timeoutMs: 6000 });
     remoteKnownPlayerIds.delete(playerId);
+  }
+
+  for (const coachId of [...remoteKnownCoachIds]) {
+    if (desiredCoachIds.has(coachId)) {
+      continue;
+    }
+    await apiRequest(`/api/coaches/${coachId}`, { method: "DELETE", timeoutMs: 6000 });
+    remoteKnownCoachIds.delete(coachId);
+  }
+
+  for (const clubId of [...remoteKnownClubIds]) {
+    if (desiredClubIds.has(clubId)) {
+      continue;
+    }
+    await apiRequest(`/api/clubs/${clubId}`, { method: "DELETE", timeoutMs: 6000 });
+    remoteKnownClubIds.delete(clubId);
   }
 
   const desiredTournaments = buildTournamentsForSync(appState);
@@ -3746,6 +4939,7 @@ function loadTournamentFromArchive(tournamentId) {
   state.currentTournament.status = "archived_view";
   state.currentTournament.updatedAt = new Date().toISOString();
   state.activeTab = "tournament";
+  manualRoundBuilderOpen = false;
   saveAndRender();
 }
 
@@ -3775,6 +4969,7 @@ function createNewTournamentFlow() {
 
   state.currentTournament = createDefaultTournament();
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+  manualRoundBuilderOpen = false;
   state.activeTab = "tournament";
   state.tournamentView = "setup";
   state.archivePreviewTournamentId = null;

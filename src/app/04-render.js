@@ -2,6 +2,7 @@ function render() {
   renderTabs();
   renderTournamentTab();
   renderBasePlayersTab();
+  renderClubsTab();
   renderArchiveTab();
   renderPersistenceFooter();
 }
@@ -60,6 +61,8 @@ function renderTournamentTab() {
 
   renderBaseSelect();
   els.generateRoundBtn.disabled = archiveView;
+  els.manualRoundBtn.disabled = archiveView;
+  els.manualRoundBtn.textContent = manualRoundBuilderOpen ? "Закрити ручний тур" : "Додати тур вручну";
   els.printRoundBtn.disabled = archiveView || t.rounds.length === 0;
   els.finishTournamentBtn.disabled = archiveView;
   if (els.seedDemoBtn) {
@@ -76,6 +79,7 @@ function renderTournamentTab() {
 
   renderTournamentSubtabs();
   renderTournamentPlayers();
+  renderManualPairingPanel();
   renderRounds();
   renderStandings();
 }
@@ -278,8 +282,8 @@ function renderBaseSelect() {
     .map((p) => ({
       player: p,
       id: p.id,
-      token: `${getBaseFullName(p)} (${p.rating})`,
-      search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)}`.toLowerCase(),
+      token: `${getBaseFullName(p)} (${p.rating})${p.clubId ? ` | ${getClubName(p.clubId)}` : " | Без клубу"}`,
+      search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)} ${getClubName(p.clubId)} ${getCoachName(p.coachId)}`.toLowerCase(),
     }));
 
   const allowedIds = new Set(tournamentBaseLookup.map((item) => item.id));
@@ -329,6 +333,7 @@ function renderTournamentPlayers() {
       <tr>
         <td>${i + 1}</td>
         <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(getClubName(p.clubId) || "Без клубу")}</td>
         <td>${p.rating}</td>
         <td>${p.score.toFixed(1)}</td>
         <td>${p.hadBye ? "Так" : "Ні"}</td>
@@ -347,6 +352,7 @@ function renderTournamentPlayers() {
         <tr>
           <th>#</th>
           <th>Гравець</th>
+          <th>Клуб</th>
           <th>Рейтинг</th>
           <th>Очки</th>
           <th>BYE</th>
@@ -419,6 +425,89 @@ function renderRounds() {
     .join("");
 
   els.pairings.innerHTML = blocks;
+}
+
+function renderManualPairingPanel() {
+  const t = state.currentTournament;
+  if (!els.manualPairingPanel) {
+    return;
+  }
+
+  if (!manualRoundBuilderOpen || t.status === "archived_view") {
+    els.manualPairingPanel.hidden = true;
+    els.manualPairingPanel.innerHTML = "";
+    return;
+  }
+
+  els.manualPairingPanel.hidden = false;
+
+  if (t.players.length < 2) {
+    els.manualPairingPanel.innerHTML = '<div class="manual-pairing-note">Потрібно щонайменше 2 учасники.</div>';
+    return;
+  }
+
+  if (t.currentRound >= t.roundsCount) {
+    els.manualPairingPanel.innerHTML = '<div class="manual-pairing-note">Досягнуто максимальної кількості турів.</div>';
+    return;
+  }
+
+  if (!isLastRoundComplete(t)) {
+    els.manualPairingPanel.innerHTML =
+      '<div class="manual-pairing-note">Спочатку внесіть усі результати поточного туру.</div>';
+    return;
+  }
+
+  const nextRound = t.currentRound + 1;
+  const boardsCount = Math.floor(t.players.length / 2);
+  const options = buildManualPlayerOptions();
+  const rows = Array.from({ length: boardsCount }, (_, idx) => {
+    const board = idx + 1;
+    return `
+      <div class="manual-pairing-row">
+        <span class="manual-pairing-board">Дошка ${board}</span>
+        <select data-manual-white="${board}">
+          <option value="">Білі</option>
+          ${options}
+        </select>
+        <select data-manual-black="${board}">
+          <option value="">Чорні</option>
+          ${options}
+        </select>
+      </div>`;
+  }).join("");
+
+  const byeSelect =
+    t.players.length % 2 === 1
+      ? `
+        <label class="manual-pairing-bye">
+          BYE
+          <select data-manual-bye>
+            <option value="">Оберіть гравця</option>
+            ${options}
+          </select>
+        </label>`
+      : "";
+
+  els.manualPairingPanel.innerHTML = `
+    <div class="manual-pairing-head">
+      <div>
+        <strong>Ручний тур ${nextRound}</strong>
+        <span class="meta">Для введення минулого турніру: оберіть пари, створіть тур і внесіть результати.</span>
+      </div>
+      <div class="manual-pairing-actions">
+        <button type="button" data-action="cancel-manual-round">Скасувати</button>
+        <button type="button" data-action="create-manual-round">Створити тур</button>
+      </div>
+    </div>
+    <div class="manual-pairing-grid">${rows}</div>
+    ${byeSelect}`;
+}
+
+function buildManualPlayerOptions() {
+  return [...state.currentTournament.players]
+    .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+    .map((player) => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.name)}</option>`)
+    .join("");
 }
 
 function buildPairResultButton(roundIdx, board, currentResult, nextResult, label, title, disabled) {
@@ -637,6 +726,8 @@ function getTournamentPlayerPhotoDataUrl(player) {
 }
 
 function renderBasePlayersTab() {
+  renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
+  renderBasePlayersClubFilter();
   const filteredPlayers = filterBasePlayers(state.playerBase);
   const sortedPlayers = sortBasePlayers(filteredPlayers);
   const totalPlayers = state.playerBase.length;
@@ -644,7 +735,8 @@ function renderBasePlayersTab() {
     Boolean(String(els.basePlayersSearch.value || "").trim()) ||
     els.basePlayersGenderFilter.value !== "all" ||
     els.basePlayersRatingFrom.value !== "" ||
-    els.basePlayersRatingTo.value !== "";
+    els.basePlayersRatingTo.value !== "" ||
+    els.basePlayersClubFilter.value !== "all";
   els.basePlayersSummary.textContent = `Показано ${sortedPlayers.length} з ${totalPlayers} гравців${filtersActive ? " за фільтром" : ""}.`;
   const rows = sortedPlayers
     .map((p) => {
@@ -661,6 +753,8 @@ function renderBasePlayersTab() {
         <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
         <td class="player-name-cell">${escapeHtml(getBaseFullName(p))}</td>
         <td>${formatGenderLabel(p.gender)}</td>
+        <td>${escapeHtml(getClubName(p.clubId) || "Без клубу")}</td>
+        <td>${escapeHtml(getCoachName(p.coachId) || "-")}</td>
         <td>${p.rating}</td>
         <td>${escapeHtml(p.rank || "б/р")}</td>
         <td>${p.birthDate || "-"}</td>
@@ -686,6 +780,8 @@ function renderBasePlayersTab() {
           <th>${head("Фото", "photo")}</th>
           <th>${head("Гравець", "name")}</th>
           <th>${head("Стать", "gender")}</th>
+          <th>${head("Клуб", "club")}</th>
+          <th>${head("Тренер", "coach")}</th>
           <th>${head("Рейт.", "rating")}</th>
           <th>${head("Звання", "rank")}</th>
           <th>${head("Дата нар.", "birthDate")}</th>
@@ -695,8 +791,54 @@ function renderBasePlayersTab() {
           <th>${head("Очки", "score")}</th>
         </tr>
       </thead>
-      <tbody>${rows || '<tr><td colspan="11">База порожня.</td></tr>'}</tbody>
+      <tbody>${rows || '<tr><td colspan="13">База порожня.</td></tr>'}</tbody>
     </table>`;
+}
+
+function renderBasePlayerOwnershipSelectors(basePlayer) {
+  if (!els.basePlayerClub || !els.basePlayerCoach) {
+    return;
+  }
+
+  const selectedClubId = normalizeEntityId(basePlayer?.clubId || els.basePlayerClub.value);
+  const selectedCoachId = normalizeEntityId(basePlayer?.coachId || els.basePlayerCoach.value);
+  els.basePlayerClub.innerHTML = [
+    '<option value="">Без клубу</option>',
+    ...state.clubs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+      .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`),
+  ].join("");
+  els.basePlayerClub.value = selectedClubId;
+
+  const coaches = state.coaches
+    .filter((coach) => !selectedClubId || coach.clubId === selectedClubId)
+    .slice()
+    .sort((a, b) => getCoachFullName(a).localeCompare(getCoachFullName(b), "uk"));
+  els.basePlayerCoach.innerHTML = [
+    '<option value="">Без тренера</option>',
+    ...coaches.map((coach) => `<option value="${escapeHtml(coach.id)}">${escapeHtml(getCoachFullName(coach))}</option>`),
+  ].join("");
+  els.basePlayerCoach.value = coaches.some((coach) => coach.id === selectedCoachId) ? selectedCoachId : "";
+}
+
+function renderBasePlayersClubFilter() {
+  if (!els.basePlayersClubFilter) {
+    return;
+  }
+
+  const current = els.basePlayersClubFilter.value || "all";
+  els.basePlayersClubFilter.innerHTML = [
+    '<option value="all">Усі клуби</option>',
+    '<option value="none">Без клубу</option>',
+    ...state.clubs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+      .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`),
+  ].join("");
+  els.basePlayersClubFilter.value = [...els.basePlayersClubFilter.options].some((option) => option.value === current)
+    ? current
+    : "all";
 }
 
 function filterBasePlayers(players) {
@@ -706,9 +848,11 @@ function filterBasePlayers(players) {
   const ratingTo = Number(els.basePlayersRatingTo.value);
   const hasRatingFrom = Number.isFinite(ratingFrom) && els.basePlayersRatingFrom.value !== "";
   const hasRatingTo = Number.isFinite(ratingTo) && els.basePlayersRatingTo.value !== "";
+  const clubFilter = els.basePlayersClubFilter.value || "all";
 
   return players.filter((player) => {
-    const searchText = `${player.lastName || ""} ${player.firstName || ""} ${player.firstName || ""} ${player.lastName || ""}`.toLowerCase();
+    const searchText =
+      `${player.lastName || ""} ${player.firstName || ""} ${player.firstName || ""} ${player.lastName || ""} ${getClubName(player.clubId)} ${getCoachName(player.coachId)}`.toLowerCase();
     if (query && !searchText.includes(query)) {
       return false;
     }
@@ -722,6 +866,14 @@ function filterBasePlayers(players) {
     }
 
     if (hasRatingTo && Number(player.rating) > ratingTo) {
+      return false;
+    }
+
+    if (clubFilter === "none" && player.clubId) {
+      return false;
+    }
+
+    if (clubFilter !== "all" && clubFilter !== "none" && player.clubId !== clubFilter) {
       return false;
     }
 
@@ -750,6 +902,10 @@ function sortBasePlayers(players) {
         cmp = compareText(getBaseFullName(a), getBaseFullName(b));
       } else if (key === "gender") {
         cmp = compareText(normalizeGender(a.gender), normalizeGender(b.gender));
+      } else if (key === "club") {
+        cmp = compareText(getClubName(a.clubId) || "яяя", getClubName(b.clubId) || "яяя");
+      } else if (key === "coach") {
+        cmp = compareText(getCoachName(a.coachId) || "яяя", getCoachName(b.coachId) || "яяя");
       } else if (key === "rating") {
         cmp = compareNum(a.rating, b.rating);
       } else if (key === "rank") {
@@ -790,6 +946,320 @@ function formatGenderLabel(value) {
     return "Ж";
   }
   return "-";
+}
+
+function renderClubsTab() {
+  renderCoachClubSelector();
+  if (!els.clubsList || !els.clubProfile) {
+    return;
+  }
+
+  const clubs = state.clubs.slice().sort((a, b) => a.name.localeCompare(b.name, "uk"));
+  if (!selectedClubProfileId && clubs.length) {
+    selectedClubProfileId = clubs[0].id;
+  }
+  if (selectedClubProfileId && !state.clubs.some((club) => club.id === selectedClubProfileId)) {
+    selectedClubProfileId = clubs[0]?.id || null;
+  }
+
+  if (!clubs.length) {
+    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Додайте перший клуб зліва.</div>';
+    els.clubProfile.innerHTML = renderIndependentPlayersBlock();
+    return;
+  }
+
+  els.clubsList.innerHTML = clubs
+    .map((club) => {
+      const playersCount = state.playerBase.filter((player) => player.clubId === club.id).length;
+      const coachesCount = state.coaches.filter((coach) => coach.clubId === club.id).length;
+      const active = club.id === selectedClubProfileId ? " active" : "";
+      const logo = club.logoDataUrl
+        ? `<img class="club-card__logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
+        : '<span class="club-card__logo club-card__logo--empty">Лого</span>';
+      return `
+        <article class="club-card${active}">
+          <div class="club-card__top">
+            ${logo}
+            <div>
+              <div class="club-card__title">${escapeHtml(club.name)}</div>
+              <div class="club-card__meta">${escapeHtml(club.city || "місто не вказано")}</div>
+            </div>
+          </div>
+          <div class="club-card__stats">${coachesCount} тренерів | ${playersCount} гравців</div>
+          <div class="row-actions">
+            <button type="button" data-action="view-club" data-club-id="${club.id}">Відкрити</button>
+            <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
+            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>
+          </div>
+        </article>`;
+    })
+    .join("");
+
+  els.clubProfile.innerHTML =
+    renderClubProfile(selectedClubProfileId) + renderClubPlayerProfileCard(selectedClubPlayerProfileId) + renderIndependentPlayersBlock();
+}
+
+function renderCoachClubSelector() {
+  if (!els.coachClub) {
+    return;
+  }
+  const current = els.coachClub.value || "";
+  els.coachClub.innerHTML = [
+    '<option value="">Оберіть клуб</option>',
+    ...state.clubs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+      .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`),
+  ].join("");
+  els.coachClub.value = state.clubs.some((club) => club.id === current) ? current : "";
+}
+
+function renderClubProfile(clubId) {
+  const club = state.clubs.find((item) => item.id === clubId);
+  if (!club) {
+    return "";
+  }
+
+  const coaches = state.coaches.filter((coach) => coach.clubId === club.id);
+  const players = state.playerBase
+    .filter((player) => player.clubId === club.id)
+    .slice()
+    .sort((a, b) => b.rating - a.rating || getBaseFullName(a).localeCompare(getBaseFullName(b), "uk"));
+  const coachesText = coaches.length
+    ? coaches.map((coach) => `${escapeHtml(getCoachFullName(coach))}${coach.phone ? ` (${escapeHtml(coach.phone)})` : ""}`).join(", ")
+    : "тренерів ще не додано";
+  const logo = club.logoDataUrl
+    ? `<img class="club-profile-logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
+    : '<span class="club-profile-logo club-profile-logo--empty">Лого</span>';
+
+  return `
+    <section class="club-profile-card">
+      <div class="club-profile-head">
+        <div class="club-profile-title">
+          ${logo}
+          <div>
+            <h3>${escapeHtml(club.name)}</h3>
+            <div class="meta">${escapeHtml(club.city || "місто не вказано")} | ${escapeHtml(club.contact || "контакти не вказані")}</div>
+            <div class="meta">Тренери: ${coachesText}</div>
+          </div>
+        </div>
+        <div class="row-actions">
+          <strong>${players.length} гравців</strong>
+          <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
+        </div>
+      </div>
+      <div class="club-management-grid">
+        ${renderAttachExistingPlayerForm(club, coaches)}
+        ${renderQuickClubPlayerForm(club, coaches)}
+      </div>
+      ${renderClubPlayersTable(players)}
+    </section>`;
+}
+
+function renderAttachExistingPlayerForm(club, coaches) {
+  const candidates = state.playerBase
+    .filter((player) => player.clubId !== club.id)
+    .slice()
+    .sort((a, b) => getBaseFullName(a).localeCompare(getBaseFullName(b), "uk"));
+  const coachOptions = buildCoachOptions(coaches);
+
+  if (!candidates.length) {
+    return `
+      <div class="club-action-panel">
+        <div class="quick-player-form__title">Існуючі гравці</div>
+        <div class="club-empty">Усі гравці з бази вже привʼязані до цього клубу.</div>
+      </div>`;
+  }
+
+  const playerOptions = candidates
+    .map((player) => {
+      const currentClub = getClubName(player.clubId) || "Без клубу";
+      return `<option value="${escapeHtml(player.id)}">${escapeHtml(getBaseFullName(player))} | ${player.rating} | ${escapeHtml(currentClub)}</option>`;
+    })
+    .join("");
+
+  return `
+    <form class="club-action-panel" data-action="attach-existing-player" data-club-id="${club.id}">
+      <div class="quick-player-form__title">Привʼязати існуючого гравця</div>
+      <select name="existingPlayerId" required>
+        <option value="">Оберіть гравця з бази</option>
+        ${playerOptions}
+      </select>
+      <select name="coachId">${coachOptions}</select>
+      <button type="submit">Додати в клуб</button>
+    </form>`;
+}
+
+function renderQuickClubPlayerForm(club, coaches) {
+  const coachOptions = buildCoachOptions(coaches);
+  const rankOptions = ["б/р", "юнацький", "3", "2", "1", "кмс", "мс", "гр"]
+    .map((rank) => `<option value="${escapeHtml(rank)}">${escapeHtml(rank)}</option>`)
+    .join("");
+
+  return `
+    <form class="club-action-panel quick-player-form" data-action="quick-add-club-player" data-club-id="${club.id}">
+      <div class="quick-player-form__title">Створити нового гравця</div>
+      <input name="lastName" type="text" placeholder="Прізвище" required />
+      <input name="firstName" type="text" placeholder="Ім'я" required />
+      <input name="rating" type="number" min="0" max="4000" placeholder="Рейтинг" required />
+      <select name="gender">
+        <option value="">Стать</option>
+        <option value="M">М</option>
+        <option value="F">Ж</option>
+      </select>
+      <select name="rank">${rankOptions}</select>
+      <input name="birthDate" type="date" />
+      <select name="coachId">${coachOptions}</select>
+      <input name="photo" type="file" accept="image/*" />
+      <button type="submit">Додати</button>
+    </form>`;
+}
+
+function buildCoachOptions(coaches) {
+  return [
+    '<option value="">Без тренера</option>',
+    ...coaches
+      .slice()
+      .sort((a, b) => getCoachFullName(a).localeCompare(getCoachFullName(b), "uk"))
+      .map((coach) => `<option value="${escapeHtml(coach.id)}">${escapeHtml(getCoachFullName(coach))}</option>`),
+  ].join("");
+}
+
+function renderIndependentPlayersBlock() {
+  const players = state.playerBase
+    .filter((player) => !player.clubId)
+    .slice()
+    .sort((a, b) => b.rating - a.rating || getBaseFullName(a).localeCompare(getBaseFullName(b), "uk"));
+  if (!players.length) {
+    return "";
+  }
+
+  return `
+    <section class="club-profile-card">
+      <div class="club-profile-head">
+        <div>
+          <h3>Незалежні гравці</h3>
+          <div class="meta">Гравці без клубу також можуть брати участь у турнірах.</div>
+        </div>
+        <strong>${players.length} гравців</strong>
+      </div>
+      ${renderClubPlayersTable(players, { compactActions: true })}
+    </section>`;
+}
+
+function renderClubPlayersTable(players, options = {}) {
+  const { compactActions = false } = options;
+  if (!players.length) {
+    return '<div class="club-empty">У цьому клубі поки немає гравців.</div>';
+  }
+
+  const rows = players
+    .map((player) => {
+      const coachName = getCoachName(player.coachId) || "-";
+      const stats = player.stats || emptyStats();
+      return `
+        <tr>
+          <td>${player.photoDataUrl ? `<img class="avatar" src="${player.photoDataUrl}" alt="${escapeHtml(getBaseFullName(player))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
+          <td class="player-name-cell">${escapeHtml(getBaseFullName(player))}</td>
+          <td>${formatGenderLabel(player.gender)}</td>
+          <td>${player.rating}</td>
+          <td>${escapeHtml(player.rank || "б/р")}</td>
+          <td>${escapeHtml(coachName)}</td>
+          <td>${stats.tournaments}</td>
+          <td>${stats.games}</td>
+          <td>${stats.wins}/${stats.draws}/${stats.losses}</td>
+          <td>
+            <div class="row-actions">
+              <button type="button" data-action="view-player-profile" data-player-id="${player.id}">Профіль</button>
+              <button type="button" data-action="edit-club-player" data-player-id="${player.id}">Ред.</button>
+              <button type="button" data-action="add-to-tournament" data-player-id="${player.id}">У турнір</button>
+              ${
+                player.clubId && !compactActions
+                  ? `<button type="button" class="danger" data-action="remove-player-from-club" data-player-id="${player.id}">Відвʼязати</button>`
+                  : ""
+              }
+            </div>
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  return `
+    <div class="scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Фото</th>
+            <th>Гравець</th>
+            <th>Стать</th>
+            <th>Рейт.</th>
+            <th>Звання</th>
+            <th>Тренер</th>
+            <th>Турніри</th>
+            <th>Партії</th>
+            <th>W/D/L</th>
+            <th>Дії</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderClubPlayerProfileCard(playerId) {
+  const player = state.playerBase.find((item) => item.id === playerId);
+  if (!player) {
+    return "";
+  }
+
+  const stats = player.stats || emptyStats();
+  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt)) : [];
+  const historyRows = history
+    .slice(0, 8)
+    .map(
+      (item) => `
+        <tr>
+          <td>${escapeHtml(item.tournamentName || "-")}</td>
+          <td>${formatDate(item.finishedAt)}</td>
+          <td>${item.place ?? "-"}</td>
+          <td>${Number(item.score || 0).toFixed(1)}</td>
+          <td>${item.wins}/${item.draws}/${item.losses}</td>
+        </tr>`
+    )
+    .join("");
+
+  return `
+    <section class="club-profile-card player-profile-card">
+      <div class="player-profile-head">
+        ${
+          player.photoDataUrl
+            ? `<img class="player-profile-photo" src="${player.photoDataUrl}" alt="${escapeHtml(getBaseFullName(player))}" />`
+            : '<span class="player-profile-photo player-profile-photo--empty">Фото</span>'
+        }
+        <div>
+          <h3>${escapeHtml(getBaseFullName(player))}</h3>
+          <div class="meta">Клуб: ${escapeHtml(getClubName(player.clubId) || "Без клубу")} | Тренер: ${escapeHtml(getCoachName(player.coachId) || "-")}</div>
+          <div class="meta">Стать: ${formatGenderLabel(player.gender)} | Дата нар.: ${escapeHtml(player.birthDate || "-")} | Звання: ${escapeHtml(player.rank || "б/р")}</div>
+          <div class="player-profile-stats">
+            <span>Рейтинг: <strong>${player.rating}</strong></span>
+            <span>Турніри: <strong>${stats.tournaments}</strong></span>
+            <span>Партії: <strong>${stats.games}</strong></span>
+            <span>W/D/L: <strong>${stats.wins}/${stats.draws}/${stats.losses}</strong></span>
+          </div>
+        </div>
+      </div>
+      <h4>Останні турніри</h4>
+      ${
+        historyRows
+          ? `<table class="table">
+              <thead>
+                <tr><th>Турнір</th><th>Дата</th><th>Місце</th><th>Очки</th><th>W/D/L</th></tr>
+              </thead>
+              <tbody>${historyRows}</tbody>
+            </table>`
+          : '<div class="club-empty">Історії турнірів поки немає.</div>'
+      }
+    </section>`;
 }
 
 function renderArchiveTab() {

@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../lib/db');
-const { asSafeString, asUuidOrNull, asDateOrNull } = require('../lib/validators');
+const { asSafeString, asLongString, asUuidOrNull, asDateOrNull } = require('../lib/validators');
 
 const router = express.Router();
 
@@ -52,7 +52,7 @@ router.post('/', async (req, res, next) => {
     const eventDate = asDateOrNull(req.body.event_date || req.body.eventDate);
     const timeControl = asSafeString(req.body.time_control || req.body.timeControl, 64) || null;
     const chiefJudge = asSafeString(req.body.chief_judge || req.body.chiefJudge, 120) || null;
-    const photoUrl = asSafeString(req.body.photo_url || req.body.photoUrl, 2000) || null;
+    const photoUrl = asLongString(req.body.photo_url || req.body.photoUrl) || null;
 
     const tieBreakOrder = Array.isArray(req.body.tie_break_order || req.body.tieBreakOrder)
       ? req.body.tie_break_order || req.body.tieBreakOrder
@@ -117,7 +117,7 @@ router.put('/:id', async (req, res, next) => {
       eventDate: asDateOrNull(req.body.event_date || req.body.eventDate),
       timeControl: asSafeString(req.body.time_control || req.body.timeControl, 64),
       chiefJudge: asSafeString(req.body.chief_judge || req.body.chiefJudge, 120),
-      photoUrl: asSafeString(req.body.photo_url || req.body.photoUrl, 2000),
+      photoUrl: asLongString(req.body.photo_url || req.body.photoUrl),
       tieBreakOrder: Array.isArray(req.body.tie_break_order || req.body.tieBreakOrder)
         ? req.body.tie_break_order || req.body.tieBreakOrder
         : null,

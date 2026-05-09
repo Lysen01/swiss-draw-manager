@@ -27,6 +27,8 @@ function normalizeState(raw) {
       tournamentView: normalizeTournamentView(raw),
       archivePreviewTournamentId: raw.archivePreviewTournamentId || null,
       kyivPresetVersion: raw.kyivPresetVersion || null,
+      clubs: Array.isArray(raw.clubs) ? raw.clubs.map(normalizeClub) : [],
+      coaches: Array.isArray(raw.coaches) ? raw.coaches.map(normalizeCoach) : [],
       playerBase: raw.playerBase.map(normalizeBasePlayer),
       currentTournament: normalizeTournament(raw.currentTournament),
       tournamentsArchive: raw.tournamentsArchive.map(normalizeArchivedTournament),
@@ -105,6 +107,8 @@ function createDefaultState() {
     tournamentView: "setup",
     archivePreviewTournamentId: null,
     kyivPresetVersion: null,
+    clubs: [],
+    coaches: [],
     playerBase: [],
     currentTournament: createDefaultTournament(),
     tournamentsArchive: [],
@@ -117,9 +121,9 @@ function applyKyivPresetIfNeeded(stateObj) {
   }
 
   stateObj.playerBase = createKyivPresetPlayers();
-  stateObj.currentTournament = createDefaultTournament();
-  stateObj.tournamentView = "setup";
-  stateObj.archivePreviewTournamentId = null;
+    stateObj.currentTournament = createDefaultTournament();
+    stateObj.tournamentView = "setup";
+    stateObj.archivePreviewTournamentId = null;
   stateObj.kyivPresetVersion = KYIV_PRESET_VERSION;
   return stateObj;
 }
@@ -192,6 +196,8 @@ function normalizeTournament(tournament) {
           name: p.name,
           rating: Number(p.rating) || 0,
           gender: normalizeGender(p.gender),
+          clubId: normalizeEntityId(p.clubId),
+          coachId: normalizeEntityId(p.coachId),
           photoDataUrl: typeof p.photoDataUrl === "string" && p.photoDataUrl ? p.photoDataUrl : null,
           startNo: Number.isInteger(p.startNo) ? p.startNo : idx + 1,
           score: Number(p.score) || 0,
@@ -233,6 +239,8 @@ function normalizeBasePlayer(player) {
     lastName: player.lastName || parsed.lastName || "Без",
     rating: Number(player.rating) || 0,
     gender: normalizeGender(player.gender),
+    clubId: normalizeEntityId(player.clubId),
+    coachId: normalizeEntityId(player.coachId),
     rank: normalizeRank(player.rank),
     birthDate: normalizeBirthDate(player.birthDate),
     photoDataUrl: typeof player.photoDataUrl === "string" && player.photoDataUrl ? player.photoDataUrl : null,
@@ -270,6 +278,8 @@ function ensureTournamentPlayersLinkedToBase(tournament, basePlayers) {
     const created = createBasePlayerRecord(split.lastName, split.firstName, p.rating, {
       gender: p.gender,
       photoDataUrl: p.photoDataUrl,
+      clubId: p.clubId,
+      coachId: p.coachId,
     });
     basePlayers.push(created);
     p.basePlayerId = created.id;
@@ -283,6 +293,8 @@ function createBasePlayerRecord(lastName, firstName, rating, extra = {}) {
     lastName,
     rating,
     gender: normalizeGender(extra.gender),
+    clubId: normalizeEntityId(extra.clubId),
+    coachId: normalizeEntityId(extra.coachId),
     rank: normalizeRank(extra.rank),
     birthDate: normalizeBirthDate(extra.birthDate),
     photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
@@ -299,6 +311,8 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount, extra 
     name,
     rating,
     gender: normalizeGender(extra.gender),
+    clubId: normalizeEntityId(extra.clubId),
+    coachId: normalizeEntityId(extra.coachId),
     photoDataUrl: typeof extra.photoDataUrl === "string" && extra.photoDataUrl ? extra.photoDataUrl : null,
     startNo: currentCount + 1,
     score: 0,
@@ -308,6 +322,61 @@ function createTournamentPlayer(name, rating, basePlayerId, currentCount, extra 
     colors: [],
     resultsByRound: {},
   };
+}
+
+function normalizeClub(club) {
+  return {
+    id: normalizeEntityId(club.id) || crypto.randomUUID(),
+    name: String(club.name || "").trim().slice(0, 140) || "Без назви",
+    city: String(club.city || "").trim().slice(0, 80),
+    contact: String(club.contact || club.contacts || "").trim().slice(0, 180),
+    logoDataUrl:
+      typeof club.logoDataUrl === "string" && club.logoDataUrl
+        ? club.logoDataUrl
+        : typeof club.logo_url === "string" && club.logo_url
+          ? club.logo_url
+          : null,
+    createdAt: club.createdAt || club.created_at || new Date().toISOString(),
+  };
+}
+
+function normalizeCoach(coach) {
+  return {
+    id: normalizeEntityId(coach.id) || crypto.randomUUID(),
+    firstName: String(coach.firstName || coach.first_name || "").trim().slice(0, 80),
+    lastName: String(coach.lastName || coach.last_name || "").trim().slice(0, 80),
+    clubId: normalizeEntityId(coach.clubId || coach.club_id),
+    phone: String(coach.phone || "").trim().slice(0, 80),
+    email: String(coach.email || "").trim().slice(0, 120),
+    createdAt: coach.createdAt || coach.created_at || new Date().toISOString(),
+  };
+}
+
+function createClubRecord(name, city, contact, extra = {}) {
+  return normalizeClub({
+    id: crypto.randomUUID(),
+    name,
+    city,
+    contact,
+    logoDataUrl: extra.logoDataUrl,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+function createCoachRecord(lastName, firstName, clubId, extra = {}) {
+  return normalizeCoach({
+    id: crypto.randomUUID(),
+    firstName,
+    lastName,
+    clubId,
+    phone: extra.phone,
+    email: extra.email,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+function normalizeEntityId(value) {
+  return String(value || "").trim();
 }
 
 function splitFullName(value) {
@@ -326,6 +395,20 @@ function splitFullName(value) {
 
 function getBaseFullName(basePlayer) {
   return `${basePlayer.lastName || ""} ${basePlayer.firstName || ""}`.trim();
+}
+
+function getCoachFullName(coach) {
+  return `${coach?.lastName || ""} ${coach?.firstName || ""}`.trim();
+}
+
+function getClubName(clubId) {
+  const club = state?.clubs?.find((item) => item.id === clubId);
+  return club ? club.name : "";
+}
+
+function getCoachName(coachId) {
+  const coach = state?.coaches?.find((item) => item.id === coachId);
+  return coach ? getCoachFullName(coach) : "";
 }
 
 function normalizeRank(value) {
@@ -446,5 +529,17 @@ function isValidBasePlayerPhotoFile(file) {
   }
 
   alert("Фото гравця занадто велике. Оберіть файл до 10 MB.");
+  return false;
+}
+
+function isValidClubLogoFile(file) {
+  if (!file) {
+    return false;
+  }
+  if (file.size <= MAX_CLUB_LOGO_BYTES) {
+    return true;
+  }
+
+  alert("Логотип клубу занадто великий. Оберіть файл до 8 MB.");
   return false;
 }
