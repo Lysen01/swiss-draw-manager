@@ -1053,28 +1053,60 @@ function renderClubProfile(clubId) {
   const logo = club.logoDataUrl
     ? `<img class="club-profile-logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
     : '<span class="club-profile-logo club-profile-logo--empty">Лого</span>';
-
-  return `
-    <section class="club-profile-card">
-      <div class="club-profile-head">
-        <div class="club-profile-title">
-          ${logo}
-          <div>
-            <h3>${escapeHtml(club.name)}</h3>
-            <div class="meta">${escapeHtml(club.city || "місто не вказано")} | ${escapeHtml(club.contact || "контакти не вказані")}</div>
-            <div class="meta">Тренери: ${coachesText}</div>
-          </div>
-        </div>
-        <div class="row-actions">
-          <strong>${players.length} гравців</strong>
-          <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
-        </div>
-      </div>
+  const tabs = [
+    { key: "profile", label: "Профіль" },
+    { key: "players", label: "Гравці" },
+    { key: "coaches", label: "Тренери" },
+  ];
+  const activeTab = tabs.some((tab) => tab.key === selectedClubDetailTab) ? selectedClubDetailTab : "profile";
+  const tabButtons = tabs
+    .map(
+      (tab) =>
+        `<button type="button" class="subtab-btn${activeTab === tab.key ? " active" : ""}" data-action="set-club-detail-tab" data-tab="${tab.key}">${tab.label}</button>`
+    )
+    .join("");
+  const tabContent =
+    activeTab === "players"
+      ? `
       <div class="club-management-grid">
         ${renderAttachExistingPlayerForm(club, coaches)}
         ${renderQuickClubPlayerForm(club, coaches)}
       </div>
-      ${renderClubPlayersTable(players)}
+      ${renderClubPlayersTable(players)}`
+      : activeTab === "coaches"
+        ? `
+      <div class="club-management-grid">
+        ${renderQuickClubCoachForm(club)}
+        ${renderClubCoachesTable(coaches)}
+      </div>`
+        : `
+      <section class="club-profile-card">
+        <div class="club-profile-head">
+          <div class="club-profile-title">
+            ${logo}
+            <div>
+              <h3>${escapeHtml(club.name)}</h3>
+              <div class="meta">${escapeHtml(club.city || "місто не вказано")} | ${escapeHtml(club.contact || "контакти не вказані")}</div>
+              <div class="meta">Тренери: ${coachesText}</div>
+            </div>
+          </div>
+          <div class="row-actions">
+            <strong>${players.length} гравців</strong>
+            <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
+          </div>
+        </div>
+        <div class="player-stat-grid">
+          <article class="player-stat-card"><div class="meta">Гравців</div><strong>${players.length}</strong></article>
+          <article class="player-stat-card"><div class="meta">Тренерів</div><strong>${coaches.length}</strong></article>
+          <article class="player-stat-card"><div class="meta">Місто</div><strong>${escapeHtml(club.city || "-")}</strong></article>
+          <article class="player-stat-card"><div class="meta">Контакти</div><strong>${escapeHtml(club.contact || "-")}</strong></article>
+        </div>
+      </section>`;
+
+  return `
+    <section class="club-profile-card">
+      <div class="subtabs subtabs--nested">${tabButtons}</div>
+      ${tabContent}
     </section>`;
 }
 
@@ -1135,6 +1167,49 @@ function renderQuickClubPlayerForm(club, coaches) {
       <input name="photo" type="file" accept="image/*" />
       <button type="submit">Додати</button>
     </form>`;
+}
+
+function renderQuickClubCoachForm(club) {
+  return `
+    <form class="club-action-panel" data-action="quick-add-club-coach" data-club-id="${club.id}">
+      <div class="quick-player-form__title">Додати тренера в клуб</div>
+      <input name="lastName" type="text" placeholder="Прізвище" required />
+      <input name="firstName" type="text" placeholder="Ім'я" required />
+      <input name="phone" type="text" placeholder="+380..." />
+      <input name="email" type="email" placeholder="coach@example.com" />
+      <button type="submit">Додати тренера</button>
+    </form>`;
+}
+
+function renderClubCoachesTable(coaches) {
+  if (!coaches.length) {
+    return `
+      <div class="club-action-panel">
+        <div class="quick-player-form__title">Список тренерів</div>
+        <div class="club-empty">Тренерів у цьому клубі поки немає.</div>
+      </div>`;
+  }
+
+  const rows = coaches
+    .slice()
+    .sort((a, b) => getCoachFullName(a).localeCompare(getCoachFullName(b), "uk"))
+    .map(
+      (coach) => `
+      <tr>
+        <td>${escapeHtml(getCoachFullName(coach))}</td>
+        <td>${escapeHtml(coach.phone || "-")}</td>
+        <td>${escapeHtml(coach.email || "-")}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `
+    <div class="scroll">
+      <table class="table">
+        <thead><tr><th>Тренер</th><th>Телефон</th><th>Email</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 function buildCoachOptions(coaches) {

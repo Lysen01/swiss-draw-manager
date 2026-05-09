@@ -529,6 +529,7 @@ function startEditClub(clubId) {
   }
 
   selectedClubsView = "manage";
+  selectedClubDetailTab = "profile";
   editingClubId = club.id;
   selectedClubProfileId = club.id;
   els.clubName.value = club.name || "";
@@ -610,6 +611,7 @@ async function submitQuickClubPlayerForm(form) {
     coachId,
   });
   state.playerBase.push(player);
+  selectedClubDetailTab = "players";
   selectedClubPlayerProfileId = player.id;
   form.reset();
   saveAndRender();
@@ -634,8 +636,36 @@ function submitCoachForm() {
 
   const coach = createCoachRecord(lastName, firstName, clubId, { phone, email });
   state.coaches.push(coach);
+  selectedClubDetailTab = "coaches";
   selectedClubProfileId = clubId;
   els.coachForm.reset();
+  saveAndRender();
+}
+
+function submitQuickClubCoachForm(form) {
+  const clubId = normalizeEntityId(form.dataset.clubId);
+  const club = state.clubs.find((item) => item.id === clubId);
+  if (!club) {
+    alert("Клуб не знайдено.");
+    return;
+  }
+
+  const lastName = String(form.querySelector("[name='lastName']")?.value || "").trim();
+  const firstName = String(form.querySelector("[name='firstName']")?.value || "").trim();
+  const phone = String(form.querySelector("[name='phone']")?.value || "").trim();
+  const email = String(form.querySelector("[name='email']")?.value || "").trim();
+
+  if (!lastName || !firstName) {
+    alert("Прізвище та ім'я тренера обов'язкові.");
+    return;
+  }
+
+  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email });
+  state.coaches.push(coach);
+  selectedClubsView = "profile";
+  selectedClubDetailTab = "coaches";
+  selectedClubProfileId = clubId;
+  form.reset();
   saveAndRender();
 }
 
@@ -695,6 +725,7 @@ function submitAttachExistingPlayerToClubForm(form) {
   player.coachId = coachId;
   syncBasePlayerChangesToCurrentTournament(player.id);
   selectedClubsView = "profile";
+  selectedClubDetailTab = "players";
   selectedClubProfileId = club.id;
   selectedClubPlayerProfileId = player.id;
   form.reset();

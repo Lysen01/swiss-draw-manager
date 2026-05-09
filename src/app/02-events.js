@@ -329,6 +329,7 @@ function bindEvents() {
       selectedClubProfileId = clubId || null;
       selectedClubPlayerProfileId = null;
       selectedClubPlayerProfileTab = "info";
+      selectedClubDetailTab = "profile";
       selectedClubsView = "profile";
       renderClubsTab();
     }
@@ -353,6 +354,9 @@ function bindEvents() {
     }
     if (form.dataset.action === "attach-existing-player") {
       submitAttachExistingPlayerToClubForm(form);
+    }
+    if (form.dataset.action === "quick-add-club-coach") {
+      submitQuickClubCoachForm(form);
     }
   });
 
@@ -390,6 +394,15 @@ function bindEvents() {
 
     if (btn.dataset.action === "edit-club") {
       startEditClub(btn.dataset.clubId);
+    }
+
+    if (btn.dataset.action === "set-club-detail-tab") {
+      const tab = String(btn.dataset.tab || "").trim();
+      if (!tab) {
+        return;
+      }
+      selectedClubDetailTab = tab;
+      renderClubsTab();
     }
 
     if (btn.dataset.action === "edit-club-player") {

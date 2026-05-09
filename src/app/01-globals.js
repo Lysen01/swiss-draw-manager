@@ -13,6 +13,7 @@ let selectedClubProfileId = null;
 let selectedClubPlayerProfileId = null;
 let selectedClubPlayerProfileTab = "info";
 let selectedClubsView = "directory";
+let selectedClubDetailTab = "profile";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();
