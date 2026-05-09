@@ -3,6 +3,7 @@ let stateRevision = 0;
 let hasStoredLocalState = false;
 let editingBasePlayerId = null;
 let editingClubId = null;
+let editingCoachId = null;
 let tournamentSettingsDraft = null;
 let tournamentBaseLookup = [];
 let filteredTournamentBaseLookup = [];
@@ -118,7 +119,10 @@ const els = {
   coachEmail: document.getElementById("coachEmail"),
   coachPhoto: document.getElementById("coachPhoto"),
   coachBio: document.getElementById("coachBio"),
+  coachRemovePhoto: document.getElementById("coachRemovePhoto"),
   coachSubmitBtn: document.getElementById("coachSubmitBtn"),
+  coachCancelEditBtn: document.getElementById("coachCancelEditBtn"),
+  coachEditHint: document.getElementById("coachEditHint"),
   clubsList: document.getElementById("clubsList"),
   clubProfile: document.getElementById("clubProfile"),
   archiveList: document.getElementById("archiveList"),

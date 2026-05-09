@@ -91,6 +91,7 @@ let stateRevision = 0;
 let hasStoredLocalState = false;
 let editingBasePlayerId = null;
 let editingClubId = null;
+let editingCoachId = null;
 let tournamentSettingsDraft = null;
 let tournamentBaseLookup = [];
 let filteredTournamentBaseLookup = [];
@@ -206,7 +207,10 @@ const els = {
   coachEmail: document.getElementById("coachEmail"),
   coachPhoto: document.getElementById("coachPhoto"),
   coachBio: document.getElementById("coachBio"),
+  coachRemovePhoto: document.getElementById("coachRemovePhoto"),
   coachSubmitBtn: document.getElementById("coachSubmitBtn"),
+  coachCancelEditBtn: document.getElementById("coachCancelEditBtn"),
+  coachEditHint: document.getElementById("coachEditHint"),
   clubsList: document.getElementById("clubsList"),
   clubProfile: document.getElementById("clubProfile"),
   archiveList: document.getElementById("archiveList"),
@@ -545,6 +549,10 @@ function bindEvents() {
     await submitCoachForm();
   });
 
+  els.coachCancelEditBtn.addEventListener("click", () => {
+    resetCoachForm();
+  });
+
   els.clubsList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -625,6 +633,10 @@ function bindEvents() {
 
     if (btn.dataset.action === "edit-club") {
       startEditClub(btn.dataset.clubId);
+    }
+
+    if (btn.dataset.action === "edit-club-coach") {
+      startEditCoach(btn.dataset.coachId);
     }
 
     if (btn.dataset.action === "select-club-profile") {
@@ -2619,6 +2631,7 @@ function renderClubCoachesTable(coaches) {
         <td>${escapeHtml(coach.phone || "-")}</td>
         <td>${escapeHtml(coach.email || "-")}</td>
         <td class="wrap-cell">${escapeHtml(coach.bio || "-")}</td>
+        <td><button type="button" data-action="edit-club-coach" data-coach-id="${coach.id}">Редагувати</button></td>
       </tr>`
     )
     .join("");
@@ -2626,7 +2639,7 @@ function renderClubCoachesTable(coaches) {
   return `
     <div class="scroll">
       <table class="table">
-        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th></tr></thead>
+        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th><th>Дії</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -3959,12 +3972,14 @@ async function submitQuickClubPlayerForm(form) {
 }
 
 async function submitCoachForm() {
+  const wasEditing = Boolean(editingCoachId);
   const lastName = els.coachLastName.value.trim();
   const firstName = els.coachFirstName.value.trim();
   const clubId = normalizeEntityId(els.coachClub.value);
   const phone = els.coachPhone.value.trim();
   const email = els.coachEmail.value.trim();
   const bio = els.coachBio.value.trim();
+  const removePhoto = els.coachRemovePhoto.checked;
   const photoFile = els.coachPhoto.files?.[0] || null;
 
   if (!lastName || !firstName) {
@@ -3985,12 +4000,69 @@ async function submitCoachForm() {
     photoDataUrl = await readCoachPhotoDataUrl(photoFile);
   }
 
-  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email, bio, photoDataUrl });
-  state.coaches.push(coach);
+  let coach = editingCoachId ? state.coaches.find((item) => item.id === editingCoachId) : null;
+  if (coach) {
+    coach.lastName = lastName;
+    coach.firstName = firstName;
+    coach.clubId = clubId;
+    coach.phone = phone;
+    coach.email = email;
+    coach.bio = bio;
+    if (photoDataUrl) {
+      coach.photoDataUrl = photoDataUrl;
+    } else if (removePhoto) {
+      coach.photoDataUrl = null;
+    }
+  } else {
+    coach = createCoachRecord(lastName, firstName, clubId, { phone, email, bio, photoDataUrl });
+    state.coaches.push(coach);
+  }
+
   selectedClubDetailTab = "coaches";
   selectedClubProfileId = clubId;
-  els.coachForm.reset();
+  if (wasEditing) {
+    selectedClubsView = "profile";
+  }
+  resetCoachForm();
   saveAndRender();
+}
+
+function startEditCoach(coachId) {
+  const coach = state.coaches.find((item) => item.id === coachId);
+  if (!coach) {
+    return;
+  }
+
+  editingCoachId = coach.id;
+  selectedClubsView = "manage";
+  selectedClubProfileId = coach.clubId || selectedClubProfileId;
+  selectedClubDetailTab = "coaches";
+  renderClubsTab();
+
+  els.coachLastName.value = coach.lastName || "";
+  els.coachFirstName.value = coach.firstName || "";
+  els.coachClub.value = coach.clubId || "";
+  els.coachPhone.value = coach.phone || "";
+  els.coachEmail.value = coach.email || "";
+  els.coachBio.value = coach.bio || "";
+  els.coachPhoto.value = "";
+  els.coachRemovePhoto.checked = false;
+  els.coachSubmitBtn.textContent = "Зберегти тренера";
+  els.coachCancelEditBtn.hidden = false;
+  els.coachEditHint.hidden = false;
+  els.coachEditHint.textContent = `Редагування тренера: ${getCoachFullName(coach)}. Нове фото замінить поточне.`;
+  els.coachForm.scrollIntoView({ behavior: "smooth", block: "center" });
+  els.coachLastName.focus();
+}
+
+function resetCoachForm() {
+  editingCoachId = null;
+  els.coachForm.reset();
+  els.coachRemovePhoto.checked = false;
+  els.coachSubmitBtn.textContent = "Додати тренера";
+  els.coachCancelEditBtn.hidden = true;
+  els.coachEditHint.hidden = true;
+  els.coachEditHint.textContent = "";
 }
 
 async function submitQuickClubCoachForm(form) {

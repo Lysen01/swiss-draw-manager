@@ -308,9 +308,15 @@
                 <span class="base-field__label">Інфо про тренера</span>
                 <textarea id="coachBio" rows="3" placeholder="Коротко: досвід, групи, спеціалізація"></textarea>
               </label>
+              <label class="check-inline">
+                <input id="coachRemovePhoto" type="checkbox" />
+                Видалити фото тренера
+              </label>
             </div>
             <button id="coachSubmitBtn" type="submit">Додати тренера</button>
+            <button id="coachCancelEditBtn" type="button" hidden>Скасувати редагування</button>
           </form>
+          <div id="coachEditHint" class="edit-hint" hidden></div>
         </section>
 
         <section class="card full" data-club-view="directory">

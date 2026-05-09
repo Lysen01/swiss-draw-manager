@@ -328,6 +328,10 @@ function bindEvents() {
     await submitCoachForm();
   });
 
+  els.coachCancelEditBtn.addEventListener("click", () => {
+    resetCoachForm();
+  });
+
   els.clubsList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -408,6 +412,10 @@ function bindEvents() {
 
     if (btn.dataset.action === "edit-club") {
       startEditClub(btn.dataset.clubId);
+    }
+
+    if (btn.dataset.action === "edit-club-coach") {
+      startEditCoach(btn.dataset.coachId);
     }
 
     if (btn.dataset.action === "select-club-profile") {

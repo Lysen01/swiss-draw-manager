@@ -1254,6 +1254,7 @@ function renderClubCoachesTable(coaches) {
         <td>${escapeHtml(coach.phone || "-")}</td>
         <td>${escapeHtml(coach.email || "-")}</td>
         <td class="wrap-cell">${escapeHtml(coach.bio || "-")}</td>
+        <td><button type="button" data-action="edit-club-coach" data-coach-id="${coach.id}">Редагувати</button></td>
       </tr>`
     )
     .join("");
@@ -1261,7 +1262,7 @@ function renderClubCoachesTable(coaches) {
   return `
     <div class="scroll">
       <table class="table">
-        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th></tr></thead>
+        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th><th>Дії</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
