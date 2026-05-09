@@ -34,6 +34,7 @@ async function ensureSchema() {
     );
 
     ALTER TABLE clubs ADD COLUMN IF NOT EXISTS logo_url TEXT;
+    ALTER TABLE clubs ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS coaches (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -42,9 +43,14 @@ async function ensureSchema() {
       club_id UUID REFERENCES clubs(id) ON DELETE SET NULL,
       phone TEXT NOT NULL DEFAULT '',
       email TEXT NOT NULL DEFAULT '',
+      bio TEXT NOT NULL DEFAULT '',
+      photo_url TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE coaches ADD COLUMN IF NOT EXISTS bio TEXT NOT NULL DEFAULT '';
+    ALTER TABLE coaches ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
     CREATE INDEX IF NOT EXISTS idx_clubs_name ON clubs (name);
     CREATE INDEX IF NOT EXISTS idx_coaches_club_id ON coaches (club_id);

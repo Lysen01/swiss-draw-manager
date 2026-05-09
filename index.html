@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260509-club-profile-switcher" />
+    <link rel="stylesheet" href="styles.css?v=20260509-coach-club-info" />
   </head>
   <body>
     <header class="hero">
@@ -261,6 +261,10 @@
                 <span class="base-field__label">Логотип клубу</span>
                 <input id="clubLogo" type="file" accept="image/*" />
               </label>
+              <label class="base-field base-field--wide">
+                <span class="base-field__label">Інфо про клуб</span>
+                <textarea id="clubDescription" rows="3" placeholder="Коротко про клуб, зал, групи або особливості"></textarea>
+              </label>
               <label class="check-inline">
                 <input id="clubRemoveLogo" type="checkbox" />
                 Видалити логотип
@@ -296,6 +300,14 @@
                 <span class="base-field__label">Email</span>
                 <input id="coachEmail" type="email" placeholder="coach@example.com" />
               </label>
+              <label class="base-field">
+                <span class="base-field__label">Фото тренера</span>
+                <input id="coachPhoto" type="file" accept="image/*" />
+              </label>
+              <label class="base-field base-field--wide">
+                <span class="base-field__label">Інфо про тренера</span>
+                <textarea id="coachBio" rows="3" placeholder="Коротко: досвід, групи, спеціалізація"></textarea>
+              </label>
             </div>
             <button id="coachSubmitBtn" type="submit">Додати тренера</button>
           </form>
@@ -325,6 +337,6 @@
       <p id="syncStatus" class="meta">Автономний режим: збереження лише в браузері.</p>
     </footer>
 
-    <script src="app.js?v=20260509-club-profile-switcher"></script>
+    <script src="app.js?v=20260509-coach-club-info"></script>
   </body>
 </html>

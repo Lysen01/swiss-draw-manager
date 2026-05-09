@@ -94,11 +94,17 @@ label {
 
 input,
 select,
+textarea,
 button {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px 12px;
   font: inherit;
+}
+
+textarea {
+  min-height: 82px;
+  resize: vertical;
 }
 
 input[type="checkbox"],
@@ -167,6 +173,12 @@ button.danger {
   top: 0;
   background: #eef3fc;
   z-index: 1;
+}
+
+.table td.wrap-cell {
+  white-space: normal;
+  min-width: 220px;
+  line-height: 1.4;
 }
 
 .th-sort-btn {
@@ -723,8 +735,13 @@ label.base-pick-item {
 }
 
 .base-form-row input,
-.base-form-row select {
+.base-form-row select,
+.base-form-row textarea {
   background: #fff;
+}
+
+.base-field--wide {
+  grid-column: 1 / -1;
 }
 
 .base-form-row--actions {
@@ -924,7 +941,8 @@ label.base-pick-item {
 }
 
 .club-action-panel input,
-.club-action-panel select {
+.club-action-panel select,
+.club-action-panel textarea {
   min-height: 40px;
   background: #fff;
 }
@@ -939,6 +957,25 @@ label.base-pick-item {
   border: 1px dashed #c9d5ea;
   border-radius: 10px;
   background: #f8fbff;
+}
+
+.club-profile-info-block {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.club-profile-info {
+  margin-top: 6px;
+  color: var(--ink);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.club-profile-info--empty {
+  color: var(--muted);
 }
 
 .player-profile-head {

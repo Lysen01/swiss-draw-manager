@@ -270,6 +270,7 @@ function mapApiClubToState(row) {
     name: row.name,
     city: row.city,
     contact: row.contact,
+    description: row.description,
     logoDataUrl: row.logo_url,
     createdAt: row.created_at,
   });
@@ -283,6 +284,8 @@ function mapApiCoachToState(row) {
     clubId: row.club_id,
     phone: row.phone,
     email: row.email,
+    bio: row.bio,
+    photoDataUrl: row.photo_url,
     createdAt: row.created_at,
   });
 }
@@ -451,6 +454,7 @@ function buildClubApiPayload(club) {
     name: club.name,
     city: club.city || "",
     contact: club.contact || "",
+    description: club.description || "",
     logo_url: club.logoDataUrl || null,
   };
 }
@@ -463,6 +467,8 @@ function buildCoachApiPayload(coach) {
     club_id: normalizeEntityId(coach.clubId) || null,
     phone: coach.phone || "",
     email: coach.email || "",
+    bio: coach.bio || "",
+    photo_url: coach.photoDataUrl || null,
   };
 }
 

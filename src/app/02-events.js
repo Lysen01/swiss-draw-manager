@@ -323,9 +323,9 @@ function bindEvents() {
     resetClubForm();
   });
 
-  els.coachForm.addEventListener("submit", (event) => {
+  els.coachForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    submitCoachForm();
+    await submitCoachForm();
   });
 
   els.clubsList.addEventListener("click", (event) => {
@@ -368,7 +368,7 @@ function bindEvents() {
       submitAttachExistingPlayerToClubForm(form);
     }
     if (form.dataset.action === "quick-add-club-coach") {
-      submitQuickClubCoachForm(form);
+      await submitQuickClubCoachForm(form);
     }
   });
 

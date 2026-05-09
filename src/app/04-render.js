@@ -1086,6 +1086,9 @@ function renderClubProfile(clubId) {
   const coachesText = coaches.length
     ? coaches.map((coach) => `${escapeHtml(getCoachFullName(coach))}${coach.phone ? ` (${escapeHtml(coach.phone)})` : ""}`).join(", ")
     : "тренерів ще не додано";
+  const descriptionHtml = club.description
+    ? `<div class="club-profile-info">${escapeHtml(club.description)}</div>`
+    : '<div class="club-profile-info club-profile-info--empty">Інфо про клуб ще не додано.</div>';
   const logo = club.logoDataUrl
     ? `<img class="club-profile-logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
     : '<span class="club-profile-logo club-profile-logo--empty">Лого</span>';
@@ -1144,6 +1147,10 @@ function renderClubProfile(clubId) {
           <article class="player-stat-card"><div class="meta">Тренерів</div><strong>${coaches.length}</strong></article>
           <article class="player-stat-card"><div class="meta">Місто</div><strong>${escapeHtml(club.city || "-")}</strong></article>
           <article class="player-stat-card"><div class="meta">Контакти</div><strong>${escapeHtml(club.contact || "-")}</strong></article>
+        </div>
+        <div class="club-profile-info-block">
+          <div class="quick-player-form__title">Інфо</div>
+          ${descriptionHtml}
         </div>
       </section>`;
 
@@ -1221,6 +1228,8 @@ function renderQuickClubCoachForm(club) {
       <input name="firstName" type="text" placeholder="Ім'я" required />
       <input name="phone" type="text" placeholder="+380..." />
       <input name="email" type="email" placeholder="coach@example.com" />
+      <input name="photo" type="file" accept="image/*" />
+      <textarea name="bio" rows="3" placeholder="Коротко про тренера"></textarea>
       <button type="submit">Додати тренера</button>
     </form>`;
 }
@@ -1240,9 +1249,11 @@ function renderClubCoachesTable(coaches) {
     .map(
       (coach) => `
       <tr>
+        <td>${coach.photoDataUrl ? `<img class="avatar" src="${coach.photoDataUrl}" alt="${escapeHtml(getCoachFullName(coach))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
         <td>${escapeHtml(getCoachFullName(coach))}</td>
         <td>${escapeHtml(coach.phone || "-")}</td>
         <td>${escapeHtml(coach.email || "-")}</td>
+        <td class="wrap-cell">${escapeHtml(coach.bio || "-")}</td>
       </tr>`
     )
     .join("");
@@ -1250,7 +1261,7 @@ function renderClubCoachesTable(coaches) {
   return `
     <div class="scroll">
       <table class="table">
-        <thead><tr><th>Тренер</th><th>Телефон</th><th>Email</th></tr></thead>
+        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;

@@ -27,6 +27,8 @@ const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;
 const MAX_BASE_PLAYER_PHOTO_STORE_BYTES = 320_000;
 const MAX_CLUB_LOGO_BYTES = 8 * 1024 * 1024;
 const MAX_CLUB_LOGO_STORE_BYTES = 260_000;
+const MAX_COACH_PHOTO_BYTES = 8 * 1024 * 1024;
+const MAX_COACH_PHOTO_STORE_BYTES = 260_000;
 const INTERNAL_RATING_K = 10;
 const INTERNAL_RATING_DELTA_CAP = 80;
 const INTERNAL_RATING_EXPECTED_TABLE = [
@@ -191,6 +193,7 @@ const els = {
   clubCity: document.getElementById("clubCity"),
   clubContact: document.getElementById("clubContact"),
   clubLogo: document.getElementById("clubLogo"),
+  clubDescription: document.getElementById("clubDescription"),
   clubRemoveLogo: document.getElementById("clubRemoveLogo"),
   clubSubmitBtn: document.getElementById("clubSubmitBtn"),
   clubCancelEditBtn: document.getElementById("clubCancelEditBtn"),
@@ -201,6 +204,8 @@ const els = {
   coachClub: document.getElementById("coachClub"),
   coachPhone: document.getElementById("coachPhone"),
   coachEmail: document.getElementById("coachEmail"),
+  coachPhoto: document.getElementById("coachPhoto"),
+  coachBio: document.getElementById("coachBio"),
   coachSubmitBtn: document.getElementById("coachSubmitBtn"),
   clubsList: document.getElementById("clubsList"),
   clubProfile: document.getElementById("clubProfile"),
@@ -535,9 +540,9 @@ function bindEvents() {
     resetClubForm();
   });
 
-  els.coachForm.addEventListener("submit", (event) => {
+  els.coachForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    submitCoachForm();
+    await submitCoachForm();
   });
 
   els.clubsList.addEventListener("click", (event) => {
@@ -580,7 +585,7 @@ function bindEvents() {
       submitAttachExistingPlayerToClubForm(form);
     }
     if (form.dataset.action === "quick-add-club-coach") {
-      submitQuickClubCoachForm(form);
+      await submitQuickClubCoachForm(form);
     }
   });
 
@@ -1087,6 +1092,7 @@ function normalizeClub(club) {
     name: String(club.name || "").trim().slice(0, 140) || "Без назви",
     city: String(club.city || "").trim().slice(0, 80),
     contact: String(club.contact || club.contacts || "").trim().slice(0, 180),
+    description: String(club.description || club.info || "").trim().slice(0, 700),
     logoDataUrl: normalizeImageDataUrl(club.logoDataUrl || club.logo_url),
     createdAt: club.createdAt || club.created_at || new Date().toISOString(),
   };
@@ -1100,6 +1106,8 @@ function normalizeCoach(coach) {
     clubId: normalizeEntityId(coach.clubId || coach.club_id),
     phone: String(coach.phone || "").trim().slice(0, 80),
     email: String(coach.email || "").trim().slice(0, 120),
+    bio: String(coach.bio || coach.description || coach.info || "").trim().slice(0, 700),
+    photoDataUrl: normalizeImageDataUrl(coach.photoDataUrl || coach.photo_url),
     createdAt: coach.createdAt || coach.created_at || new Date().toISOString(),
   };
 }
@@ -1110,6 +1118,7 @@ function createClubRecord(name, city, contact, extra = {}) {
     name,
     city,
     contact,
+    description: extra.description,
     logoDataUrl: extra.logoDataUrl,
     createdAt: new Date().toISOString(),
   });
@@ -1123,6 +1132,8 @@ function createCoachRecord(lastName, firstName, clubId, extra = {}) {
     clubId,
     phone: extra.phone,
     email: extra.email,
+    bio: extra.bio,
+    photoDataUrl: extra.photoDataUrl,
     createdAt: new Date().toISOString(),
   });
 }
@@ -1333,6 +1344,21 @@ function isValidClubLogoFile(file) {
   }
 
   alert("Логотип клубу занадто великий. Оберіть файл до 8 MB.");
+  return false;
+}
+
+function isValidCoachPhotoFile(file) {
+  if (!file) {
+    return false;
+  }
+  if (!file.type.startsWith("image/")) {
+    alert("Фото тренера має бути зображенням.");
+    return false;
+  }
+  if (file.size <= MAX_COACH_PHOTO_BYTES) {
+    return true;
+  }
+  alert("Фото тренера завелике. Оберіть файл до 8 МБ.");
   return false;
 }
 
@@ -2425,6 +2451,9 @@ function renderClubProfile(clubId) {
   const coachesText = coaches.length
     ? coaches.map((coach) => `${escapeHtml(getCoachFullName(coach))}${coach.phone ? ` (${escapeHtml(coach.phone)})` : ""}`).join(", ")
     : "тренерів ще не додано";
+  const descriptionHtml = club.description
+    ? `<div class="club-profile-info">${escapeHtml(club.description)}</div>`
+    : '<div class="club-profile-info club-profile-info--empty">Інфо про клуб ще не додано.</div>';
   const logo = club.logoDataUrl
     ? `<img class="club-profile-logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
     : '<span class="club-profile-logo club-profile-logo--empty">Лого</span>';
@@ -2483,6 +2512,10 @@ function renderClubProfile(clubId) {
           <article class="player-stat-card"><div class="meta">Тренерів</div><strong>${coaches.length}</strong></article>
           <article class="player-stat-card"><div class="meta">Місто</div><strong>${escapeHtml(club.city || "-")}</strong></article>
           <article class="player-stat-card"><div class="meta">Контакти</div><strong>${escapeHtml(club.contact || "-")}</strong></article>
+        </div>
+        <div class="club-profile-info-block">
+          <div class="quick-player-form__title">Інфо</div>
+          ${descriptionHtml}
         </div>
       </section>`;
 
@@ -2560,6 +2593,8 @@ function renderQuickClubCoachForm(club) {
       <input name="firstName" type="text" placeholder="Ім'я" required />
       <input name="phone" type="text" placeholder="+380..." />
       <input name="email" type="email" placeholder="coach@example.com" />
+      <input name="photo" type="file" accept="image/*" />
+      <textarea name="bio" rows="3" placeholder="Коротко про тренера"></textarea>
       <button type="submit">Додати тренера</button>
     </form>`;
 }
@@ -2579,9 +2614,11 @@ function renderClubCoachesTable(coaches) {
     .map(
       (coach) => `
       <tr>
+        <td>${coach.photoDataUrl ? `<img class="avatar" src="${coach.photoDataUrl}" alt="${escapeHtml(getCoachFullName(coach))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
         <td>${escapeHtml(getCoachFullName(coach))}</td>
         <td>${escapeHtml(coach.phone || "-")}</td>
         <td>${escapeHtml(coach.email || "-")}</td>
+        <td class="wrap-cell">${escapeHtml(coach.bio || "-")}</td>
       </tr>`
     )
     .join("");
@@ -2589,7 +2626,7 @@ function renderClubCoachesTable(coaches) {
   return `
     <div class="scroll">
       <table class="table">
-        <thead><tr><th>Тренер</th><th>Телефон</th><th>Email</th></tr></thead>
+        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -3557,6 +3594,16 @@ async function readClubLogoDataUrl(file) {
   });
 }
 
+async function readCoachPhotoDataUrl(file) {
+  const rawDataUrl = await readFileAsDataUrl(file);
+  return optimizeImageDataUrl(rawDataUrl, {
+    maxSide: 620,
+    qualityStart: 0.82,
+    qualityMin: 0.45,
+    targetBytes: MAX_COACH_PHOTO_STORE_BYTES,
+  });
+}
+
 function optimizeImageDataUrl(dataUrl, options) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -3768,6 +3815,7 @@ async function submitClubForm() {
   const name = els.clubName.value.trim();
   const city = els.clubCity.value.trim();
   const contact = els.clubContact.value.trim();
+  const description = els.clubDescription.value.trim();
   const removeLogo = els.clubRemoveLogo.checked;
   const logoFile = els.clubLogo.files?.[0] || null;
 
@@ -3794,13 +3842,14 @@ async function submitClubForm() {
     club.name = name;
     club.city = city;
     club.contact = contact;
+    club.description = description;
     if (logoDataUrl) {
       club.logoDataUrl = logoDataUrl;
     } else if (removeLogo) {
       club.logoDataUrl = null;
     }
   } else {
-    club = createClubRecord(name, city, contact, { logoDataUrl });
+    club = createClubRecord(name, city, contact, { description, logoDataUrl });
     state.clubs.push(club);
   }
 
@@ -3826,6 +3875,7 @@ function startEditClub(clubId) {
   els.clubName.value = club.name || "";
   els.clubCity.value = club.city || "";
   els.clubContact.value = club.contact || "";
+  els.clubDescription.value = club.description || "";
   els.clubLogo.value = "";
   els.clubRemoveLogo.checked = false;
   els.clubSubmitBtn.textContent = "Зберегти клуб";
@@ -3908,12 +3958,14 @@ async function submitQuickClubPlayerForm(form) {
   saveAndRender();
 }
 
-function submitCoachForm() {
+async function submitCoachForm() {
   const lastName = els.coachLastName.value.trim();
   const firstName = els.coachFirstName.value.trim();
   const clubId = normalizeEntityId(els.coachClub.value);
   const phone = els.coachPhone.value.trim();
   const email = els.coachEmail.value.trim();
+  const bio = els.coachBio.value.trim();
+  const photoFile = els.coachPhoto.files?.[0] || null;
 
   if (!lastName || !firstName) {
     alert("Прізвище та ім'я тренера обов'язкові.");
@@ -3925,7 +3977,15 @@ function submitCoachForm() {
     return;
   }
 
-  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email });
+  let photoDataUrl = null;
+  if (photoFile) {
+    if (!isValidCoachPhotoFile(photoFile)) {
+      return;
+    }
+    photoDataUrl = await readCoachPhotoDataUrl(photoFile);
+  }
+
+  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email, bio, photoDataUrl });
   state.coaches.push(coach);
   selectedClubDetailTab = "coaches";
   selectedClubProfileId = clubId;
@@ -3933,7 +3993,7 @@ function submitCoachForm() {
   saveAndRender();
 }
 
-function submitQuickClubCoachForm(form) {
+async function submitQuickClubCoachForm(form) {
   const clubId = normalizeEntityId(form.dataset.clubId);
   const club = state.clubs.find((item) => item.id === clubId);
   if (!club) {
@@ -3945,13 +4005,23 @@ function submitQuickClubCoachForm(form) {
   const firstName = String(form.querySelector("[name='firstName']")?.value || "").trim();
   const phone = String(form.querySelector("[name='phone']")?.value || "").trim();
   const email = String(form.querySelector("[name='email']")?.value || "").trim();
+  const bio = String(form.querySelector("[name='bio']")?.value || "").trim();
+  const photoFile = form.querySelector("[name='photo']")?.files?.[0] || null;
 
   if (!lastName || !firstName) {
     alert("Прізвище та ім'я тренера обов'язкові.");
     return;
   }
 
-  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email });
+  let photoDataUrl = null;
+  if (photoFile) {
+    if (!isValidCoachPhotoFile(photoFile)) {
+      return;
+    }
+    photoDataUrl = await readCoachPhotoDataUrl(photoFile);
+  }
+
+  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email, bio, photoDataUrl });
   state.coaches.push(coach);
   selectedClubsView = "profile";
   selectedClubDetailTab = "coaches";
@@ -5091,6 +5161,7 @@ function mapApiClubToState(row) {
     name: row.name,
     city: row.city,
     contact: row.contact,
+    description: row.description,
     logoDataUrl: row.logo_url,
     createdAt: row.created_at,
   });
@@ -5104,6 +5175,8 @@ function mapApiCoachToState(row) {
     clubId: row.club_id,
     phone: row.phone,
     email: row.email,
+    bio: row.bio,
+    photoDataUrl: row.photo_url,
     createdAt: row.created_at,
   });
 }
@@ -5272,6 +5345,7 @@ function buildClubApiPayload(club) {
     name: club.name,
     city: club.city || "",
     contact: club.contact || "",
+    description: club.description || "",
     logo_url: club.logoDataUrl || null,
   };
 }
@@ -5284,6 +5358,8 @@ function buildCoachApiPayload(coach) {
     club_id: normalizeEntityId(coach.clubId) || null,
     phone: coach.phone || "",
     email: coach.email || "",
+    bio: coach.bio || "",
+    photo_url: coach.photoDataUrl || null,
   };
 }
 

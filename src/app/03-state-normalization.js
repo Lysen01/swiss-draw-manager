@@ -332,6 +332,7 @@ function normalizeClub(club) {
     name: String(club.name || "").trim().slice(0, 140) || "Без назви",
     city: String(club.city || "").trim().slice(0, 80),
     contact: String(club.contact || club.contacts || "").trim().slice(0, 180),
+    description: String(club.description || club.info || "").trim().slice(0, 700),
     logoDataUrl: normalizeImageDataUrl(club.logoDataUrl || club.logo_url),
     createdAt: club.createdAt || club.created_at || new Date().toISOString(),
   };
@@ -345,6 +346,8 @@ function normalizeCoach(coach) {
     clubId: normalizeEntityId(coach.clubId || coach.club_id),
     phone: String(coach.phone || "").trim().slice(0, 80),
     email: String(coach.email || "").trim().slice(0, 120),
+    bio: String(coach.bio || coach.description || coach.info || "").trim().slice(0, 700),
+    photoDataUrl: normalizeImageDataUrl(coach.photoDataUrl || coach.photo_url),
     createdAt: coach.createdAt || coach.created_at || new Date().toISOString(),
   };
 }
@@ -355,6 +358,7 @@ function createClubRecord(name, city, contact, extra = {}) {
     name,
     city,
     contact,
+    description: extra.description,
     logoDataUrl: extra.logoDataUrl,
     createdAt: new Date().toISOString(),
   });
@@ -368,6 +372,8 @@ function createCoachRecord(lastName, firstName, clubId, extra = {}) {
     clubId,
     phone: extra.phone,
     email: extra.email,
+    bio: extra.bio,
+    photoDataUrl: extra.photoDataUrl,
     createdAt: new Date().toISOString(),
   });
 }
@@ -578,5 +584,20 @@ function isValidClubLogoFile(file) {
   }
 
   alert("Логотип клубу занадто великий. Оберіть файл до 8 MB.");
+  return false;
+}
+
+function isValidCoachPhotoFile(file) {
+  if (!file) {
+    return false;
+  }
+  if (!file.type.startsWith("image/")) {
+    alert("Фото тренера має бути зображенням.");
+    return false;
+  }
+  if (file.size <= MAX_COACH_PHOTO_BYTES) {
+    return true;
+  }
+  alert("Фото тренера завелике. Оберіть файл до 8 МБ.");
   return false;
 }

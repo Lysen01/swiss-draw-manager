@@ -271,6 +271,16 @@ async function readClubLogoDataUrl(file) {
   });
 }
 
+async function readCoachPhotoDataUrl(file) {
+  const rawDataUrl = await readFileAsDataUrl(file);
+  return optimizeImageDataUrl(rawDataUrl, {
+    maxSide: 620,
+    qualityStart: 0.82,
+    qualityMin: 0.45,
+    targetBytes: MAX_COACH_PHOTO_STORE_BYTES,
+  });
+}
+
 function optimizeImageDataUrl(dataUrl, options) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -482,6 +492,7 @@ async function submitClubForm() {
   const name = els.clubName.value.trim();
   const city = els.clubCity.value.trim();
   const contact = els.clubContact.value.trim();
+  const description = els.clubDescription.value.trim();
   const removeLogo = els.clubRemoveLogo.checked;
   const logoFile = els.clubLogo.files?.[0] || null;
 
@@ -508,13 +519,14 @@ async function submitClubForm() {
     club.name = name;
     club.city = city;
     club.contact = contact;
+    club.description = description;
     if (logoDataUrl) {
       club.logoDataUrl = logoDataUrl;
     } else if (removeLogo) {
       club.logoDataUrl = null;
     }
   } else {
-    club = createClubRecord(name, city, contact, { logoDataUrl });
+    club = createClubRecord(name, city, contact, { description, logoDataUrl });
     state.clubs.push(club);
   }
 
@@ -540,6 +552,7 @@ function startEditClub(clubId) {
   els.clubName.value = club.name || "";
   els.clubCity.value = club.city || "";
   els.clubContact.value = club.contact || "";
+  els.clubDescription.value = club.description || "";
   els.clubLogo.value = "";
   els.clubRemoveLogo.checked = false;
   els.clubSubmitBtn.textContent = "Зберегти клуб";
@@ -622,12 +635,14 @@ async function submitQuickClubPlayerForm(form) {
   saveAndRender();
 }
 
-function submitCoachForm() {
+async function submitCoachForm() {
   const lastName = els.coachLastName.value.trim();
   const firstName = els.coachFirstName.value.trim();
   const clubId = normalizeEntityId(els.coachClub.value);
   const phone = els.coachPhone.value.trim();
   const email = els.coachEmail.value.trim();
+  const bio = els.coachBio.value.trim();
+  const photoFile = els.coachPhoto.files?.[0] || null;
 
   if (!lastName || !firstName) {
     alert("Прізвище та ім'я тренера обов'язкові.");
@@ -639,7 +654,15 @@ function submitCoachForm() {
     return;
   }
 
-  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email });
+  let photoDataUrl = null;
+  if (photoFile) {
+    if (!isValidCoachPhotoFile(photoFile)) {
+      return;
+    }
+    photoDataUrl = await readCoachPhotoDataUrl(photoFile);
+  }
+
+  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email, bio, photoDataUrl });
   state.coaches.push(coach);
   selectedClubDetailTab = "coaches";
   selectedClubProfileId = clubId;
@@ -647,7 +670,7 @@ function submitCoachForm() {
   saveAndRender();
 }
 
-function submitQuickClubCoachForm(form) {
+async function submitQuickClubCoachForm(form) {
   const clubId = normalizeEntityId(form.dataset.clubId);
   const club = state.clubs.find((item) => item.id === clubId);
   if (!club) {
@@ -659,13 +682,23 @@ function submitQuickClubCoachForm(form) {
   const firstName = String(form.querySelector("[name='firstName']")?.value || "").trim();
   const phone = String(form.querySelector("[name='phone']")?.value || "").trim();
   const email = String(form.querySelector("[name='email']")?.value || "").trim();
+  const bio = String(form.querySelector("[name='bio']")?.value || "").trim();
+  const photoFile = form.querySelector("[name='photo']")?.files?.[0] || null;
 
   if (!lastName || !firstName) {
     alert("Прізвище та ім'я тренера обов'язкові.");
     return;
   }
 
-  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email });
+  let photoDataUrl = null;
+  if (photoFile) {
+    if (!isValidCoachPhotoFile(photoFile)) {
+      return;
+    }
+    photoDataUrl = await readCoachPhotoDataUrl(photoFile);
+  }
+
+  const coach = createCoachRecord(lastName, firstName, clubId, { phone, email, bio, photoDataUrl });
   state.coaches.push(coach);
   selectedClubsView = "profile";
   selectedClubDetailTab = "coaches";
