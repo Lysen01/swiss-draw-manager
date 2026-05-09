@@ -410,6 +410,14 @@ function bindEvents() {
       startEditClub(btn.dataset.clubId);
     }
 
+    if (btn.dataset.action === "select-club-profile") {
+      selectedClubProfileId = btn.dataset.clubId || null;
+      selectedClubPlayerProfileId = null;
+      selectedClubPlayerProfileTab = "info";
+      selectedClubsView = "profile";
+      renderClubsTab();
+    }
+
     if (btn.dataset.action === "set-club-detail-tab") {
       const tab = String(btn.dataset.tab || "").trim();
       if (!tab) {

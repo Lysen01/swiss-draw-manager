@@ -1000,7 +1000,7 @@ function renderClubsTab() {
     })
     .join("");
 
-  els.clubProfile.innerHTML = renderClubProfile(selectedClubProfileId) + renderIndependentPlayersBlock();
+  els.clubProfile.innerHTML = renderClubProfileSwitcher(clubs) + renderClubProfile(selectedClubProfileId) + renderIndependentPlayersBlock();
   if (selectedClubDetailTab !== "players") {
     for (const profileCard of els.clubProfile.querySelectorAll(".player-profile-shell")) {
       profileCard.remove();
@@ -1038,6 +1038,38 @@ function renderCoachClubSelector() {
       .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`),
   ].join("");
   els.coachClub.value = state.clubs.some((club) => club.id === current) ? current : "";
+}
+
+function renderClubProfileSwitcher(clubs) {
+  if (clubs.length <= 1) {
+    return "";
+  }
+
+  const items = clubs
+    .map((club) => {
+      const playersCount = state.playerBase.filter((player) => player.clubId === club.id).length;
+      const coachesCount = state.coaches.filter((coach) => coach.clubId === club.id).length;
+      const active = club.id === selectedClubProfileId ? " active" : "";
+      const logo = club.logoDataUrl
+        ? `<img class="club-profile-switcher__logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
+        : '<span class="club-profile-switcher__logo club-profile-switcher__logo--empty">Лого</span>';
+
+      return `
+        <button type="button" class="club-profile-switcher__item${active}" data-action="select-club-profile" data-club-id="${club.id}">
+          ${logo}
+          <span>
+            <strong>${escapeHtml(club.name)}</strong>
+            <small>${coachesCount} тренерів | ${playersCount} гравців</small>
+          </span>
+        </button>`;
+    })
+    .join("");
+
+  return `
+    <div class="club-profile-switcher">
+      <div class="club-profile-switcher__title">Обрати клуб</div>
+      <div class="club-profile-switcher__list">${items}</div>
+    </div>`;
 }
 
 function renderClubProfile(clubId) {
