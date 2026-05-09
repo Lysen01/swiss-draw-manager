@@ -8,6 +8,8 @@
   --danger: #c72d2d;
   --line: #d9e0ec;
   --shadow: 0 16px 40px rgba(13, 29, 54, 0.08);
+  --page-max: 1440px;
+  --page-pad: clamp(18px, 3vw, 34px);
 }
 
 * {
@@ -22,11 +24,11 @@ body {
 }
 
 .hero {
-  padding: 32px 20px 16px;
+  padding: 24px var(--page-pad) 14px;
 }
 
 .hero__inner {
-  max-width: 1120px;
+  max-width: var(--page-max);
   margin: 0 auto;
 }
 
@@ -47,9 +49,9 @@ body {
 }
 
 .layout {
-  max-width: 1120px;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 0 20px 32px;
+  padding: 0 var(--page-pad) 32px;
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -439,9 +441,9 @@ button.danger {
 }
 
 .tabs {
-  max-width: 1120px;
+  max-width: var(--page-max);
   margin: 0 auto 10px;
-  padding: 0 20px;
+  padding: 0 var(--page-pad);
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
