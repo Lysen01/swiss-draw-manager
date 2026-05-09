@@ -478,6 +478,7 @@ function addDemoPlayers() {
 }
 
 async function submitClubForm() {
+  const wasEditing = Boolean(editingClubId);
   const name = els.clubName.value.trim();
   const city = els.clubCity.value.trim();
   const contact = els.clubContact.value.trim();
@@ -518,6 +519,10 @@ async function submitClubForm() {
   }
 
   selectedClubProfileId = club.id;
+  if (wasEditing) {
+    selectedClubsView = "profile";
+    selectedClubDetailTab = "profile";
+  }
   resetClubForm();
   saveAndRender();
 }

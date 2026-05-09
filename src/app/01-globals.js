@@ -42,7 +42,7 @@ const els = {
   tournamentSubtabs: document.getElementById("tournamentSubtabs"),
   tournamentViewPanels: document.querySelectorAll("[data-tour-view]"),
   clubsSubtabs: document.getElementById("clubsSubtabs"),
-  clubsViewPanels: document.querySelectorAll("[data-club-view]"),
+  clubsViewPanels: document.querySelectorAll("#tab-clubs section[data-club-view]"),
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),

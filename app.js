@@ -128,7 +128,7 @@ const els = {
   tournamentSubtabs: document.getElementById("tournamentSubtabs"),
   tournamentViewPanels: document.querySelectorAll("[data-tour-view]"),
   clubsSubtabs: document.getElementById("clubsSubtabs"),
-  clubsViewPanels: document.querySelectorAll("[data-club-view]"),
+  clubsViewPanels: document.querySelectorAll("#tab-clubs section[data-club-view]"),
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
@@ -3694,6 +3694,7 @@ function addDemoPlayers() {
 }
 
 async function submitClubForm() {
+  const wasEditing = Boolean(editingClubId);
   const name = els.clubName.value.trim();
   const city = els.clubCity.value.trim();
   const contact = els.clubContact.value.trim();
@@ -3734,6 +3735,10 @@ async function submitClubForm() {
   }
 
   selectedClubProfileId = club.id;
+  if (wasEditing) {
+    selectedClubsView = "profile";
+    selectedClubDetailTab = "profile";
+  }
   resetClubForm();
   saveAndRender();
 }
