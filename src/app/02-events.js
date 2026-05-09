@@ -15,7 +15,14 @@ function bindEvents() {
     }
 
     captureTournamentSettingsDraftFromForm();
-    state.activeTab = btn.dataset.tab;
+    const nextTab = String(btn.dataset.tab || "").trim();
+    if (nextTab && nextTab !== "clubs") {
+      selectedClubPlayerProfileId = null;
+      selectedClubPlayerProfileTab = "info";
+      selectedClubDetailTab = "profile";
+      selectedClubsView = "directory";
+    }
+    state.activeTab = nextTab || state.activeTab;
     saveAndRender();
   });
 
@@ -227,6 +234,11 @@ function bindEvents() {
         return;
       }
       selectedClubsView = nextView;
+      if (nextView !== "profile") {
+        selectedClubPlayerProfileId = null;
+        selectedClubPlayerProfileTab = "info";
+        selectedClubDetailTab = "profile";
+      }
       renderClubsTab();
     });
   }
@@ -374,6 +386,8 @@ function bindEvents() {
     if (btn.dataset.action === "view-player-profile") {
       selectedClubPlayerProfileId = playerId || null;
       selectedClubPlayerProfileTab = "info";
+      selectedClubDetailTab = "players";
+      selectedClubsView = "profile";
       renderClubsTab();
     }
 
@@ -402,6 +416,10 @@ function bindEvents() {
         return;
       }
       selectedClubDetailTab = tab;
+      if (tab !== "players") {
+        selectedClubPlayerProfileId = null;
+        selectedClubPlayerProfileTab = "info";
+      }
       renderClubsTab();
     }
 

@@ -1000,8 +1000,12 @@ function renderClubsTab() {
     })
     .join("");
 
-  els.clubProfile.innerHTML =
-    renderClubProfile(selectedClubProfileId) + renderClubPlayerProfileCard(selectedClubPlayerProfileId) + renderIndependentPlayersBlock();
+  els.clubProfile.innerHTML = renderClubProfile(selectedClubProfileId) + renderIndependentPlayersBlock();
+  if (selectedClubDetailTab !== "players") {
+    for (const profileCard of els.clubProfile.querySelectorAll(".player-profile-shell")) {
+      profileCard.remove();
+    }
+  }
 }
 
 function renderClubsSubtabs() {
@@ -1059,12 +1063,19 @@ function renderClubProfile(clubId) {
     { key: "coaches", label: "Тренери" },
   ];
   const activeTab = tabs.some((tab) => tab.key === selectedClubDetailTab) ? selectedClubDetailTab : "profile";
+  if (activeTab !== "players" && selectedClubPlayerProfileId) {
+    selectedClubPlayerProfileId = null;
+    selectedClubPlayerProfileTab = "info";
+  }
   const tabButtons = tabs
     .map(
       (tab) =>
         `<button type="button" class="subtab-btn${activeTab === tab.key ? " active" : ""}" data-action="set-club-detail-tab" data-tab="${tab.key}">${tab.label}</button>`
     )
     .join("");
+  const selectedClubPlayer =
+    activeTab === "players" ? players.find((player) => player.id === selectedClubPlayerProfileId) || null : null;
+  const selectedClubPlayerProfileCard = selectedClubPlayer ? renderClubPlayerProfileCard(selectedClubPlayer.id) : "";
   const tabContent =
     activeTab === "players"
       ? `
@@ -1072,7 +1083,8 @@ function renderClubProfile(clubId) {
         ${renderAttachExistingPlayerForm(club, coaches)}
         ${renderQuickClubPlayerForm(club, coaches)}
       </div>
-      ${renderClubPlayersTable(players)}`
+      ${renderClubPlayersTable(players)}
+      ${selectedClubPlayerProfileCard}`
       : activeTab === "coaches"
         ? `
       <div class="club-management-grid">

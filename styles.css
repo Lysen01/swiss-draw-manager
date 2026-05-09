@@ -913,6 +913,17 @@ label.base-pick-item {
   border-radius: 14px;
 }
 
+/* Safety guard: player profile card is allowed only in the "Гравці" detail tab. */
+.club-profile-card:has(.subtabs--nested .subtab-btn[data-tab="coaches"].active) .player-profile-shell,
+.club-profile-card:has(.subtabs--nested .subtab-btn[data-tab="profile"].active) .player-profile-shell {
+  display: none !important;
+}
+
+.club-profile:has(.subtabs--nested .subtab-btn[data-tab="coaches"].active) > .player-profile-shell,
+.club-profile:has(.subtabs--nested .subtab-btn[data-tab="profile"].active) > .player-profile-shell {
+  display: none !important;
+}
+
 .player-profile-tabbar {
   display: flex;
   gap: 6px;

@@ -227,7 +227,14 @@ function bindEvents() {
     }
 
     captureTournamentSettingsDraftFromForm();
-    state.activeTab = btn.dataset.tab;
+    const nextTab = String(btn.dataset.tab || "").trim();
+    if (nextTab && nextTab !== "clubs") {
+      selectedClubPlayerProfileId = null;
+      selectedClubPlayerProfileTab = "info";
+      selectedClubDetailTab = "profile";
+      selectedClubsView = "directory";
+    }
+    state.activeTab = nextTab || state.activeTab;
     saveAndRender();
   });
 
@@ -439,6 +446,11 @@ function bindEvents() {
         return;
       }
       selectedClubsView = nextView;
+      if (nextView !== "profile") {
+        selectedClubPlayerProfileId = null;
+        selectedClubPlayerProfileTab = "info";
+        selectedClubDetailTab = "profile";
+      }
       renderClubsTab();
     });
   }
@@ -586,6 +598,8 @@ function bindEvents() {
     if (btn.dataset.action === "view-player-profile") {
       selectedClubPlayerProfileId = playerId || null;
       selectedClubPlayerProfileTab = "info";
+      selectedClubDetailTab = "players";
+      selectedClubsView = "profile";
       renderClubsTab();
     }
 
@@ -614,6 +628,10 @@ function bindEvents() {
         return;
       }
       selectedClubDetailTab = tab;
+      if (tab !== "players") {
+        selectedClubPlayerProfileId = null;
+        selectedClubPlayerProfileTab = "info";
+      }
       renderClubsTab();
     }
 
@@ -2313,8 +2331,12 @@ function renderClubsTab() {
     })
     .join("");
 
-  els.clubProfile.innerHTML =
-    renderClubProfile(selectedClubProfileId) + renderClubPlayerProfileCard(selectedClubPlayerProfileId) + renderIndependentPlayersBlock();
+  els.clubProfile.innerHTML = renderClubProfile(selectedClubProfileId) + renderIndependentPlayersBlock();
+  if (selectedClubDetailTab !== "players") {
+    for (const profileCard of els.clubProfile.querySelectorAll(".player-profile-shell")) {
+      profileCard.remove();
+    }
+  }
 }
 
 function renderClubsSubtabs() {
@@ -2372,12 +2394,19 @@ function renderClubProfile(clubId) {
     { key: "coaches", label: "Тренери" },
   ];
   const activeTab = tabs.some((tab) => tab.key === selectedClubDetailTab) ? selectedClubDetailTab : "profile";
+  if (activeTab !== "players" && selectedClubPlayerProfileId) {
+    selectedClubPlayerProfileId = null;
+    selectedClubPlayerProfileTab = "info";
+  }
   const tabButtons = tabs
     .map(
       (tab) =>
         `<button type="button" class="subtab-btn${activeTab === tab.key ? " active" : ""}" data-action="set-club-detail-tab" data-tab="${tab.key}">${tab.label}</button>`
     )
     .join("");
+  const selectedClubPlayer =
+    activeTab === "players" ? players.find((player) => player.id === selectedClubPlayerProfileId) || null : null;
+  const selectedClubPlayerProfileCard = selectedClubPlayer ? renderClubPlayerProfileCard(selectedClubPlayer.id) : "";
   const tabContent =
     activeTab === "players"
       ? `
@@ -2385,7 +2414,8 @@ function renderClubProfile(clubId) {
         ${renderAttachExistingPlayerForm(club, coaches)}
         ${renderQuickClubPlayerForm(club, coaches)}
       </div>
-      ${renderClubPlayersTable(players)}`
+      ${renderClubPlayersTable(players)}
+      ${selectedClubPlayerProfileCard}`
       : activeTab === "coaches"
         ? `
       <div class="club-management-grid">
