@@ -97,6 +97,7 @@ let basePlayersSort = { key: "rating", dir: "desc" };
 let manualRoundBuilderOpen = false;
 let selectedClubProfileId = null;
 let selectedClubPlayerProfileId = null;
+let selectedClubPlayerProfileTab = "info";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();
@@ -520,6 +521,7 @@ function bindEvents() {
     if (action === "view-club") {
       selectedClubProfileId = clubId || null;
       selectedClubPlayerProfileId = null;
+      selectedClubPlayerProfileTab = "info";
       renderClubsTab();
     }
 
@@ -559,6 +561,16 @@ function bindEvents() {
 
     if (btn.dataset.action === "view-player-profile") {
       selectedClubPlayerProfileId = playerId || null;
+      selectedClubPlayerProfileTab = "info";
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "set-player-profile-tab") {
+      const tab = String(btn.dataset.tab || "").trim();
+      if (!tab) {
+        return;
+      }
+      selectedClubPlayerProfileTab = tab;
       renderClubsTab();
     }
 
@@ -2474,56 +2486,404 @@ function renderClubPlayerProfileCard(playerId) {
     return "";
   }
 
+  const tabs = [
+    { key: "info", label: "INFO" },
+    { key: "skill", label: "Skill" },
+    { key: "ranking", label: "Ranking" },
+    { key: "matches", label: "Matches" },
+    { key: "opponents", label: "Opponents" },
+    { key: "events", label: "Events" },
+    { key: "memberships", label: "Memberships" },
+  ];
+  const activeTab = tabs.some((tab) => tab.key === selectedClubPlayerProfileTab) ? selectedClubPlayerProfileTab : "info";
   const stats = player.stats || emptyStats();
   const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt)) : [];
-  const historyRows = history
-    .slice(0, 8)
+  const matches = collectArchivedMatchesForPlayer(player.id);
+  const opponents = buildOpponentStatsFromMatches(matches);
+  const ratingSeries = buildPlayerRatingSeries(history, player.rating);
+  const bestRating = ratingSeries.reduce((max, x) => (x.rating > max ? x.rating : max), Math.round(Number(player.rating) || 0));
+  const worstRating = ratingSeries.reduce((min, x) => (x.rating < min ? x.rating : min), Math.round(Number(player.rating) || 0));
+  const avgDelta =
+    history.filter((item) => Number.isFinite(Number(item.ratingDelta))).reduce((sum, item) => sum + Number(item.ratingDelta), 0) /
+    Math.max(1, history.filter((item) => Number.isFinite(Number(item.ratingDelta))).length);
+  const winRate = stats.games > 0 ? Math.round((stats.wins / stats.games) * 100) : 0;
+  const ratingLabel = Math.round(Number(player.rating) || 0);
+  const gaugePercent = Math.max(5, Math.min(100, Math.round((ratingLabel / 3000) * 100)));
+  const tabsHtml = tabs
     .map(
-      (item) => `
-        <tr>
-          <td>${escapeHtml(item.tournamentName || "-")}</td>
-          <td>${formatDate(item.finishedAt)}</td>
-          <td>${item.place ?? "-"}</td>
-          <td>${Number(item.score || 0).toFixed(1)}</td>
-          <td>${Number.isFinite(Number(item.ratingDelta)) ? `${Number(item.ratingDelta) > 0 ? "+" : ""}${Number(item.ratingDelta)}` : "-"}</td>
-          <td>${Number.isFinite(Number(item.ratingAfter)) ? Math.round(Number(item.ratingAfter)) : "-"}</td>
-          <td>${item.wins}/${item.draws}/${item.losses}</td>
-        </tr>`
+      (tab) =>
+        `<button type="button" class="player-profile-tab-btn${activeTab === tab.key ? " active" : ""}" data-action="set-player-profile-tab" data-tab="${tab.key}">${tab.label}</button>`
     )
+    .join("");
+  const formLine = history.slice(0, 5).map((item) => ratingDeltaToFormSymbol(item.ratingDelta)).join(" ");
+  const contentHtml = renderPlayerProfileTabContent(activeTab, {
+    player,
+    stats,
+    history,
+    matches,
+    opponents,
+    ratingSeries,
+    bestRating,
+    worstRating,
+    avgDelta,
+    winRate,
+  });
+
+  return `
+    <section class="club-profile-card player-profile-shell">
+      <div class="player-profile-tabbar">${tabsHtml}</div>
+      <div class="player-profile-breadcrumb">${escapeHtml(getBaseFullName(player))} > ${activeTab.toUpperCase()}</div>
+      <div class="player-profile-hero">
+        <div class="player-profile-head">
+          ${
+            player.photoDataUrl
+              ? `<img class="player-profile-photo player-profile-photo--xl" src="${player.photoDataUrl}" alt="${escapeHtml(getBaseFullName(player))}" />`
+              : '<span class="player-profile-photo player-profile-photo--empty player-profile-photo--xl">Фото</span>'
+          }
+          <div>
+            <h3>${escapeHtml(getBaseFullName(player))}</h3>
+            <div class="meta">Клуб: ${escapeHtml(getClubName(player.clubId) || "Без клубу")} | Тренер: ${escapeHtml(getCoachName(player.coachId) || "-")}</div>
+            <div class="meta">Стать: ${formatGenderLabel(player.gender)} | Дата нар.: ${escapeHtml(player.birthDate || "-")} | Звання: ${escapeHtml(player.rank || "б/р")}</div>
+            <div class="player-profile-stats">
+              <span>Рейтинг: <strong>${ratingLabel}</strong></span>
+              <span>Турніри: <strong>${stats.tournaments}</strong></span>
+              <span>Партії: <strong>${stats.games}</strong></span>
+              <span>W/D/L: <strong>${stats.wins}/${stats.draws}/${stats.losses}</strong></span>
+              <span>Форма: <strong>${escapeHtml(formLine || "-")}</strong></span>
+            </div>
+          </div>
+        </div>
+        <div class="player-skill-panel">
+          <div class="player-skill-ring" style="--value:${gaugePercent}%;">
+            <span>${ratingLabel}</span>
+          </div>
+          <div class="meta">Внутрішній рейтинг платформи</div>
+        </div>
+      </div>
+      ${contentHtml}
+    </section>`;
+}
+
+function renderPlayerProfileTabContent(tab, model) {
+  if (tab === "skill") {
+    return renderPlayerProfileSkillTab(model);
+  }
+  if (tab === "ranking") {
+    return renderPlayerProfileRankingTab(model);
+  }
+  if (tab === "matches") {
+    return renderPlayerProfileMatchesTab(model);
+  }
+  if (tab === "opponents") {
+    return renderPlayerProfileOpponentsTab(model);
+  }
+  if (tab === "events") {
+    return renderPlayerProfileEventsTab(model);
+  }
+  if (tab === "memberships") {
+    return renderPlayerProfileMembershipsTab(model);
+  }
+  return renderPlayerProfileInfoTab(model);
+}
+
+function renderPlayerProfileInfoTab(model) {
+  const { player, stats, bestRating, worstRating, avgDelta, winRate, ratingSeries } = model;
+  const recentSeries = ratingSeries.slice(-16);
+  const chartPath = buildSimpleSparklinePath(recentSeries);
+  return `
+    <div class="player-profile-content">
+      <section class="player-stat-grid">
+        <article class="player-stat-card"><div class="meta">Поточний рейтинг</div><strong>${Math.round(Number(player.rating) || 0)}</strong></article>
+        <article class="player-stat-card"><div class="meta">Найвищий</div><strong>${bestRating}</strong></article>
+        <article class="player-stat-card"><div class="meta">Найнижчий</div><strong>${worstRating}</strong></article>
+        <article class="player-stat-card"><div class="meta">Середня Δ</div><strong>${Number.isFinite(avgDelta) ? `${avgDelta > 0 ? "+" : ""}${avgDelta.toFixed(1)}` : "-"}</strong></article>
+        <article class="player-stat-card"><div class="meta">Win rate</div><strong>${winRate}%</strong></article>
+        <article class="player-stat-card"><div class="meta">Карʼєра W/D/L</div><strong>${stats.wins}/${stats.draws}/${stats.losses}</strong></article>
+      </section>
+      <section class="player-chart-card">
+        <h4>Динаміка рейтингу</h4>
+        <svg viewBox="0 0 320 90" class="player-sparkline" role="img" aria-label="Графік рейтингу">
+          <path d="${chartPath}" />
+        </svg>
+      </section>
+    </div>`;
+}
+
+function renderPlayerProfileSkillTab(model) {
+  const { history, bestRating, worstRating, avgDelta } = model;
+  const last = history.slice(0, 12);
+  const rows = last
+    .map((item) => {
+      const delta = Number(item.ratingDelta);
+      const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
+      return `<tr><td>${escapeHtml(item.tournamentName || "-")}</td><td>${formatDate(item.finishedAt)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
+    })
+    .join("");
+  return `
+    <div class="player-profile-content">
+      <section class="player-stat-grid">
+        <article class="player-stat-card"><div class="meta">Найвищий рейтинг</div><strong>${bestRating}</strong></article>
+        <article class="player-stat-card"><div class="meta">Найнижчий рейтинг</div><strong>${worstRating}</strong></article>
+        <article class="player-stat-card"><div class="meta">Середня зміна за турнір</div><strong>${Number.isFinite(avgDelta) ? `${avgDelta > 0 ? "+" : ""}${avgDelta.toFixed(1)}` : "-"}</strong></article>
+      </section>
+      <section class="player-table-card">
+        <h4>Останні зміни рейтингу</h4>
+        ${
+          rows
+            ? `<div class="scroll"><table class="table"><thead><tr><th>Турнір</th><th>Дата</th><th>Δ</th><th>Новий</th></tr></thead><tbody>${rows}</tbody></table></div>`
+            : '<div class="club-empty">Ще немає турнірів для аналізу рейтингу.</div>'
+        }
+      </section>
+    </div>`;
+}
+
+function renderPlayerProfileRankingTab(model) {
+  const { history } = model;
+  const rows = history
+    .map((item) => {
+      const delta = Number(item.ratingDelta);
+      const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
+      return `<tr>
+        <td>${formatDate(item.finishedAt)}</td>
+        <td>${escapeHtml(item.tournamentName || "-")}</td>
+        <td>${item.place ?? "-"}</td>
+        <td>${Number(item.score || 0).toFixed(1)}</td>
+        <td>${deltaText}</td>
+        <td>${Number(item.ratingAfter) || "-"}</td>
+      </tr>`;
+    })
     .join("");
 
   return `
-    <section class="club-profile-card player-profile-card">
-      <div class="player-profile-head">
+    <div class="player-profile-content">
+      <section class="player-table-card">
+        <h4>Рейтингова історія</h4>
         ${
-          player.photoDataUrl
-            ? `<img class="player-profile-photo" src="${player.photoDataUrl}" alt="${escapeHtml(getBaseFullName(player))}" />`
-            : '<span class="player-profile-photo player-profile-photo--empty">Фото</span>'
+          rows
+            ? `<div class="scroll"><table class="table"><thead><tr><th>Дата</th><th>Турнір</th><th>Місце</th><th>Очки</th><th>Δ</th><th>Рейтинг</th></tr></thead><tbody>${rows}</tbody></table></div>`
+            : '<div class="club-empty">Історії турнірів поки немає.</div>'
         }
-        <div>
-          <h3>${escapeHtml(getBaseFullName(player))}</h3>
-          <div class="meta">Клуб: ${escapeHtml(getClubName(player.clubId) || "Без клубу")} | Тренер: ${escapeHtml(getCoachName(player.coachId) || "-")}</div>
-          <div class="meta">Стать: ${formatGenderLabel(player.gender)} | Дата нар.: ${escapeHtml(player.birthDate || "-")} | Звання: ${escapeHtml(player.rank || "б/р")}</div>
-          <div class="player-profile-stats">
-            <span>Рейтинг: <strong>${player.rating}</strong></span>
-            <span>Турніри: <strong>${stats.tournaments}</strong></span>
-            <span>Партії: <strong>${stats.games}</strong></span>
-            <span>W/D/L: <strong>${stats.wins}/${stats.draws}/${stats.losses}</strong></span>
+      </section>
+    </div>`;
+}
+
+function renderPlayerProfileMatchesTab(model) {
+  const { matches } = model;
+  const cards = matches
+    .slice(0, 16)
+    .map((match) => {
+      const badgeClass = match.resultCode === "W" ? "ok" : match.resultCode === "L" ? "bad" : "draw";
+      return `
+        <article class="match-card-mini">
+          <div class="match-card-mini__top">
+            <span class="pill">${escapeHtml(match.tournamentName)}</span>
+            <span class="match-card-mini__result ${badgeClass}">${match.resultText}</span>
           </div>
+          <div><strong>${escapeHtml(match.playerName)}</strong> vs ${escapeHtml(match.opponentName)}</div>
+          <div class="meta">${formatDate(match.date)} | тур ${match.round}</div>
+        </article>`;
+    })
+    .join("");
+  return `
+    <div class="player-profile-content">
+      <section class="player-table-card">
+        <h4>Останні матчі</h4>
+        ${cards ? `<div class="matches-mini-grid">${cards}</div>` : '<div class="club-empty">Матчів поки немає.</div>'}
+      </section>
+    </div>`;
+}
+
+function renderPlayerProfileOpponentsTab(model) {
+  const { opponents } = model;
+  const cards = opponents
+    .slice(0, 16)
+    .map(
+      (item) => `
+      <article class="opponent-mini-card">
+        <div class="opponent-mini-card__name">${escapeHtml(item.name)}</div>
+        <div class="meta">${item.games} партій</div>
+        <div class="meta">W/D/L: ${item.wins}/${item.draws}/${item.losses}</div>
+      </article>`
+    )
+    .join("");
+  return `
+    <div class="player-profile-content">
+      <section class="player-table-card">
+        <h4>Найчастіші суперники</h4>
+        ${cards ? `<div class="opponents-mini-grid">${cards}</div>` : '<div class="club-empty">Суперників поки немає.</div>'}
+      </section>
+    </div>`;
+}
+
+function renderPlayerProfileEventsTab(model) {
+  const { history } = model;
+  const rows = history
+    .map(
+      (item) => `
+      <tr>
+        <td>${escapeHtml(item.tournamentName || "-")}</td>
+        <td>${item.place ?? "-"}</td>
+        <td>${Number(item.score || 0).toFixed(1)}</td>
+        <td>${item.wins}/${item.draws}/${item.losses}</td>
+        <td>${formatDate(item.finishedAt)}</td>
+      </tr>`
+    )
+    .join("");
+  return `
+    <div class="player-profile-content">
+      <section class="player-table-card">
+        <h4>Події (турніри)</h4>
+        ${
+          rows
+            ? `<div class="scroll"><table class="table"><thead><tr><th>Назва</th><th>Місце</th><th>Очки</th><th>W/D/L</th><th>Дата</th></tr></thead><tbody>${rows}</tbody></table></div>`
+            : '<div class="club-empty">Турнірів поки немає.</div>'
+        }
+      </section>
+    </div>`;
+}
+
+function renderPlayerProfileMembershipsTab(model) {
+  const { player } = model;
+  return `
+    <div class="player-profile-content">
+      <section class="player-membership-card">
+        <h4>Приналежність</h4>
+        <div class="player-membership-grid">
+          <div><span class="meta">Клуб</span><strong>${escapeHtml(getClubName(player.clubId) || "Незалежний гравець")}</strong></div>
+          <div><span class="meta">Тренер</span><strong>${escapeHtml(getCoachName(player.coachId) || "Не вказано")}</strong></div>
+          <div><span class="meta">Стать</span><strong>${formatGenderLabel(player.gender)}</strong></div>
+          <div><span class="meta">Звання</span><strong>${escapeHtml(player.rank || "б/р")}</strong></div>
+          <div><span class="meta">Дата народження</span><strong>${escapeHtml(player.birthDate || "-")}</strong></div>
         </div>
-      </div>
-      <h4>Останні турніри</h4>
-      ${
-        historyRows
-          ? `<table class="table">
-              <thead>
-                <tr><th>Турнір</th><th>Дата</th><th>Місце</th><th>Очки</th><th>ΔРейт.</th><th>Новий рейт.</th><th>W/D/L</th></tr>
-              </thead>
-              <tbody>${historyRows}</tbody>
-            </table>`
-          : '<div class="club-empty">Історії турнірів поки немає.</div>'
+      </section>
+    </div>`;
+}
+
+function collectArchivedMatchesForPlayer(playerId) {
+  const list = [];
+
+  for (const tournament of state.tournamentsArchive || []) {
+    for (const round of tournament.rounds || []) {
+      for (const pair of round.pairings || []) {
+        if (!pair.blackId) {
+          continue;
+        }
+        if (pair.whiteId !== playerId && pair.blackId !== playerId) {
+          continue;
+        }
+        if (!pair.result || pair.result === "pending") {
+          continue;
+        }
+
+        const playerIsWhite = pair.whiteId === playerId;
+        const opponentId = playerIsWhite ? pair.blackId : pair.whiteId;
+        const opponent = tournament.players.find((item) => item.id === opponentId);
+        const playerObj = tournament.players.find((item) => item.id === playerId);
+        const resultCode = resolveMatchResultCode(pair.result, playerIsWhite);
+        list.push({
+          tournamentId: tournament.id,
+          tournamentName: tournament.name || "Турнір",
+          date: tournament.finishedAt || tournament.updatedAt || tournament.createdAt || new Date().toISOString(),
+          round: Number(round.round) || 0,
+          opponentName: opponent?.name || "Суперник",
+          playerName: playerObj?.name || "Гравець",
+          resultCode,
+          resultText: pair.result,
+        });
       }
-    </section>`;
+    }
+  }
+
+  return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+function resolveMatchResultCode(resultValue, playerIsWhite) {
+  if (resultValue === "1-0") {
+    return playerIsWhite ? "W" : "L";
+  }
+  if (resultValue === "0-1") {
+    return playerIsWhite ? "L" : "W";
+  }
+  if (resultValue === "0.5-0.5") {
+    return "D";
+  }
+  return "D";
+}
+
+function buildOpponentStatsFromMatches(matches) {
+  const map = new Map();
+
+  for (const match of matches) {
+    const key = String(match.opponentName || "Суперник");
+    if (!map.has(key)) {
+      map.set(key, { name: key, games: 0, wins: 0, draws: 0, losses: 0 });
+    }
+    const item = map.get(key);
+    item.games += 1;
+    if (match.resultCode === "W") {
+      item.wins += 1;
+    } else if (match.resultCode === "L") {
+      item.losses += 1;
+    } else {
+      item.draws += 1;
+    }
+  }
+
+  return [...map.values()].sort((a, b) => b.games - a.games || a.name.localeCompare(b.name, "uk"));
+}
+
+function buildPlayerRatingSeries(history, currentRating) {
+  const items = history
+    .filter((item) => Number.isFinite(Number(item.ratingAfter)))
+    .slice()
+    .reverse()
+    .map((item) => ({
+      date: item.finishedAt,
+      rating: Math.round(Number(item.ratingAfter) || 0),
+    }));
+
+  if (!items.length) {
+    return [{ date: new Date().toISOString(), rating: Math.round(Number(currentRating) || 0) }];
+  }
+
+  return items;
+}
+
+function buildSimpleSparklinePath(points) {
+  if (!points.length) {
+    return "";
+  }
+
+  const width = 320;
+  const height = 90;
+  const padding = 8;
+  const values = points.map((item) => Number(item.rating) || 0);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = Math.max(1, max - min);
+  const step = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+
+  return points
+    .map((point, idx) => {
+      const x = padding + idx * step;
+      const y = height - padding - ((Number(point.rating) || 0) - min) / span * (height - padding * 2);
+      return `${idx === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function ratingDeltaToFormSymbol(deltaValue) {
+  const delta = Number(deltaValue);
+  if (!Number.isFinite(delta)) {
+    return "-";
+  }
+  if (delta > 0) {
+    return "W";
+  }
+  if (delta < 0) {
+    return "L";
+  }
+  return "D";
 }
 
 function renderArchiveTab() {

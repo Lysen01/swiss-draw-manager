@@ -11,6 +11,7 @@ let basePlayersSort = { key: "rating", dir: "desc" };
 let manualRoundBuilderOpen = false;
 let selectedClubProfileId = null;
 let selectedClubPlayerProfileId = null;
+let selectedClubPlayerProfileTab = "info";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();

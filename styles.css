@@ -907,6 +907,238 @@ label.base-pick-item {
   margin: 12px 0 8px;
 }
 
+.player-profile-shell {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.player-profile-tabbar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 12px 12px 0;
+  border-bottom: 1px solid #d8e3f5;
+  background: linear-gradient(180deg, #f9fbff 0%, #f2f6fc 100%);
+}
+
+.player-profile-tab-btn {
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background: transparent;
+  color: #344567;
+  font-weight: 800;
+  padding: 8px 12px;
+  min-height: 38px;
+  box-shadow: none;
+}
+
+.player-profile-tab-btn:hover {
+  background: rgba(38, 76, 146, 0.08);
+}
+
+.player-profile-tab-btn.active {
+  background: #fff;
+  color: #1e3f7d;
+  border: 1px solid #d8e3f5;
+  border-bottom-color: #fff;
+}
+
+.player-profile-breadcrumb {
+  padding: 10px 14px 2px;
+  font-size: 12px;
+  color: #627392;
+  letter-spacing: 0.01em;
+}
+
+.player-profile-hero {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.3fr) minmax(220px, 0.7fr);
+  gap: 12px;
+  padding: 10px 14px 14px;
+  align-items: stretch;
+}
+
+.player-profile-photo--xl {
+  width: 136px;
+  height: 136px;
+  border-radius: 16px;
+  flex: 0 0 136px;
+}
+
+.player-skill-panel {
+  border: 1px solid #d6e2f4;
+  border-radius: 14px;
+  background: #f7fafe;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 12px;
+}
+
+.player-skill-ring {
+  --value: 60%;
+  width: 122px;
+  height: 122px;
+  border-radius: 50%;
+  background: conic-gradient(#2f66ca var(--value), #dfe7f5 0);
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+}
+
+.player-skill-ring::before {
+  content: "";
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #d8e3f5;
+}
+
+.player-skill-ring span {
+  position: absolute;
+  font-weight: 900;
+  color: #1f3f7c;
+  font-size: 24px;
+}
+
+.player-profile-content {
+  padding: 0 14px 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.player-stat-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.player-stat-card {
+  border: 1px solid #d9e4f7;
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.player-stat-card strong {
+  font-size: 22px;
+  line-height: 1;
+  color: #1f3f7c;
+}
+
+.player-chart-card,
+.player-table-card,
+.player-membership-card {
+  border: 1px solid #d9e4f7;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+}
+
+.player-sparkline {
+  width: 100%;
+  height: 90px;
+  display: block;
+  border: 1px solid #e0e8f6;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+}
+
+.player-sparkline path {
+  fill: none;
+  stroke: #2f66ca;
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.matches-mini-grid,
+.opponents-mini-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.match-card-mini,
+.opponent-mini-card {
+  border: 1px solid #dce6f6;
+  border-radius: 12px;
+  background: #f9fbff;
+  padding: 8px;
+}
+
+.match-card-mini__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8effb;
+  color: #2a4f96;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.match-card-mini__result {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.match-card-mini__result.ok {
+  background: #e7f8ef;
+  color: #1f7a48;
+}
+
+.match-card-mini__result.bad {
+  background: #ffecee;
+  color: #b43f51;
+}
+
+.match-card-mini__result.draw {
+  background: #edf1fb;
+  color: #4a5f8d;
+}
+
+.player-membership-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.player-membership-grid div {
+  border: 1px solid #d9e3f5;
+  border-radius: 10px;
+  background: #f9fbff;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.opponent-mini-card__name {
+  font-weight: 800;
+  color: #1f3f7c;
+  margin-bottom: 3px;
+}
+
 .base-form-row--actions input[type="file"] {
   padding: 8px 10px;
   background: #fff;
@@ -1171,6 +1403,10 @@ label.base-pick-item {
   .player-profile-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .player-profile-hero {
+    grid-template-columns: 1fr;
   }
 
   .manual-pairing-row select,

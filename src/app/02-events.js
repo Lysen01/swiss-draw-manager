@@ -313,6 +313,7 @@ function bindEvents() {
     if (action === "view-club") {
       selectedClubProfileId = clubId || null;
       selectedClubPlayerProfileId = null;
+      selectedClubPlayerProfileTab = "info";
       renderClubsTab();
     }
 
@@ -352,6 +353,16 @@ function bindEvents() {
 
     if (btn.dataset.action === "view-player-profile") {
       selectedClubPlayerProfileId = playerId || null;
+      selectedClubPlayerProfileTab = "info";
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "set-player-profile-tab") {
+      const tab = String(btn.dataset.tab || "").trim();
+      if (!tab) {
+        return;
+      }
+      selectedClubPlayerProfileTab = tab;
       renderClubsTab();
     }
 
