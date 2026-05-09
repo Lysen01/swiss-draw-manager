@@ -2600,10 +2600,10 @@ function renderClubProfile(clubId) {
       ${selectedClubPlayerProfileCard}`
       : activeTab === "coaches"
         ? `
-      <div class="club-management-grid">
+      <div class="club-management-stack">
         ${renderQuickClubCoachForm(club)}
-        ${renderClubCoachesTable(coaches)}
       </div>`
+      ${renderClubCoachesTable(coaches)}`
         : `
       <section class="club-profile-card">
         <div class="club-profile-head">
