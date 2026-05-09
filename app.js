@@ -98,6 +98,7 @@ let manualRoundBuilderOpen = false;
 let selectedClubProfileId = null;
 let selectedClubPlayerProfileId = null;
 let selectedClubPlayerProfileTab = "info";
+let selectedClubsView = "directory";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();
@@ -125,6 +126,8 @@ const els = {
   },
   tournamentSubtabs: document.getElementById("tournamentSubtabs"),
   tournamentViewPanels: document.querySelectorAll("[data-tour-view]"),
+  clubsSubtabs: document.getElementById("clubsSubtabs"),
+  clubsViewPanels: document.querySelectorAll("[data-club-view]"),
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),
@@ -423,6 +426,21 @@ function bindEvents() {
     manualRoundBuilderOpen = !manualRoundBuilderOpen;
     render();
   });
+
+  if (els.clubsSubtabs) {
+    els.clubsSubtabs.addEventListener("click", (event) => {
+      const btn = event.target.closest(".subtab-btn[data-club-view]");
+      if (!btn) {
+        return;
+      }
+      const nextView = btn.dataset.clubView;
+      if (!nextView) {
+        return;
+      }
+      selectedClubsView = nextView;
+      renderClubsTab();
+    });
+  }
   els.manualPairingPanel.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -522,6 +540,7 @@ function bindEvents() {
       selectedClubProfileId = clubId || null;
       selectedClubPlayerProfileId = null;
       selectedClubPlayerProfileTab = "info";
+      selectedClubsView = "profile";
       renderClubsTab();
     }
 
@@ -571,7 +590,13 @@ function bindEvents() {
         return;
       }
       selectedClubPlayerProfileTab = tab;
+      selectedClubsView = "profile";
       renderClubsTab();
+    }
+
+    if (btn.dataset.action === "open-player-tournament") {
+      const tournamentId = btn.dataset.tournamentId || "";
+      openTournamentFromPlayerProfile(tournamentId);
     }
 
     if (btn.dataset.action === "edit-club") {
@@ -2227,6 +2252,7 @@ function renderClubsTab() {
   if (!els.clubsList || !els.clubProfile) {
     return;
   }
+  renderClubsSubtabs();
 
   const clubs = state.clubs.slice().sort((a, b) => a.name.localeCompare(b.name, "uk"));
   if (!selectedClubProfileId && clubs.length) {
@@ -2239,6 +2265,10 @@ function renderClubsTab() {
   if (!clubs.length) {
     els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Додайте перший клуб зліва.</div>';
     els.clubProfile.innerHTML = renderIndependentPlayersBlock();
+    if (selectedClubsView === "profile") {
+      selectedClubsView = "directory";
+      renderClubsSubtabs();
+    }
     return;
   }
 
@@ -2271,6 +2301,23 @@ function renderClubsTab() {
 
   els.clubProfile.innerHTML =
     renderClubProfile(selectedClubProfileId) + renderClubPlayerProfileCard(selectedClubPlayerProfileId) + renderIndependentPlayersBlock();
+}
+
+function renderClubsSubtabs() {
+  const activeView = ["manage", "directory", "profile"].includes(selectedClubsView) ? selectedClubsView : "directory";
+  selectedClubsView = activeView;
+
+  if (els.clubsSubtabs) {
+    for (const btn of els.clubsSubtabs.querySelectorAll(".subtab-btn[data-club-view]")) {
+      btn.classList.toggle("active", btn.dataset.clubView === activeView);
+    }
+  }
+
+  if (els.clubsViewPanels) {
+    for (const panel of els.clubsViewPanels) {
+      panel.classList.toggle("tour-view-hidden", panel.dataset.clubView !== activeView);
+    }
+  }
 }
 
 function renderCoachClubSelector() {
@@ -2616,7 +2663,7 @@ function renderPlayerProfileSkillTab(model) {
     .map((item) => {
       const delta = Number(item.ratingDelta);
       const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
-      return `<tr><td>${escapeHtml(item.tournamentName || "-")}</td><td>${formatDate(item.finishedAt)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
+      return `<tr><td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td><td>${formatDate(item.finishedAt)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
     })
     .join("");
   return `
@@ -2645,7 +2692,7 @@ function renderPlayerProfileRankingTab(model) {
       const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
       return `<tr>
         <td>${formatDate(item.finishedAt)}</td>
-        <td>${escapeHtml(item.tournamentName || "-")}</td>
+        <td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td>
         <td>${item.place ?? "-"}</td>
         <td>${Number(item.score || 0).toFixed(1)}</td>
         <td>${deltaText}</td>
@@ -2676,7 +2723,7 @@ function renderPlayerProfileMatchesTab(model) {
       return `
         <article class="match-card-mini">
           <div class="match-card-mini__top">
-            <span class="pill">${escapeHtml(match.tournamentName)}</span>
+            ${renderTournamentJumpButton(match.tournamentId, match.tournamentName, "pill pill--link")}
             <span class="match-card-mini__result ${badgeClass}">${match.resultText}</span>
           </div>
           <div><strong>${escapeHtml(match.playerName)}</strong> vs ${escapeHtml(match.opponentName)}</div>
@@ -2721,7 +2768,7 @@ function renderPlayerProfileEventsTab(model) {
     .map(
       (item) => `
       <tr>
-        <td>${escapeHtml(item.tournamentName || "-")}</td>
+        <td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td>
         <td>${item.place ?? "-"}</td>
         <td>${Number(item.score || 0).toFixed(1)}</td>
         <td>${item.wins}/${item.draws}/${item.losses}</td>
@@ -2884,6 +2931,15 @@ function ratingDeltaToFormSymbol(deltaValue) {
     return "L";
   }
   return "D";
+}
+
+function renderTournamentJumpButton(tournamentId, title, className = "inline-link-btn") {
+  const safeTitle = escapeHtml(title || "Турнір");
+  const safeId = escapeHtml(String(tournamentId || ""));
+  if (!safeId) {
+    return safeTitle;
+  }
+  return `<button type="button" class="${className}" data-action="open-player-tournament" data-tournament-id="${safeId}" title="Відкрити турнір">${safeTitle}</button>`;
 }
 
 function renderArchiveTab() {
@@ -3571,6 +3627,7 @@ function startEditClub(clubId) {
     return;
   }
 
+  selectedClubsView = "manage";
   editingClubId = club.id;
   selectedClubProfileId = club.id;
   els.clubName.value = club.name || "";
@@ -3736,6 +3793,7 @@ function submitAttachExistingPlayerToClubForm(form) {
   player.clubId = club.id;
   player.coachId = coachId;
   syncBasePlayerChangesToCurrentTournament(player.id);
+  selectedClubsView = "profile";
   selectedClubProfileId = club.id;
   selectedClubPlayerProfileId = player.id;
   form.reset();
@@ -3770,6 +3828,30 @@ function editClubPlayerInBase(playerId) {
   state.activeTab = "players";
   saveAndRender();
   startEditBasePlayer(playerId);
+}
+
+function openTournamentFromPlayerProfile(tournamentId) {
+  const id = normalizeEntityId(tournamentId);
+  if (!id) {
+    return;
+  }
+
+  if (state.currentTournament?.id === id) {
+    state.activeTab = "tournament";
+    state.tournamentView = "table";
+    saveAndRender();
+    return;
+  }
+
+  const archived = state.tournamentsArchive.find((item) => item.id === id);
+  if (!archived) {
+    alert("Турнір для переходу не знайдено в архіві.");
+    return;
+  }
+
+  state.activeTab = "archive";
+  state.archivePreviewTournamentId = id;
+  saveAndRender();
 }
 
 // ===== 06-pairing.js =====

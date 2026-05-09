@@ -528,6 +528,7 @@ function startEditClub(clubId) {
     return;
   }
 
+  selectedClubsView = "manage";
   editingClubId = club.id;
   selectedClubProfileId = club.id;
   els.clubName.value = club.name || "";
@@ -693,6 +694,7 @@ function submitAttachExistingPlayerToClubForm(form) {
   player.clubId = club.id;
   player.coachId = coachId;
   syncBasePlayerChangesToCurrentTournament(player.id);
+  selectedClubsView = "profile";
   selectedClubProfileId = club.id;
   selectedClubPlayerProfileId = player.id;
   form.reset();
@@ -727,4 +729,28 @@ function editClubPlayerInBase(playerId) {
   state.activeTab = "players";
   saveAndRender();
   startEditBasePlayer(playerId);
+}
+
+function openTournamentFromPlayerProfile(tournamentId) {
+  const id = normalizeEntityId(tournamentId);
+  if (!id) {
+    return;
+  }
+
+  if (state.currentTournament?.id === id) {
+    state.activeTab = "tournament";
+    state.tournamentView = "table";
+    saveAndRender();
+    return;
+  }
+
+  const archived = state.tournamentsArchive.find((item) => item.id === id);
+  if (!archived) {
+    alert("Турнір для переходу не знайдено в архіві.");
+    return;
+  }
+
+  state.activeTab = "archive";
+  state.archivePreviewTournamentId = id;
+  saveAndRender();
 }

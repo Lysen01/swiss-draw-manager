@@ -12,6 +12,7 @@ let manualRoundBuilderOpen = false;
 let selectedClubProfileId = null;
 let selectedClubPlayerProfileId = null;
 let selectedClubPlayerProfileTab = "info";
+let selectedClubsView = "directory";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();
@@ -39,6 +40,8 @@ const els = {
   },
   tournamentSubtabs: document.getElementById("tournamentSubtabs"),
   tournamentViewPanels: document.querySelectorAll("[data-tour-view]"),
+  clubsSubtabs: document.getElementById("clubsSubtabs"),
+  clubsViewPanels: document.querySelectorAll("[data-club-view]"),
   settingsForm: document.getElementById("settingsForm"),
   tournamentName: document.getElementById("tournamentName"),
   roundsCount: document.getElementById("roundsCount"),

@@ -233,7 +233,15 @@
       </section>
 
       <section id="tab-clubs" class="layout tab-panel">
-        <section class="card">
+        <section class="card full">
+          <div id="clubsSubtabs" class="subtabs">
+            <button class="subtab-btn active" type="button" data-club-view="manage">Налаштування</button>
+            <button class="subtab-btn" type="button" data-club-view="directory">Клуби</button>
+            <button class="subtab-btn" type="button" data-club-view="profile">Профіль</button>
+          </div>
+        </section>
+
+        <section class="card" data-club-view="manage">
           <h2>Клуб</h2>
           <form id="clubForm" class="base-form">
             <div class="base-form-row">
@@ -264,7 +272,7 @@
           <div id="clubEditHint" class="edit-hint" hidden></div>
         </section>
 
-        <section class="card">
+        <section class="card" data-club-view="manage">
           <h2>Тренер</h2>
           <form id="coachForm" class="base-form">
             <div class="base-form-row">
@@ -293,9 +301,13 @@
           </form>
         </section>
 
-        <section class="card full">
-          <h2>Клуби та гравці</h2>
+        <section class="card full" data-club-view="directory">
+          <h2>Клуби</h2>
           <div id="clubsList" class="club-grid"></div>
+        </section>
+
+        <section class="card full" data-club-view="profile">
+          <h2>Профіль клубу та гравців</h2>
           <div id="clubProfile" class="club-profile"></div>
         </section>
       </section>

@@ -1092,6 +1092,29 @@ label.base-pick-item {
   font-weight: 800;
 }
 
+.pill--link {
+  border: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.inline-link-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #2a58a8;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.inline-link-btn:hover {
+  color: #1c3f7f;
+}
+
 .match-card-mini__result {
   display: inline-flex;
   align-items: center;

@@ -953,6 +953,7 @@ function renderClubsTab() {
   if (!els.clubsList || !els.clubProfile) {
     return;
   }
+  renderClubsSubtabs();
 
   const clubs = state.clubs.slice().sort((a, b) => a.name.localeCompare(b.name, "uk"));
   if (!selectedClubProfileId && clubs.length) {
@@ -965,6 +966,10 @@ function renderClubsTab() {
   if (!clubs.length) {
     els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Додайте перший клуб зліва.</div>';
     els.clubProfile.innerHTML = renderIndependentPlayersBlock();
+    if (selectedClubsView === "profile") {
+      selectedClubsView = "directory";
+      renderClubsSubtabs();
+    }
     return;
   }
 
@@ -997,6 +1002,23 @@ function renderClubsTab() {
 
   els.clubProfile.innerHTML =
     renderClubProfile(selectedClubProfileId) + renderClubPlayerProfileCard(selectedClubPlayerProfileId) + renderIndependentPlayersBlock();
+}
+
+function renderClubsSubtabs() {
+  const activeView = ["manage", "directory", "profile"].includes(selectedClubsView) ? selectedClubsView : "directory";
+  selectedClubsView = activeView;
+
+  if (els.clubsSubtabs) {
+    for (const btn of els.clubsSubtabs.querySelectorAll(".subtab-btn[data-club-view]")) {
+      btn.classList.toggle("active", btn.dataset.clubView === activeView);
+    }
+  }
+
+  if (els.clubsViewPanels) {
+    for (const panel of els.clubsViewPanels) {
+      panel.classList.toggle("tour-view-hidden", panel.dataset.clubView !== activeView);
+    }
+  }
 }
 
 function renderCoachClubSelector() {
@@ -1342,7 +1364,7 @@ function renderPlayerProfileSkillTab(model) {
     .map((item) => {
       const delta = Number(item.ratingDelta);
       const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
-      return `<tr><td>${escapeHtml(item.tournamentName || "-")}</td><td>${formatDate(item.finishedAt)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
+      return `<tr><td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td><td>${formatDate(item.finishedAt)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
     })
     .join("");
   return `
@@ -1371,7 +1393,7 @@ function renderPlayerProfileRankingTab(model) {
       const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
       return `<tr>
         <td>${formatDate(item.finishedAt)}</td>
-        <td>${escapeHtml(item.tournamentName || "-")}</td>
+        <td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td>
         <td>${item.place ?? "-"}</td>
         <td>${Number(item.score || 0).toFixed(1)}</td>
         <td>${deltaText}</td>
@@ -1402,7 +1424,7 @@ function renderPlayerProfileMatchesTab(model) {
       return `
         <article class="match-card-mini">
           <div class="match-card-mini__top">
-            <span class="pill">${escapeHtml(match.tournamentName)}</span>
+            ${renderTournamentJumpButton(match.tournamentId, match.tournamentName, "pill pill--link")}
             <span class="match-card-mini__result ${badgeClass}">${match.resultText}</span>
           </div>
           <div><strong>${escapeHtml(match.playerName)}</strong> vs ${escapeHtml(match.opponentName)}</div>
@@ -1447,7 +1469,7 @@ function renderPlayerProfileEventsTab(model) {
     .map(
       (item) => `
       <tr>
-        <td>${escapeHtml(item.tournamentName || "-")}</td>
+        <td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td>
         <td>${item.place ?? "-"}</td>
         <td>${Number(item.score || 0).toFixed(1)}</td>
         <td>${item.wins}/${item.draws}/${item.losses}</td>
@@ -1610,6 +1632,15 @@ function ratingDeltaToFormSymbol(deltaValue) {
     return "L";
   }
   return "D";
+}
+
+function renderTournamentJumpButton(tournamentId, title, className = "inline-link-btn") {
+  const safeTitle = escapeHtml(title || "Турнір");
+  const safeId = escapeHtml(String(tournamentId || ""));
+  if (!safeId) {
+    return safeTitle;
+  }
+  return `<button type="button" class="${className}" data-action="open-player-tournament" data-tournament-id="${safeId}" title="Відкрити турнір">${safeTitle}</button>`;
 }
 
 function renderArchiveTab() {

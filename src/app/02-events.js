@@ -215,6 +215,21 @@ function bindEvents() {
     manualRoundBuilderOpen = !manualRoundBuilderOpen;
     render();
   });
+
+  if (els.clubsSubtabs) {
+    els.clubsSubtabs.addEventListener("click", (event) => {
+      const btn = event.target.closest(".subtab-btn[data-club-view]");
+      if (!btn) {
+        return;
+      }
+      const nextView = btn.dataset.clubView;
+      if (!nextView) {
+        return;
+      }
+      selectedClubsView = nextView;
+      renderClubsTab();
+    });
+  }
   els.manualPairingPanel.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -314,6 +329,7 @@ function bindEvents() {
       selectedClubProfileId = clubId || null;
       selectedClubPlayerProfileId = null;
       selectedClubPlayerProfileTab = "info";
+      selectedClubsView = "profile";
       renderClubsTab();
     }
 
@@ -363,7 +379,13 @@ function bindEvents() {
         return;
       }
       selectedClubPlayerProfileTab = tab;
+      selectedClubsView = "profile";
       renderClubsTab();
+    }
+
+    if (btn.dataset.action === "open-player-tournament") {
+      const tournamentId = btn.dataset.tournamentId || "";
+      openTournamentFromPlayerProfile(tournamentId);
     }
 
     if (btn.dataset.action === "edit-club") {
