@@ -1311,7 +1311,9 @@ function getMaxRoundsByFormat(format, playersCount) {
     if (playersCount < 2) {
       return 0;
     }
-    return playersCount - 1;
+    // For odd number of players we add BYE, so total rounds equals players count.
+    // For even number of players classic round-robin is N-1 rounds.
+    return playersCount % 2 === 1 ? playersCount : playersCount - 1;
   }
 
   return 15;
