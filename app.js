@@ -2806,26 +2806,34 @@ function renderPlayerProfileMembershipsTab(model) {
     </div>`;
 }
 
-function collectArchivedMatchesForPlayer(playerId) {
+function collectArchivedMatchesForPlayer(basePlayerId) {
   const list = [];
 
   for (const tournament of state.tournamentsArchive || []) {
+    const tournamentPlayer = (tournament.players || []).find(
+      (item) => item.basePlayerId === basePlayerId || item.id === basePlayerId
+    );
+    if (!tournamentPlayer) {
+      continue;
+    }
+    const tournamentPlayerId = tournamentPlayer.id;
+
     for (const round of tournament.rounds || []) {
       for (const pair of round.pairings || []) {
         if (!pair.blackId) {
           continue;
         }
-        if (pair.whiteId !== playerId && pair.blackId !== playerId) {
+        if (pair.whiteId !== tournamentPlayerId && pair.blackId !== tournamentPlayerId) {
           continue;
         }
         if (!pair.result || pair.result === "pending") {
           continue;
         }
 
-        const playerIsWhite = pair.whiteId === playerId;
+        const playerIsWhite = pair.whiteId === tournamentPlayerId;
         const opponentId = playerIsWhite ? pair.blackId : pair.whiteId;
         const opponent = tournament.players.find((item) => item.id === opponentId);
-        const playerObj = tournament.players.find((item) => item.id === playerId);
+        const playerObj = tournament.players.find((item) => item.id === tournamentPlayerId);
         const resultCode = resolveMatchResultCode(pair.result, playerIsWhite);
         list.push({
           tournamentId: tournament.id,
@@ -2836,6 +2844,26 @@ function collectArchivedMatchesForPlayer(playerId) {
           playerName: playerObj?.name || "Гравець",
           resultCode,
           resultText: pair.result,
+        });
+      }
+    }
+
+    if (!list.some((item) => item.tournamentId === tournament.id)) {
+      const roundsPlayed = Object.entries(tournamentPlayer.resultsByRound || {});
+      for (const [roundKey, resultValue] of roundsPlayed) {
+        if (!["W", "D", "L"].includes(resultValue)) {
+          continue;
+        }
+
+        list.push({
+          tournamentId: tournament.id,
+          tournamentName: tournament.name || "Турнір",
+          date: tournament.finishedAt || tournament.updatedAt || tournament.createdAt || new Date().toISOString(),
+          round: Number(roundKey) || 0,
+          opponentName: "Суперник",
+          playerName: tournamentPlayer.name || "Гравець",
+          resultCode: resultValue,
+          resultText: resultValue === "W" ? "1-0" : resultValue === "L" ? "0-1" : "0.5-0.5",
         });
       }
     }
