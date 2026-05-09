@@ -537,6 +537,18 @@ button.danger {
   background: #fbfdff;
 }
 
+.archive-filters {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(190px, 240px);
+  gap: 10px;
+  margin: 8px 0 10px;
+}
+
+.archive-filters input,
+.archive-filters select {
+  background: #fff;
+}
+
 .archive-head {
   display: flex;
   justify-content: space-between;
@@ -550,12 +562,41 @@ button.danger {
   font-size: 14px;
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 800;
+  margin-right: 8px;
+}
+
+.status-chip--ongoing {
+  background: #e9f6ed;
+  border-color: #b8e0c1;
+  color: #1f6f39;
+}
+
+.status-chip--finished {
+  background: #edf2ff;
+  border-color: #c8d7ff;
+  color: #2f58c5;
+}
+
 .archive-media {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-top: 8px;
   margin-bottom: 6px;
+}
+
+@media (max-width: 720px) {
+  .archive-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 .archive-photo {

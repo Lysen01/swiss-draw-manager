@@ -1808,30 +1808,100 @@ function renderTournamentJumpButton(tournamentId, title, className = "inline-lin
 }
 
 function renderArchiveTab() {
-  if (state.tournamentsArchive.length === 0) {
-    els.archiveList.innerHTML = '<div class="archive-card">Архів поки порожній.</div>';
+  if (els.tournamentsSearch) {
+    els.tournamentsSearch.value = tournamentsSearchQuery;
+  }
+  if (els.tournamentsStatusFilter) {
+    const nextStatusFilter = ["all", "ongoing", "finished"].includes(tournamentsStatusFilter) ? tournamentsStatusFilter : "all";
+    tournamentsStatusFilter = nextStatusFilter;
+    els.tournamentsStatusFilter.value = nextStatusFilter;
+  }
+
+  const records = [];
+  if (isCurrentTournamentMeaningful()) {
+    records.push({
+      kind: "ongoing",
+      tournament: state.currentTournament,
+      sortDate: new Date(state.currentTournament.updatedAt || state.currentTournament.createdAt || 0).getTime(),
+    });
+  }
+
+  for (const tournament of state.tournamentsArchive || []) {
+    records.push({
+      kind: "finished",
+      tournament,
+      sortDate: new Date(tournament.finishedAt || tournament.updatedAt || 0).getTime(),
+    });
+  }
+
+  if (records.length === 0) {
+    els.archiveList.innerHTML = '<div class="archive-card">Турнірів поки немає.</div>';
     return;
   }
 
-  const blocks = state.tournamentsArchive
-    .slice()
-    .sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt))
-    .map((t) => {
+  const query = tournamentsSearchQuery.toLowerCase();
+  const filtered = records
+    .filter((entry) => {
+      if (tournamentsStatusFilter === "ongoing") {
+        return entry.kind === "ongoing";
+      }
+      if (tournamentsStatusFilter === "finished") {
+        return entry.kind === "finished";
+      }
+      return true;
+    })
+    .filter((entry) => {
+      if (!query) {
+        return true;
+      }
+      const t = entry.tournament;
+      const haystack = [
+        t.name,
+        t.chiefJudge,
+        t.timeControl,
+        t.eventDate ? formatDateOnly(t.eventDate) : "",
+        entry.kind === "ongoing" ? "триває" : "завершено",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    })
+    .sort((a, b) => b.sortDate - a.sortDate);
+
+  if (filtered.length === 0) {
+    els.archiveList.innerHTML = '<div class="archive-card">За фільтром нічого не знайдено.</div>';
+    return;
+  }
+
+  const blocks = filtered
+    .map((entry) => {
+      const t = entry.tournament;
       const standings = getStandings(t).slice(0, 3);
       const top = standings.map((p, i) => `${i + 1}. ${escapeHtml(p.name)} (${p.score.toFixed(1)})`).join(" | ");
-      const isOpen = state.archivePreviewTournamentId === t.id;
+      const isFinished = entry.kind === "finished";
+      const isOpen = isFinished && state.archivePreviewTournamentId === t.id;
+      const statusHtml = isFinished
+        ? `Завершено: ${formatDate(t.finishedAt)}`
+        : `Триває: оновлено ${formatDate(t.updatedAt || t.createdAt || new Date().toISOString())}`;
+      const actionsHtml = isFinished
+        ? `
+            <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
+            <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
+            <button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>`
+        : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
       return `
       <article class="archive-card">
         <div class="archive-head">
           <strong>${escapeHtml(t.name)}</strong>
           <div class="toolbar">
-            <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
-            <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
-            <button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>
+            ${actionsHtml}
           </div>
         </div>
-        <div class="archive-meta">Завершено: ${formatDate(t.finishedAt)} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}</div>
+        <div class="archive-meta">
+          <span class="status-chip ${isFinished ? "status-chip--finished" : "status-chip--ongoing"}">${isFinished ? "Завершений" : "Триває"}</span>
+          ${statusHtml} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}
+        </div>
         <div class="archive-media">
           ${
             t.photoDataUrl
@@ -1852,6 +1922,32 @@ function renderArchiveTab() {
     .join("");
 
   els.archiveList.innerHTML = blocks;
+}
+
+function isCurrentTournamentMeaningful() {
+  const t = state.currentTournament;
+  if (!t || t.status === "archived_view") {
+    return false;
+  }
+  return Boolean(
+    t.players?.length ||
+      t.rounds?.length ||
+      t.currentRound > 0 ||
+      (t.name && String(t.name).trim()) ||
+      t.eventDate ||
+      t.timeControl ||
+      t.chiefJudge ||
+      t.photoDataUrl
+  );
+}
+
+function openOngoingTournament(tournamentId) {
+  if (!state.currentTournament || state.currentTournament.id !== tournamentId) {
+    return;
+  }
+  state.activeTab = "tournament";
+  state.tournamentView = "setup";
+  saveAndRender();
 }
 
 function openArchivePreview(tournamentId) {

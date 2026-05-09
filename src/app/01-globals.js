@@ -15,6 +15,8 @@ let selectedClubPlayerProfileId = null;
 let selectedClubPlayerProfileTab = "info";
 let selectedClubsView = "directory";
 let selectedClubDetailTab = "profile";
+let tournamentsSearchQuery = "";
+let tournamentsStatusFilter = "all";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();
@@ -125,6 +127,8 @@ const els = {
   coachEditHint: document.getElementById("coachEditHint"),
   clubsList: document.getElementById("clubsList"),
   clubProfile: document.getElementById("clubProfile"),
+  tournamentsSearch: document.getElementById("tournamentsSearch"),
+  tournamentsStatusFilter: document.getElementById("tournamentsStatusFilter"),
   archiveList: document.getElementById("archiveList"),
   storageModeLabel: document.getElementById("storageModeLabel"),
   syncStatus: document.getElementById("syncStatus"),

@@ -533,6 +533,10 @@ function bindEvents() {
       openArchivePreview(tournamentId);
     }
 
+    if (action === "open-ongoing") {
+      openOngoingTournament(tournamentId);
+    }
+
     if (action === "delete-archive") {
       deleteArchivedTournament(tournamentId);
     }
@@ -546,4 +550,18 @@ function bindEvents() {
       saveAndRender();
     }
   });
+
+  if (els.tournamentsSearch) {
+    els.tournamentsSearch.addEventListener("input", () => {
+      tournamentsSearchQuery = String(els.tournamentsSearch.value || "").trim();
+      renderArchiveTab();
+    });
+  }
+
+  if (els.tournamentsStatusFilter) {
+    els.tournamentsStatusFilter.addEventListener("change", () => {
+      tournamentsStatusFilter = String(els.tournamentsStatusFilter.value || "all");
+      renderArchiveTab();
+    });
+  }
 }
