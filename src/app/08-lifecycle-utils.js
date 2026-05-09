@@ -806,6 +806,10 @@ function finishCurrentTournament() {
     }
   }
 
+  if (!validateManualPlacesForTiedScores(t)) {
+    return;
+  }
+
   archiveCurrentTournament({ notify: false });
   state.currentTournament = createDefaultTournament();
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
@@ -814,6 +818,55 @@ function finishCurrentTournament() {
   state.archivePreviewTournamentId = null;
   saveAndRender();
   alert("Турнір завершено і перенесено в архів.");
+}
+
+function validateManualPlacesForTiedScores(tournament) {
+  const grouped = new Map();
+  for (const player of tournament.players || []) {
+    const key = Number(player.score).toFixed(4);
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(player);
+  }
+
+  const scoreKeys = [...grouped.keys()].sort((a, b) => Number(b) - Number(a));
+  let cursor = 1;
+  for (const scoreKey of scoreKeys) {
+    const group = grouped.get(scoreKey) || [];
+    const start = cursor;
+    const end = cursor + group.length - 1;
+    cursor = end + 1;
+
+    if (group.length <= 1) {
+      continue;
+    }
+
+    const unresolved = group.filter((player) => !Number.isInteger(player.manualPlace));
+    if (unresolved.length > 0) {
+      alert(
+        `Для гравців з ${Number(scoreKey).toFixed(1)} очк. потрібно вручну виставити місця ${start}-${end} у вкладці "Таблиця".`
+      );
+      return false;
+    }
+
+    const outOfRange = group.filter((player) => player.manualPlace < start || player.manualPlace > end);
+    if (outOfRange.length > 0) {
+      alert(`Ручні місця для групи ${Number(scoreKey).toFixed(1)} очк. мають бути тільки в межах ${start}-${end}.`);
+      return false;
+    }
+
+    const used = new Set();
+    for (const player of group) {
+      if (used.has(player.manualPlace)) {
+        alert(`У групі ${Number(scoreKey).toFixed(1)} очк. місця ${start}-${end} не повинні повторюватись.`);
+        return false;
+      }
+      used.add(player.manualPlace);
+    }
+  }
+
+  return true;
 }
 
 function applyTournamentResultsToPlayerBase(tournamentSnapshot) {

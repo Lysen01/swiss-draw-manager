@@ -624,7 +624,12 @@ function printCurrentRound() {
 function renderStandings() {
   const t = state.currentTournament;
   const showRoundDetails = t.status !== "archived_view";
-  els.standings.innerHTML = buildStandingsTableHtml(t, { showRoundDetails });
+  const tieGroups = getScoreTieGroupsForDisplay(t);
+  const manualHint =
+    t.status === "active" && tieGroups.length > 0
+      ? '<div class="manual-place-hint">Є гравці з однаковими очками. У колонці "Місце" оберіть підсумкові місця перед завершенням турніру.</div>'
+      : "";
+  els.standings.innerHTML = `${manualHint}${buildStandingsTableHtml(t, { showRoundDetails })}`;
 }
 
 function buildStandingsTableHtml(tournament, options = {}) {
@@ -696,7 +701,51 @@ function buildStandingsTableHtml(tournament, options = {}) {
 }
 
 function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tieRange) {
-  return String(computedPlace);
+  const manualEditable = showRoundDetails && tournament.status === "active" && tieRange && tieRange.size > 1;
+  if (!manualEditable) {
+    return String(computedPlace);
+  }
+
+  const selectedValue =
+    Number.isInteger(player.manualPlace) && player.manualPlace >= tieRange.start && player.manualPlace <= tieRange.end
+      ? String(player.manualPlace)
+      : "";
+  const options = [`<option value="">Авто (${computedPlace})</option>`];
+  for (let place = tieRange.start; place <= tieRange.end; place += 1) {
+    options.push(`<option value="${place}" ${selectedValue === String(place) ? "selected" : ""}>${place}</option>`);
+  }
+
+  return `<div class="place-edit">
+    <select data-action="set-manual-place" data-player-id="${player.id}" aria-label="Виставити місце для ${escapeHtml(player.name)}">
+      ${options.join("")}
+    </select>
+  </div>`;
+}
+
+function getScoreTieGroupsForDisplay(tournament) {
+  const grouped = new Map();
+  for (const player of tournament.players || []) {
+    const key = Number(player.score).toFixed(4);
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(player);
+  }
+
+  const scoreKeys = [...grouped.keys()].sort((a, b) => Number(b) - Number(a));
+  let cursor = 1;
+  const groups = [];
+  for (const key of scoreKeys) {
+    const players = grouped.get(key) || [];
+    const start = cursor;
+    const end = cursor + players.length - 1;
+    if (players.length > 1) {
+      groups.push({ score: Number(key), start, end, players });
+    }
+    cursor = end + 1;
+  }
+
+  return groups;
 }
 
 function buildStandingsPlayerCell(tournament, player) {

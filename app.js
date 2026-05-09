@@ -726,6 +726,29 @@ function bindEvents() {
     updateResult(roundIdx, board, currentValue === nextValue ? "pending" : nextValue);
   });
 
+  els.standings.addEventListener("change", (event) => {
+    const select = event.target.closest("select[data-action='set-manual-place']");
+    if (!select) {
+      return;
+    }
+
+    const playerId = String(select.dataset.playerId || "").trim();
+    if (!playerId) {
+      return;
+    }
+
+    const player = state.currentTournament.players.find((p) => p.id === playerId);
+    if (!player) {
+      return;
+    }
+
+    const rawValue = String(select.value || "").trim();
+    const nextPlace = rawValue ? Number(rawValue) : null;
+    player.manualPlace = Number.isInteger(nextPlace) && nextPlace > 0 ? nextPlace : null;
+    state.currentTournament.updatedAt = new Date().toISOString();
+    saveAndRender();
+  });
+
   els.playersList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -2025,7 +2048,12 @@ function printCurrentRound() {
 function renderStandings() {
   const t = state.currentTournament;
   const showRoundDetails = t.status !== "archived_view";
-  els.standings.innerHTML = buildStandingsTableHtml(t, { showRoundDetails });
+  const tieGroups = getScoreTieGroupsForDisplay(t);
+  const manualHint =
+    t.status === "active" && tieGroups.length > 0
+      ? '<div class="manual-place-hint">Є гравці з однаковими очками. У колонці "Місце" оберіть підсумкові місця перед завершенням турніру.</div>'
+      : "";
+  els.standings.innerHTML = `${manualHint}${buildStandingsTableHtml(t, { showRoundDetails })}`;
 }
 
 function buildStandingsTableHtml(tournament, options = {}) {
@@ -2097,7 +2125,51 @@ function buildStandingsTableHtml(tournament, options = {}) {
 }
 
 function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tieRange) {
-  return String(computedPlace);
+  const manualEditable = showRoundDetails && tournament.status === "active" && tieRange && tieRange.size > 1;
+  if (!manualEditable) {
+    return String(computedPlace);
+  }
+
+  const selectedValue =
+    Number.isInteger(player.manualPlace) && player.manualPlace >= tieRange.start && player.manualPlace <= tieRange.end
+      ? String(player.manualPlace)
+      : "";
+  const options = [`<option value="">Авто (${computedPlace})</option>`];
+  for (let place = tieRange.start; place <= tieRange.end; place += 1) {
+    options.push(`<option value="${place}" ${selectedValue === String(place) ? "selected" : ""}>${place}</option>`);
+  }
+
+  return `<div class="place-edit">
+    <select data-action="set-manual-place" data-player-id="${player.id}" aria-label="Виставити місце для ${escapeHtml(player.name)}">
+      ${options.join("")}
+    </select>
+  </div>`;
+}
+
+function getScoreTieGroupsForDisplay(tournament) {
+  const grouped = new Map();
+  for (const player of tournament.players || []) {
+    const key = Number(player.score).toFixed(4);
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(player);
+  }
+
+  const scoreKeys = [...grouped.keys()].sort((a, b) => Number(b) - Number(a));
+  let cursor = 1;
+  const groups = [];
+  for (const key of scoreKeys) {
+    const players = grouped.get(key) || [];
+    const start = cursor;
+    const end = cursor + players.length - 1;
+    if (players.length > 1) {
+      groups.push({ score: Number(key), start, end, players });
+    }
+    cursor = end + 1;
+  }
+
+  return groups;
 }
 
 function buildStandingsPlayerCell(tournament, player) {
@@ -5008,6 +5080,20 @@ function getStandings(tournament) {
     }
 
     group.sort((a, b) => {
+      const aManual = Number.isInteger(a.manualPlace) ? a.manualPlace : null;
+      const bManual = Number.isInteger(b.manualPlace) ? b.manualPlace : null;
+      if (aManual !== null || bManual !== null) {
+        if (aManual !== null && bManual !== null && aManual !== bManual) {
+          return aManual - bManual;
+        }
+        if (aManual !== null && bManual === null) {
+          return -1;
+        }
+        if (aManual === null && bManual !== null) {
+          return 1;
+        }
+      }
+
       for (const criterion of criteria) {
         if (criterion === "head_to_head" && b.h2h !== a.h2h) {
           return b.h2h - a.h2h;
@@ -5894,6 +5980,10 @@ function finishCurrentTournament() {
     }
   }
 
+  if (!validateManualPlacesForTiedScores(t)) {
+    return;
+  }
+
   archiveCurrentTournament({ notify: false });
   state.currentTournament = createDefaultTournament();
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
@@ -5902,6 +5992,55 @@ function finishCurrentTournament() {
   state.archivePreviewTournamentId = null;
   saveAndRender();
   alert("Турнір завершено і перенесено в архів.");
+}
+
+function validateManualPlacesForTiedScores(tournament) {
+  const grouped = new Map();
+  for (const player of tournament.players || []) {
+    const key = Number(player.score).toFixed(4);
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(player);
+  }
+
+  const scoreKeys = [...grouped.keys()].sort((a, b) => Number(b) - Number(a));
+  let cursor = 1;
+  for (const scoreKey of scoreKeys) {
+    const group = grouped.get(scoreKey) || [];
+    const start = cursor;
+    const end = cursor + group.length - 1;
+    cursor = end + 1;
+
+    if (group.length <= 1) {
+      continue;
+    }
+
+    const unresolved = group.filter((player) => !Number.isInteger(player.manualPlace));
+    if (unresolved.length > 0) {
+      alert(
+        `Для гравців з ${Number(scoreKey).toFixed(1)} очк. потрібно вручну виставити місця ${start}-${end} у вкладці "Таблиця".`
+      );
+      return false;
+    }
+
+    const outOfRange = group.filter((player) => player.manualPlace < start || player.manualPlace > end);
+    if (outOfRange.length > 0) {
+      alert(`Ручні місця для групи ${Number(scoreKey).toFixed(1)} очк. мають бути тільки в межах ${start}-${end}.`);
+      return false;
+    }
+
+    const used = new Set();
+    for (const player of group) {
+      if (used.has(player.manualPlace)) {
+        alert(`У групі ${Number(scoreKey).toFixed(1)} очк. місця ${start}-${end} не повинні повторюватись.`);
+        return false;
+      }
+      used.add(player.manualPlace);
+    }
+  }
+
+  return true;
 }
 
 function applyTournamentResultsToPlayerBase(tournamentSnapshot) {

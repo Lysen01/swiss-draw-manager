@@ -1541,6 +1541,27 @@ label.base-pick-item {
   white-space: nowrap;
 }
 
+.manual-place-hint {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px dashed #b6c8ea;
+  border-radius: 10px;
+  background: #f6f9ff;
+  color: #445474;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.place-edit select {
+  min-width: 86px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #c8d6eb;
+  background: #fff;
+  font-weight: 700;
+  color: var(--ink);
+}
+
 #basePlayersList .table th:nth-child(1) {
   background: #eef3fc;
   z-index: 3;

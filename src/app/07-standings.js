@@ -145,6 +145,20 @@ function getStandings(tournament) {
     }
 
     group.sort((a, b) => {
+      const aManual = Number.isInteger(a.manualPlace) ? a.manualPlace : null;
+      const bManual = Number.isInteger(b.manualPlace) ? b.manualPlace : null;
+      if (aManual !== null || bManual !== null) {
+        if (aManual !== null && bManual !== null && aManual !== bManual) {
+          return aManual - bManual;
+        }
+        if (aManual !== null && bManual === null) {
+          return -1;
+        }
+        if (aManual === null && bManual !== null) {
+          return 1;
+        }
+      }
+
       for (const criterion of criteria) {
         if (criterion === "head_to_head" && b.h2h !== a.h2h) {
           return b.h2h - a.h2h;
@@ -221,4 +235,3 @@ function buildRoundCells(tournament, player, placeById) {
 
   return html;
 }
-

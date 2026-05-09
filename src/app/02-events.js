@@ -501,6 +501,29 @@ function bindEvents() {
     updateResult(roundIdx, board, currentValue === nextValue ? "pending" : nextValue);
   });
 
+  els.standings.addEventListener("change", (event) => {
+    const select = event.target.closest("select[data-action='set-manual-place']");
+    if (!select) {
+      return;
+    }
+
+    const playerId = String(select.dataset.playerId || "").trim();
+    if (!playerId) {
+      return;
+    }
+
+    const player = state.currentTournament.players.find((p) => p.id === playerId);
+    if (!player) {
+      return;
+    }
+
+    const rawValue = String(select.value || "").trim();
+    const nextPlace = rawValue ? Number(rawValue) : null;
+    player.manualPlace = Number.isInteger(nextPlace) && nextPlace > 0 ? nextPlace : null;
+    state.currentTournament.updatedAt = new Date().toISOString();
+    saveAndRender();
+  });
+
   els.playersList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
