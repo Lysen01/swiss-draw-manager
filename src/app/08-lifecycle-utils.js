@@ -304,6 +304,7 @@ function mapApiTournamentToState(row) {
     createdAt: row.created_at || payload.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || payload.updatedAt || new Date().toISOString(),
     finishedAt: row.archived_at || payload.finishedAt || row.updated_at || new Date().toISOString(),
+    ratingDeltas: normalizeTournamentRatingDeltas(payload.ratingDeltas),
     players: Array.isArray(payload.players) ? payload.players : [],
     rounds: Array.isArray(payload.rounds) ? payload.rounds : [],
   };
@@ -343,10 +344,16 @@ function rebuildPlayerBaseHistoryForState(appState) {
 function mergeTournamentResultsIntoPlayerBase(basePlayers, tournamentSnapshot) {
   const standings = getStandings(tournamentSnapshot);
   const placeById = Object.fromEntries(standings.map((p, idx) => [p.id, idx + 1]));
+  const ratingMetaByBasePlayerId = new Map(
+    (tournamentSnapshot.ratingDeltas || [])
+      .filter((item) => item?.basePlayerId)
+      .map((item) => [item.basePlayerId, item])
+  );
 
   for (const tp of tournamentSnapshot.players) {
     const base = findOrCreateBasePlayerForTournamentPlayer(basePlayers, tp);
     const { games, wins, draws, losses, bye } = countPlayerStats(tp);
+    const ratingMeta = ratingMetaByBasePlayerId.get(base.id) || null;
 
     const entry = {
       tournamentId: tournamentSnapshot.id,
@@ -361,6 +368,13 @@ function mergeTournamentResultsIntoPlayerBase(basePlayers, tournamentSnapshot) {
       bye,
       rounds: tournamentSnapshot.currentRound,
       opponents: collectOpponentsForPlayer(tournamentSnapshot, tp.id),
+      ratingBefore: ratingMeta ? Number(ratingMeta.ratingBefore) || 0 : null,
+      ratingDelta: ratingMeta ? Number(ratingMeta.ratingDelta) || 0 : null,
+      ratingAfter: ratingMeta ? Number(ratingMeta.ratingAfter) || 0 : null,
+      gamesRated: ratingMeta ? Number(ratingMeta.gamesRated) || 0 : 0,
+      pointsRated: ratingMeta ? Number(ratingMeta.pointsRated) || 0 : 0,
+      expectedPoints: ratingMeta ? Number(ratingMeta.expectedPoints) || 0 : 0,
+      averageOpponentRating: ratingMeta ? Number(ratingMeta.averageOpponentRating) || 0 : 0,
     };
 
     const existingIdx = base.history.findIndex((h) => h.tournamentId === tournamentSnapshot.id);
@@ -480,6 +494,7 @@ function buildTournamentApiPayload(tournament, status) {
       eventDate: normalizeBirthDate(tournament.eventDate) || "",
       timeControl: normalizeTimeControl(tournament.timeControl),
       chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
+      ratingDeltas: normalizeTournamentRatingDeltas(tournament.ratingDeltas),
     },
   };
 }
@@ -741,8 +756,15 @@ function archiveCurrentTournament({ notify }) {
   const snapshot = cloneTournament(t);
   snapshot.status = "archived";
   snapshot.finishedAt = new Date().toISOString();
+  snapshot.ratingDeltas = [];
 
   const idx = state.tournamentsArchive.findIndex((x) => x.id === snapshot.id);
+  if (idx >= 0) {
+    rollbackTournamentRatingDeltas(state.tournamentsArchive[idx], state.playerBase);
+  }
+
+  applyInternalRatingToTournamentSnapshot(snapshot, state.playerBase);
+
   if (idx >= 0) {
     state.tournamentsArchive[idx] = snapshot;
   } else {
@@ -825,6 +847,102 @@ function countPlayerStats(tPlayer) {
   };
 }
 
+function applyInternalRatingToTournamentSnapshot(tournamentSnapshot, basePlayers) {
+  const ratingDeltas = [];
+
+  for (const tournamentPlayer of tournamentSnapshot.players || []) {
+    const base = findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer);
+    const startRating = Math.max(0, Math.round(Number(tournamentPlayer.rating) || Number(base.rating) || 0));
+    const perf = collectRatedPerformanceForPlayer(tournamentSnapshot, tournamentPlayer);
+    const expectedPercent = resolveExpectedPercentByRatings(startRating, perf.averageOpponentRating);
+    const expectedPoints = perf.gamesRated * expectedPercent;
+    const rawDelta = INTERNAL_RATING_K * (perf.pointsRated / 2 - expectedPoints);
+    const ratingDelta = Math.round(Math.max(-INTERNAL_RATING_DELTA_CAP, Math.min(INTERNAL_RATING_DELTA_CAP, rawDelta)));
+    const ratingAfter = Math.max(0, startRating + ratingDelta);
+
+    base.rating = ratingAfter;
+    ratingDeltas.push({
+      playerId: normalizeEntityId(tournamentPlayer.id),
+      basePlayerId: normalizeEntityId(base.id),
+      ratingBefore: startRating,
+      ratingDelta,
+      ratingAfter,
+      gamesRated: perf.gamesRated,
+      pointsRated: perf.pointsRated,
+      expectedPoints: Number(expectedPoints.toFixed(2)),
+      expectedPercent: Number((expectedPercent * 100).toFixed(2)),
+      averageOpponentRating: Math.round(perf.averageOpponentRating),
+    });
+  }
+
+  tournamentSnapshot.ratingDeltas = ratingDeltas;
+}
+
+function rollbackTournamentRatingDeltas(tournamentSnapshot, basePlayers) {
+  const deltas = normalizeTournamentRatingDeltas(tournamentSnapshot?.ratingDeltas);
+  if (!deltas.length) {
+    return;
+  }
+
+  for (const delta of deltas) {
+    const base = basePlayers.find((item) => item.id === delta.basePlayerId);
+    if (!base) {
+      continue;
+    }
+    base.rating = Math.max(0, Math.round(Number(delta.ratingBefore) || 0));
+  }
+}
+
+function collectRatedPerformanceForPlayer(tournamentSnapshot, tournamentPlayer) {
+  let gamesRated = 0;
+  let pointsRated = 0;
+  let opponentsRatingSum = 0;
+
+  for (const round of tournamentSnapshot.rounds || []) {
+    const game = (round.pairings || []).find((pair) => pair.whiteId === tournamentPlayer.id || pair.blackId === tournamentPlayer.id);
+    if (!game || !game.blackId) {
+      continue;
+    }
+
+    const result = String(tournamentPlayer.resultsByRound?.[round.round] || "");
+    if (result !== "W" && result !== "D" && result !== "L") {
+      continue;
+    }
+
+    const oppId = game.whiteId === tournamentPlayer.id ? game.blackId : game.whiteId;
+    const opp = tournamentSnapshot.players.find((item) => item.id === oppId);
+    const oppRating = Math.max(0, Math.round(Number(opp?.rating) || 0));
+
+    gamesRated += 1;
+    opponentsRatingSum += oppRating;
+    if (result === "W") {
+      pointsRated += 2;
+    } else if (result === "D") {
+      pointsRated += 1;
+    }
+  }
+
+  const fallbackRating = Math.max(0, Math.round(Number(tournamentPlayer.rating) || 0));
+  const averageOpponentRating = gamesRated > 0 ? opponentsRatingSum / gamesRated : fallbackRating;
+
+  return {
+    gamesRated,
+    pointsRated,
+    averageOpponentRating,
+  };
+}
+
+function resolveExpectedPercentByRatings(playerRating, averageOpponentRating) {
+  const player = Math.max(0, Math.round(Number(playerRating) || 0));
+  const opponentsAverage = Math.max(0, Math.round(Number(averageOpponentRating) || 0));
+  const diff = Math.abs(player - opponentsAverage);
+  const isBetterThanAverage = player >= opponentsAverage;
+  const range = INTERNAL_RATING_EXPECTED_TABLE.find((item) => diff >= item.min && diff <= item.max);
+  const betterPercent = range ? Number(range.betterPercent) || 50 : 50;
+  const percent = isBetterThanAverage ? betterPercent : 100 - betterPercent;
+  return percent / 100;
+}
+
 function collectOpponentsForPlayer(tournament, playerId) {
   const result = [];
 
@@ -888,6 +1006,11 @@ function loadTournamentFromArchive(tournamentId) {
 function deleteArchivedTournament(tournamentId) {
   if (!confirm("Видалити турнір з архіву?")) {
     return;
+  }
+
+  const target = state.tournamentsArchive.find((t) => t.id === tournamentId) || null;
+  if (target) {
+    rollbackTournamentRatingDeltas(target, state.playerBase);
   }
 
   state.tournamentsArchive = state.tournamentsArchive.filter((t) => t.id !== tournamentId);

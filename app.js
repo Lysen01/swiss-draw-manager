@@ -27,6 +27,61 @@ const MAX_BASE_PLAYER_PHOTO_BYTES = 10 * 1024 * 1024;
 const MAX_BASE_PLAYER_PHOTO_STORE_BYTES = 320_000;
 const MAX_CLUB_LOGO_BYTES = 8 * 1024 * 1024;
 const MAX_CLUB_LOGO_STORE_BYTES = 260_000;
+const INTERNAL_RATING_K = 10;
+const INTERNAL_RATING_DELTA_CAP = 80;
+const INTERNAL_RATING_EXPECTED_TABLE = [
+  { min: 0, max: 3, betterPercent: 50 },
+  { min: 4, max: 10, betterPercent: 51 },
+  { min: 11, max: 17, betterPercent: 52 },
+  { min: 18, max: 25, betterPercent: 53 },
+  { min: 26, max: 32, betterPercent: 54 },
+  { min: 33, max: 39, betterPercent: 55 },
+  { min: 40, max: 46, betterPercent: 56 },
+  { min: 47, max: 53, betterPercent: 57 },
+  { min: 54, max: 61, betterPercent: 58 },
+  { min: 62, max: 68, betterPercent: 59 },
+  { min: 69, max: 76, betterPercent: 60 },
+  { min: 77, max: 83, betterPercent: 61 },
+  { min: 84, max: 91, betterPercent: 62 },
+  { min: 92, max: 98, betterPercent: 63 },
+  { min: 99, max: 106, betterPercent: 64 },
+  { min: 107, max: 113, betterPercent: 65 },
+  { min: 114, max: 121, betterPercent: 66 },
+  { min: 122, max: 129, betterPercent: 67 },
+  { min: 130, max: 137, betterPercent: 68 },
+  { min: 138, max: 145, betterPercent: 69 },
+  { min: 146, max: 153, betterPercent: 70 },
+  { min: 154, max: 162, betterPercent: 71 },
+  { min: 163, max: 170, betterPercent: 72 },
+  { min: 171, max: 179, betterPercent: 73 },
+  { min: 180, max: 188, betterPercent: 74 },
+  { min: 189, max: 197, betterPercent: 75 },
+  { min: 198, max: 206, betterPercent: 76 },
+  { min: 207, max: 215, betterPercent: 77 },
+  { min: 216, max: 225, betterPercent: 78 },
+  { min: 226, max: 235, betterPercent: 79 },
+  { min: 236, max: 245, betterPercent: 80 },
+  { min: 246, max: 256, betterPercent: 81 },
+  { min: 257, max: 267, betterPercent: 82 },
+  { min: 268, max: 278, betterPercent: 83 },
+  { min: 279, max: 290, betterPercent: 84 },
+  { min: 291, max: 302, betterPercent: 85 },
+  { min: 303, max: 315, betterPercent: 86 },
+  { min: 316, max: 328, betterPercent: 87 },
+  { min: 329, max: 344, betterPercent: 88 },
+  { min: 345, max: 357, betterPercent: 89 },
+  { min: 358, max: 374, betterPercent: 90 },
+  { min: 375, max: 391, betterPercent: 91 },
+  { min: 392, max: 411, betterPercent: 92 },
+  { min: 412, max: 432, betterPercent: 93 },
+  { min: 433, max: 456, betterPercent: 94 },
+  { min: 457, max: 484, betterPercent: 95 },
+  { min: 485, max: 517, betterPercent: 96 },
+  { min: 518, max: 559, betterPercent: 97 },
+  { min: 560, max: 619, betterPercent: 98 },
+  { min: 620, max: 735, betterPercent: 99 },
+  { min: 736, max: Number.POSITIVE_INFINITY, betterPercent: 100 },
+];
 
 // ===== 01-globals.js =====
 let state;
@@ -790,6 +845,7 @@ function createDefaultTournament() {
     status: "active",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    ratingDeltas: [],
     players: [],
     rounds: [],
   };
@@ -812,6 +868,7 @@ function normalizeTournament(tournament) {
     status: tournament.status || "active",
     createdAt: tournament.createdAt || new Date().toISOString(),
     updatedAt: tournament.updatedAt || new Date().toISOString(),
+    ratingDeltas: normalizeTournamentRatingDeltas(tournament.ratingDeltas),
     players: Array.isArray(tournament.players)
       ? tournament.players.map((p, idx) => ({
           id: p.id || crypto.randomUUID(),
@@ -995,6 +1052,27 @@ function createCoachRecord(lastName, firstName, clubId, extra = {}) {
 
 function normalizeEntityId(value) {
   return String(value || "").trim();
+}
+
+function normalizeTournamentRatingDeltas(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => ({
+      playerId: normalizeEntityId(item?.playerId),
+      basePlayerId: normalizeEntityId(item?.basePlayerId),
+      ratingBefore: Number(item?.ratingBefore) || 0,
+      ratingDelta: Number(item?.ratingDelta) || 0,
+      ratingAfter: Number(item?.ratingAfter) || 0,
+      gamesRated: Number(item?.gamesRated) || 0,
+      pointsRated: Number(item?.pointsRated) || 0,
+      expectedPoints: Number(item?.expectedPoints) || 0,
+      expectedPercent: Number(item?.expectedPercent) || 0,
+      averageOpponentRating: Number(item?.averageOpponentRating) || 0,
+    }))
+    .filter((item) => item.basePlayerId || item.playerId);
 }
 
 function normalizeImageDataUrl(value) {
@@ -2407,6 +2485,8 @@ function renderClubPlayerProfileCard(playerId) {
           <td>${formatDate(item.finishedAt)}</td>
           <td>${item.place ?? "-"}</td>
           <td>${Number(item.score || 0).toFixed(1)}</td>
+          <td>${Number.isFinite(Number(item.ratingDelta)) ? `${Number(item.ratingDelta) > 0 ? "+" : ""}${Number(item.ratingDelta)}` : "-"}</td>
+          <td>${Number.isFinite(Number(item.ratingAfter)) ? Math.round(Number(item.ratingAfter)) : "-"}</td>
           <td>${item.wins}/${item.draws}/${item.losses}</td>
         </tr>`
     )
@@ -2437,7 +2517,7 @@ function renderClubPlayerProfileCard(playerId) {
         historyRows
           ? `<table class="table">
               <thead>
-                <tr><th>Турнір</th><th>Дата</th><th>Місце</th><th>Очки</th><th>W/D/L</th></tr>
+                <tr><th>Турнір</th><th>Дата</th><th>Місце</th><th>Очки</th><th>ΔРейт.</th><th>Новий рейт.</th><th>W/D/L</th></tr>
               </thead>
               <tbody>${historyRows}</tbody>
             </table>`
@@ -2933,7 +3013,11 @@ function viewBasePlayerHistory(playerId) {
   const ordered = base.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
   const lines = ordered.map((h) => {
     const opponents = (h.opponents || []).length ? h.opponents.join(", ") : "без суперників";
-    return `• ${h.tournamentName} | ${formatDate(h.finishedAt)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | суперники: ${opponents}`;
+    const ratingDelta = Number.isFinite(Number(h.ratingDelta))
+      ? `${Number(h.ratingDelta) > 0 ? "+" : ""}${Number(h.ratingDelta)}`
+      : "-";
+    const ratingAfter = Number.isFinite(Number(h.ratingAfter)) ? Math.round(Number(h.ratingAfter)) : "-";
+    return `• ${h.tournamentName} | ${formatDate(h.finishedAt)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | Δрейтинг ${ratingDelta} | новий ${ratingAfter} | суперники: ${opponents}`;
   });
 
   alert(`${fullName}\n\n${lines.join("\n")}`);
@@ -4376,6 +4460,7 @@ function mapApiTournamentToState(row) {
     createdAt: row.created_at || payload.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || payload.updatedAt || new Date().toISOString(),
     finishedAt: row.archived_at || payload.finishedAt || row.updated_at || new Date().toISOString(),
+    ratingDeltas: normalizeTournamentRatingDeltas(payload.ratingDeltas),
     players: Array.isArray(payload.players) ? payload.players : [],
     rounds: Array.isArray(payload.rounds) ? payload.rounds : [],
   };
@@ -4415,10 +4500,16 @@ function rebuildPlayerBaseHistoryForState(appState) {
 function mergeTournamentResultsIntoPlayerBase(basePlayers, tournamentSnapshot) {
   const standings = getStandings(tournamentSnapshot);
   const placeById = Object.fromEntries(standings.map((p, idx) => [p.id, idx + 1]));
+  const ratingMetaByBasePlayerId = new Map(
+    (tournamentSnapshot.ratingDeltas || [])
+      .filter((item) => item?.basePlayerId)
+      .map((item) => [item.basePlayerId, item])
+  );
 
   for (const tp of tournamentSnapshot.players) {
     const base = findOrCreateBasePlayerForTournamentPlayer(basePlayers, tp);
     const { games, wins, draws, losses, bye } = countPlayerStats(tp);
+    const ratingMeta = ratingMetaByBasePlayerId.get(base.id) || null;
 
     const entry = {
       tournamentId: tournamentSnapshot.id,
@@ -4433,6 +4524,13 @@ function mergeTournamentResultsIntoPlayerBase(basePlayers, tournamentSnapshot) {
       bye,
       rounds: tournamentSnapshot.currentRound,
       opponents: collectOpponentsForPlayer(tournamentSnapshot, tp.id),
+      ratingBefore: ratingMeta ? Number(ratingMeta.ratingBefore) || 0 : null,
+      ratingDelta: ratingMeta ? Number(ratingMeta.ratingDelta) || 0 : null,
+      ratingAfter: ratingMeta ? Number(ratingMeta.ratingAfter) || 0 : null,
+      gamesRated: ratingMeta ? Number(ratingMeta.gamesRated) || 0 : 0,
+      pointsRated: ratingMeta ? Number(ratingMeta.pointsRated) || 0 : 0,
+      expectedPoints: ratingMeta ? Number(ratingMeta.expectedPoints) || 0 : 0,
+      averageOpponentRating: ratingMeta ? Number(ratingMeta.averageOpponentRating) || 0 : 0,
     };
 
     const existingIdx = base.history.findIndex((h) => h.tournamentId === tournamentSnapshot.id);
@@ -4552,6 +4650,7 @@ function buildTournamentApiPayload(tournament, status) {
       eventDate: normalizeBirthDate(tournament.eventDate) || "",
       timeControl: normalizeTimeControl(tournament.timeControl),
       chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
+      ratingDeltas: normalizeTournamentRatingDeltas(tournament.ratingDeltas),
     },
   };
 }
@@ -4813,8 +4912,15 @@ function archiveCurrentTournament({ notify }) {
   const snapshot = cloneTournament(t);
   snapshot.status = "archived";
   snapshot.finishedAt = new Date().toISOString();
+  snapshot.ratingDeltas = [];
 
   const idx = state.tournamentsArchive.findIndex((x) => x.id === snapshot.id);
+  if (idx >= 0) {
+    rollbackTournamentRatingDeltas(state.tournamentsArchive[idx], state.playerBase);
+  }
+
+  applyInternalRatingToTournamentSnapshot(snapshot, state.playerBase);
+
   if (idx >= 0) {
     state.tournamentsArchive[idx] = snapshot;
   } else {
@@ -4897,6 +5003,102 @@ function countPlayerStats(tPlayer) {
   };
 }
 
+function applyInternalRatingToTournamentSnapshot(tournamentSnapshot, basePlayers) {
+  const ratingDeltas = [];
+
+  for (const tournamentPlayer of tournamentSnapshot.players || []) {
+    const base = findOrCreateBasePlayerForTournamentPlayer(basePlayers, tournamentPlayer);
+    const startRating = Math.max(0, Math.round(Number(tournamentPlayer.rating) || Number(base.rating) || 0));
+    const perf = collectRatedPerformanceForPlayer(tournamentSnapshot, tournamentPlayer);
+    const expectedPercent = resolveExpectedPercentByRatings(startRating, perf.averageOpponentRating);
+    const expectedPoints = perf.gamesRated * expectedPercent;
+    const rawDelta = INTERNAL_RATING_K * (perf.pointsRated / 2 - expectedPoints);
+    const ratingDelta = Math.round(Math.max(-INTERNAL_RATING_DELTA_CAP, Math.min(INTERNAL_RATING_DELTA_CAP, rawDelta)));
+    const ratingAfter = Math.max(0, startRating + ratingDelta);
+
+    base.rating = ratingAfter;
+    ratingDeltas.push({
+      playerId: normalizeEntityId(tournamentPlayer.id),
+      basePlayerId: normalizeEntityId(base.id),
+      ratingBefore: startRating,
+      ratingDelta,
+      ratingAfter,
+      gamesRated: perf.gamesRated,
+      pointsRated: perf.pointsRated,
+      expectedPoints: Number(expectedPoints.toFixed(2)),
+      expectedPercent: Number((expectedPercent * 100).toFixed(2)),
+      averageOpponentRating: Math.round(perf.averageOpponentRating),
+    });
+  }
+
+  tournamentSnapshot.ratingDeltas = ratingDeltas;
+}
+
+function rollbackTournamentRatingDeltas(tournamentSnapshot, basePlayers) {
+  const deltas = normalizeTournamentRatingDeltas(tournamentSnapshot?.ratingDeltas);
+  if (!deltas.length) {
+    return;
+  }
+
+  for (const delta of deltas) {
+    const base = basePlayers.find((item) => item.id === delta.basePlayerId);
+    if (!base) {
+      continue;
+    }
+    base.rating = Math.max(0, Math.round(Number(delta.ratingBefore) || 0));
+  }
+}
+
+function collectRatedPerformanceForPlayer(tournamentSnapshot, tournamentPlayer) {
+  let gamesRated = 0;
+  let pointsRated = 0;
+  let opponentsRatingSum = 0;
+
+  for (const round of tournamentSnapshot.rounds || []) {
+    const game = (round.pairings || []).find((pair) => pair.whiteId === tournamentPlayer.id || pair.blackId === tournamentPlayer.id);
+    if (!game || !game.blackId) {
+      continue;
+    }
+
+    const result = String(tournamentPlayer.resultsByRound?.[round.round] || "");
+    if (result !== "W" && result !== "D" && result !== "L") {
+      continue;
+    }
+
+    const oppId = game.whiteId === tournamentPlayer.id ? game.blackId : game.whiteId;
+    const opp = tournamentSnapshot.players.find((item) => item.id === oppId);
+    const oppRating = Math.max(0, Math.round(Number(opp?.rating) || 0));
+
+    gamesRated += 1;
+    opponentsRatingSum += oppRating;
+    if (result === "W") {
+      pointsRated += 2;
+    } else if (result === "D") {
+      pointsRated += 1;
+    }
+  }
+
+  const fallbackRating = Math.max(0, Math.round(Number(tournamentPlayer.rating) || 0));
+  const averageOpponentRating = gamesRated > 0 ? opponentsRatingSum / gamesRated : fallbackRating;
+
+  return {
+    gamesRated,
+    pointsRated,
+    averageOpponentRating,
+  };
+}
+
+function resolveExpectedPercentByRatings(playerRating, averageOpponentRating) {
+  const player = Math.max(0, Math.round(Number(playerRating) || 0));
+  const opponentsAverage = Math.max(0, Math.round(Number(averageOpponentRating) || 0));
+  const diff = Math.abs(player - opponentsAverage);
+  const isBetterThanAverage = player >= opponentsAverage;
+  const range = INTERNAL_RATING_EXPECTED_TABLE.find((item) => diff >= item.min && diff <= item.max);
+  const betterPercent = range ? Number(range.betterPercent) || 50 : 50;
+  const percent = isBetterThanAverage ? betterPercent : 100 - betterPercent;
+  return percent / 100;
+}
+
 function collectOpponentsForPlayer(tournament, playerId) {
   const result = [];
 
@@ -4960,6 +5162,11 @@ function loadTournamentFromArchive(tournamentId) {
 function deleteArchivedTournament(tournamentId) {
   if (!confirm("Видалити турнір з архіву?")) {
     return;
+  }
+
+  const target = state.tournamentsArchive.find((t) => t.id === tournamentId) || null;
+  if (target) {
+    rollbackTournamentRatingDeltas(target, state.playerBase);
   }
 
   state.tournamentsArchive = state.tournamentsArchive.filter((t) => t.id !== tournamentId);

@@ -1223,6 +1223,8 @@ function renderClubPlayerProfileCard(playerId) {
           <td>${formatDate(item.finishedAt)}</td>
           <td>${item.place ?? "-"}</td>
           <td>${Number(item.score || 0).toFixed(1)}</td>
+          <td>${Number.isFinite(Number(item.ratingDelta)) ? `${Number(item.ratingDelta) > 0 ? "+" : ""}${Number(item.ratingDelta)}` : "-"}</td>
+          <td>${Number.isFinite(Number(item.ratingAfter)) ? Math.round(Number(item.ratingAfter)) : "-"}</td>
           <td>${item.wins}/${item.draws}/${item.losses}</td>
         </tr>`
     )
@@ -1253,7 +1255,7 @@ function renderClubPlayerProfileCard(playerId) {
         historyRows
           ? `<table class="table">
               <thead>
-                <tr><th>Турнір</th><th>Дата</th><th>Місце</th><th>Очки</th><th>W/D/L</th></tr>
+                <tr><th>Турнір</th><th>Дата</th><th>Місце</th><th>Очки</th><th>ΔРейт.</th><th>Новий рейт.</th><th>W/D/L</th></tr>
               </thead>
               <tbody>${historyRows}</tbody>
             </table>`

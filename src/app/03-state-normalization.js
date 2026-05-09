@@ -167,6 +167,7 @@ function createDefaultTournament() {
     status: "active",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    ratingDeltas: [],
     players: [],
     rounds: [],
   };
@@ -189,6 +190,7 @@ function normalizeTournament(tournament) {
     status: tournament.status || "active",
     createdAt: tournament.createdAt || new Date().toISOString(),
     updatedAt: tournament.updatedAt || new Date().toISOString(),
+    ratingDeltas: normalizeTournamentRatingDeltas(tournament.ratingDeltas),
     players: Array.isArray(tournament.players)
       ? tournament.players.map((p, idx) => ({
           id: p.id || crypto.randomUUID(),
@@ -372,6 +374,27 @@ function createCoachRecord(lastName, firstName, clubId, extra = {}) {
 
 function normalizeEntityId(value) {
   return String(value || "").trim();
+}
+
+function normalizeTournamentRatingDeltas(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => ({
+      playerId: normalizeEntityId(item?.playerId),
+      basePlayerId: normalizeEntityId(item?.basePlayerId),
+      ratingBefore: Number(item?.ratingBefore) || 0,
+      ratingDelta: Number(item?.ratingDelta) || 0,
+      ratingAfter: Number(item?.ratingAfter) || 0,
+      gamesRated: Number(item?.gamesRated) || 0,
+      pointsRated: Number(item?.pointsRated) || 0,
+      expectedPoints: Number(item?.expectedPoints) || 0,
+      expectedPercent: Number(item?.expectedPercent) || 0,
+      averageOpponentRating: Number(item?.averageOpponentRating) || 0,
+    }))
+    .filter((item) => item.basePlayerId || item.playerId);
 }
 
 function normalizeImageDataUrl(value) {
