@@ -819,6 +819,18 @@ label.base-pick-item {
   font-size: 13px;
 }
 
+.club-card__desc {
+  margin-top: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.club-card__desc--empty {
+  color: var(--muted);
+}
+
 .club-card .row-actions {
   margin-top: 8px;
 }

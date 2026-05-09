@@ -2358,6 +2358,10 @@ function renderClubsTab() {
       const logo = club.logoDataUrl
         ? `<img class="club-card__logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
         : '<span class="club-card__logo club-card__logo--empty">Лого</span>';
+      const description = String(club.description || "").trim();
+      const descriptionHtml = description
+        ? `<div class="club-card__desc">${escapeHtml(description)}</div>`
+        : '<div class="club-card__desc club-card__desc--empty">Опис клубу ще не додано.</div>';
       return `
         <article class="club-card${active}">
           <div class="club-card__top">
@@ -2368,6 +2372,7 @@ function renderClubsTab() {
             </div>
           </div>
           <div class="club-card__stats">${coachesCount} тренерів | ${playersCount} гравців</div>
+          ${descriptionHtml}
           <div class="row-actions">
             <button type="button" data-action="view-club" data-club-id="${club.id}">Відкрити</button>
             <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
