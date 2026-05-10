@@ -14,7 +14,7 @@ function renderClubsTab() {
   }
 
   if (!clubs.length) {
-    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Додайте перший клуб зліва.</div>';
+    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Натисніть "Додати клуб".</div>';
     els.clubProfile.innerHTML = renderIndependentPlayersBlock();
     if (selectedClubsView === "profile") {
       selectedClubsView = "directory";

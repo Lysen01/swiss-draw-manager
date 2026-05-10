@@ -119,14 +119,13 @@
 
           <div class="inline-form" style="margin-top: 8px">
             <input id="dbPlayerSelect" type="text" placeholder="Пошук за прізвищем або ім'ям" autocomplete="off" />
+            <select id="tournamentClubFilter">
+              <option value="all">Усі клуби</option>
+            </select>
             <button id="selectAllBaseBtn" type="button">Виділити всіх</button>
             <button id="addFromBaseBtn" type="button">Додати</button>
           </div>
           <div id="dbPlayerChecklist" class="scroll"></div>
-
-          <div class="toolbar">
-            <button id="resetBtn" type="button" class="danger">Новий турнір</button>
-          </div>
           <div id="playersList" class="scroll"></div>
         </section>
 
@@ -236,8 +235,7 @@
       <section id="tab-clubs" class="layout tab-panel">
         <section class="card full">
           <div id="clubsSubtabs" class="subtabs">
-            <button class="subtab-btn active" type="button" data-club-view="manage">Додати</button>
-            <button class="subtab-btn" type="button" data-club-view="directory">Список клубів</button>
+            <button class="subtab-btn active" type="button" data-club-view="directory">Список клубів</button>
             <button class="subtab-btn" type="button" data-club-view="profile">Профіль клубу</button>
           </div>
         </section>
@@ -322,6 +320,9 @@
 
         <section class="card full" data-club-view="directory">
           <h2>Клуби</h2>
+          <div class="row-actions">
+            <button id="openAddClubBtn" type="button">Додати клуб</button>
+          </div>
           <div id="clubsList" class="club-grid"></div>
         </section>
 
@@ -352,6 +353,6 @@
       <p id="syncStatus" class="meta">Автономний режим: збереження лише в браузері.</p>
     </footer>
 
-    <script src="app.js?v=20260510-base-profile-open-fix"></script>
+    <script src="app.js?v=20260510-clubs-tournament-filter"></script>
   </body>
 </html>

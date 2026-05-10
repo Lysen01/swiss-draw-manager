@@ -191,6 +191,12 @@ function bindEvents() {
   els.dbPlayerSelect.addEventListener("input", () => {
     renderBaseSelect();
   });
+  if (els.tournamentClubFilter) {
+    els.tournamentClubFilter.addEventListener("change", () => {
+      selectedBasePlayerIds.clear();
+      renderBaseSelect();
+    });
+  }
 
   els.selectAllBaseBtn.addEventListener("click", () => {
     selectAllVisibleBasePlayers();
@@ -276,10 +282,12 @@ function bindEvents() {
     finishCurrentTournament();
   });
 
-  els.resetBtn.addEventListener("click", () => {
-    captureTournamentSettingsDraftFromForm();
-    createNewTournamentFlow();
-  });
+  if (els.resetBtn) {
+    els.resetBtn.addEventListener("click", () => {
+      captureTournamentSettingsDraftFromForm();
+      createNewTournamentFlow();
+    });
+  }
 
   els.basePlayerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -336,6 +344,17 @@ function bindEvents() {
     resetCoachForm();
   });
 
+  if (els.openAddClubBtn) {
+    els.openAddClubBtn.addEventListener("click", () => {
+      resetClubForm();
+      resetCoachForm();
+      selectedClubsView = "manage";
+      selectedClubDetailTab = "profile";
+      renderClubsTab();
+      els.clubName?.focus();
+    });
+  }
+
   els.clubsList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -360,6 +379,15 @@ function bindEvents() {
 
     if (action === "delete-club") {
       deleteClub(clubId);
+    }
+
+    if (action === "open-club-manage") {
+      resetClubForm();
+      resetCoachForm();
+      selectedClubsView = "manage";
+      selectedClubDetailTab = "profile";
+      renderClubsTab();
+      els.clubName?.focus();
     }
   });
 

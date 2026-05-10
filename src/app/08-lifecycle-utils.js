@@ -1097,6 +1097,9 @@ function createNewTournamentFlow() {
   state.activeTab = "tournament";
   state.tournamentView = "setup";
   state.archivePreviewTournamentId = null;
+  if (els.tournamentClubFilter) {
+    els.tournamentClubFilter.value = "all";
+  }
   saveAndRender();
 }
 

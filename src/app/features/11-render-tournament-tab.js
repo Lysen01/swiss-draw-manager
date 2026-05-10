@@ -38,6 +38,9 @@ function renderTournamentTab() {
   }
   if (archiveView) {
     els.dbPlayerSelect.disabled = true;
+    if (els.tournamentClubFilter) {
+      els.tournamentClubFilter.disabled = true;
+    }
     els.selectAllBaseBtn.disabled = true;
     els.addFromBaseBtn.disabled = true;
     for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {

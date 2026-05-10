@@ -91,6 +91,9 @@ function renderTournamentTab() {
   }
   if (archiveView) {
     els.dbPlayerSelect.disabled = true;
+    if (els.tournamentClubFilter) {
+      els.tournamentClubFilter.disabled = true;
+    }
     els.selectAllBaseBtn.disabled = true;
     els.addFromBaseBtn.disabled = true;
     for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
@@ -269,6 +272,7 @@ function renderTournamentSubtabs() {
 
 function renderBaseSelect() {
   const query = String(els.dbPlayerSelect.value || "").trim().toLowerCase();
+  const selectedClubFilter = String(els.tournamentClubFilter?.value || "all");
   const t = state.currentTournament;
   const tournamentIds = new Set((t.players || []).map((p) => p.basePlayerId).filter(Boolean));
 
@@ -279,6 +283,11 @@ function renderBaseSelect() {
     els.dbPlayerSelect.value = "";
     els.dbPlayerSelect.placeholder = "База гравців порожня";
     els.dbPlayerSelect.disabled = true;
+    if (els.tournamentClubFilter) {
+      els.tournamentClubFilter.innerHTML = '<option value="all">Усі клуби</option>';
+      els.tournamentClubFilter.value = "all";
+      els.tournamentClubFilter.disabled = true;
+    }
     els.dbPlayerChecklist.innerHTML = '<div class="base-pick-empty">База гравців порожня.</div>';
     els.dbPlayerChecklist.classList.remove("base-pick-list");
     els.selectAllBaseBtn.disabled = true;
@@ -286,7 +295,7 @@ function renderBaseSelect() {
     return;
   }
 
-  tournamentBaseLookup = state.playerBase
+  const lookupAll = state.playerBase
     .filter((p) => !tournamentIds.has(p.id))
     .slice()
     .sort((a, b) => {
@@ -307,6 +316,31 @@ function renderBaseSelect() {
       search: `${p.lastName} ${p.firstName} ${getBaseFullName(p)} ${getClubName(p.clubId)} ${getCoachName(p.coachId)}`.toLowerCase(),
     }));
 
+  if (els.tournamentClubFilter) {
+    const clubOptions = state.clubs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "uk"))
+      .map((club) => `<option value="${escapeHtml(club.id)}">${escapeHtml(club.name)}</option>`);
+    els.tournamentClubFilter.innerHTML = [
+      '<option value="all">Усі клуби</option>',
+      '<option value="independent">Без клубу</option>',
+      ...clubOptions,
+    ].join("");
+    const hasSelectedClub = selectedClubFilter === "all" || selectedClubFilter === "independent" || state.clubs.some((club) => club.id === selectedClubFilter);
+    els.tournamentClubFilter.value = hasSelectedClub ? selectedClubFilter : "all";
+    els.tournamentClubFilter.disabled = false;
+  }
+
+  tournamentBaseLookup = lookupAll.filter((item) => {
+    if (!els.tournamentClubFilter || els.tournamentClubFilter.value === "all") {
+      return true;
+    }
+    if (els.tournamentClubFilter.value === "independent") {
+      return !item.player.clubId;
+    }
+    return item.player.clubId === els.tournamentClubFilter.value;
+  });
+
   const allowedIds = new Set(tournamentBaseLookup.map((item) => item.id));
   selectedBasePlayerIds = new Set([...selectedBasePlayerIds].filter((id) => allowedIds.has(id)));
   filteredTournamentBaseLookup =
@@ -315,7 +349,11 @@ function renderBaseSelect() {
   els.dbPlayerSelect.placeholder = "Пошук за прізвищем або ім'ям";
 
   if (tournamentBaseLookup.length === 0) {
-    els.dbPlayerChecklist.innerHTML = '<div class="base-pick-empty">Усі гравці з бази вже додані в цей турнір.</div>';
+    const emptyMessage =
+      els.tournamentClubFilter && els.tournamentClubFilter.value !== "all"
+        ? "Немає доступних гравців для обраного клубу."
+        : "Усі гравці з бази вже додані в цей турнір.";
+    els.dbPlayerChecklist.innerHTML = `<div class="base-pick-empty">${emptyMessage}</div>`;
     els.dbPlayerChecklist.classList.remove("base-pick-list");
     els.selectAllBaseBtn.disabled = true;
     els.addFromBaseBtn.disabled = true;
@@ -815,8 +853,7 @@ function renderBasePlayersTab() {
         <td>
           <div class="row-actions">
             <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
-            <button class="icon-btn" type="button" title="Історія" aria-label="Історія" data-action="view-base-history" data-player-id="${p.id}">⏱</button>
-            <button class="icon-btn" type="button" title="Додати в турнір" aria-label="Додати в турнір" data-action="add-to-tournament" data-player-id="${p.id}">＋</button>
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
             <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
           </div>
         </td>
@@ -1034,7 +1071,7 @@ function renderClubsTab() {
   }
 
   if (!clubs.length) {
-    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Додайте перший клуб зліва.</div>';
+    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Натисніть "Додати клуб".</div>';
     els.clubProfile.innerHTML = renderIndependentPlayersBlock();
     if (selectedClubsView === "profile") {
       selectedClubsView = "directory";
