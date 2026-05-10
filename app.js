@@ -110,6 +110,8 @@ let selectedBasePlayerProfileTab = "ranking";
 let showBasePlayerAddForm = false;
 let tournamentsSearchQuery = "";
 let tournamentsStatusFilter = "all";
+let tournamentsDateFrom = "";
+let tournamentsDateTo = "";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();
@@ -230,6 +232,8 @@ const els = {
   clubProfile: document.getElementById("clubProfile"),
   tournamentsSearch: document.getElementById("tournamentsSearch"),
   tournamentsStatusFilter: document.getElementById("tournamentsStatusFilter"),
+  tournamentsDateFrom: document.getElementById("tournamentsDateFrom"),
+  tournamentsDateTo: document.getElementById("tournamentsDateTo"),
   archiveList: document.getElementById("archiveList"),
   storageModeLabel: document.getElementById("storageModeLabel"),
   syncStatus: document.getElementById("syncStatus"),
@@ -298,6 +302,32 @@ function bindEvents() {
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
     const nextRounds = nextFormat === "round_robin" ? requiredRoundRobinRounds : manualRounds;
     const nextEventDate = normalizeBirthDate(draft.eventDate);
+    const nextTimeControl = normalizeTimeControl(draft.timeControl);
+    const nextChiefJudge = normalizeChiefJudge(draft.chiefJudge);
+
+    if (!String(draft.name || "").trim()) {
+      alert("Назва турніру обов'язкова.");
+      els.tournamentName?.focus();
+      return;
+    }
+
+    if (!nextEventDate) {
+      alert("Дата проведення обов'язкова.");
+      els.tournamentDate?.focus();
+      return;
+    }
+
+    if (!nextTimeControl) {
+      alert("Контроль часу обов'язковий.");
+      els.tournamentTimeControl?.focus();
+      return;
+    }
+
+    if (!nextChiefJudge) {
+      alert("Головний суддя обов'язковий.");
+      els.tournamentChiefJudge?.focus();
+      return;
+    }
 
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
@@ -332,8 +362,8 @@ function bindEvents() {
     t.isMicromatch = Boolean(draft.isMicromatch);
     t.scoreCalculationType = t.isMicromatch && draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
     t.eventDate = nextEventDate;
-    t.timeControl = draft.timeControl;
-    t.chiefJudge = draft.chiefJudge;
+    t.timeControl = nextTimeControl;
+    t.chiefJudge = nextChiefJudge;
     t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder, { fillDefaults: false });
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
@@ -966,6 +996,20 @@ function bindEvents() {
   if (els.tournamentsStatusFilter) {
     els.tournamentsStatusFilter.addEventListener("change", () => {
       tournamentsStatusFilter = String(els.tournamentsStatusFilter.value || "all");
+      renderArchiveTab();
+    });
+  }
+
+  if (els.tournamentsDateFrom) {
+    els.tournamentsDateFrom.addEventListener("change", () => {
+      tournamentsDateFrom = String(els.tournamentsDateFrom.value || "").trim();
+      renderArchiveTab();
+    });
+  }
+
+  if (els.tournamentsDateTo) {
+    els.tournamentsDateTo.addEventListener("change", () => {
+      tournamentsDateTo = String(els.tournamentsDateTo.value || "").trim();
       renderArchiveTab();
     });
   }
@@ -3713,6 +3757,12 @@ function renderArchiveTab() {
     tournamentsStatusFilter = nextStatusFilter;
     els.tournamentsStatusFilter.value = nextStatusFilter;
   }
+  if (els.tournamentsDateFrom) {
+    els.tournamentsDateFrom.value = tournamentsDateFrom;
+  }
+  if (els.tournamentsDateTo) {
+    els.tournamentsDateTo.value = tournamentsDateTo;
+  }
 
   const records = [];
   if (isCurrentTournamentMeaningful()) {
@@ -3748,6 +3798,10 @@ function renderArchiveTab() {
       return true;
     })
     .filter((entry) => {
+      if (!isTournamentInDateRange(entry, tournamentsDateFrom, tournamentsDateTo)) {
+        return false;
+      }
+
       if (!query) {
         return true;
       }
@@ -3788,7 +3842,7 @@ function renderArchiveTab() {
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
       return `
-      <article class="archive-card">
+      <article class="archive-card${isOpen ? " archive-card--open" : ""}">
         <div class="archive-head">
           <strong>${escapeHtml(t.name)}</strong>
           <div class="toolbar">
@@ -3819,6 +3873,33 @@ function renderArchiveTab() {
     .join("");
 
   els.archiveList.innerHTML = blocks;
+}
+
+function isTournamentInDateRange(entry, fromDate, toDate) {
+  const filterDate = getTournamentFilterDate(entry);
+  if (!filterDate) {
+    return !fromDate && !toDate;
+  }
+  if (fromDate && filterDate < fromDate) {
+    return false;
+  }
+  if (toDate && filterDate > toDate) {
+    return false;
+  }
+  return true;
+}
+
+function getTournamentFilterDate(entry) {
+  const t = entry?.tournament;
+  if (!t) {
+    return "";
+  }
+  if (t.eventDate) {
+    return normalizeBirthDate(t.eventDate);
+  }
+  const fallbackIso = entry.kind === "finished" ? t.finishedAt || t.updatedAt : t.updatedAt || t.createdAt;
+  const parsed = normalizeBirthDate(fallbackIso);
+  return parsed || "";
 }
 
 function isCurrentTournamentMeaningful() {

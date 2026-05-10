@@ -58,15 +58,15 @@
             </label>
             <label>
               Дата проведення
-              <input id="tournamentDate" type="date" />
+              <input id="tournamentDate" type="date" required />
             </label>
             <label>
               Контроль часу
-              <input id="tournamentTimeControl" type="text" placeholder="Наприклад: 10+5" />
+              <input id="tournamentTimeControl" type="text" placeholder="Наприклад: 10+5" required />
             </label>
             <label>
               Головний суддя
-              <input id="tournamentChiefJudge" type="text" placeholder="Наприклад: Іваненко І.І." />
+              <input id="tournamentChiefJudge" type="text" placeholder="Наприклад: Іваненко І.І." required />
             </label>
             <label class="check-inline check-inline--row">
               <input id="tournamentIsMicromatch" type="checkbox" />
@@ -358,8 +358,10 @@
               <option value="ongoing">Тривають</option>
               <option value="finished">Завершені</option>
             </select>
+            <input id="tournamentsDateFrom" type="date" aria-label="Турніри від дати" />
+            <input id="tournamentsDateTo" type="date" aria-label="Турніри до дати" />
           </div>
-          <div id="archiveList" class="stack"></div>
+          <div id="archiveList" class="archive-grid"></div>
         </section>
       </section>
     </main>

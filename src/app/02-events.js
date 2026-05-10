@@ -60,6 +60,32 @@ function bindEvents() {
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
     const nextRounds = nextFormat === "round_robin" ? requiredRoundRobinRounds : manualRounds;
     const nextEventDate = normalizeBirthDate(draft.eventDate);
+    const nextTimeControl = normalizeTimeControl(draft.timeControl);
+    const nextChiefJudge = normalizeChiefJudge(draft.chiefJudge);
+
+    if (!String(draft.name || "").trim()) {
+      alert("Назва турніру обов'язкова.");
+      els.tournamentName?.focus();
+      return;
+    }
+
+    if (!nextEventDate) {
+      alert("Дата проведення обов'язкова.");
+      els.tournamentDate?.focus();
+      return;
+    }
+
+    if (!nextTimeControl) {
+      alert("Контроль часу обов'язковий.");
+      els.tournamentTimeControl?.focus();
+      return;
+    }
+
+    if (!nextChiefJudge) {
+      alert("Головний суддя обов'язковий.");
+      els.tournamentChiefJudge?.focus();
+      return;
+    }
 
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
@@ -94,8 +120,8 @@ function bindEvents() {
     t.isMicromatch = Boolean(draft.isMicromatch);
     t.scoreCalculationType = t.isMicromatch && draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
     t.eventDate = nextEventDate;
-    t.timeControl = draft.timeControl;
-    t.chiefJudge = draft.chiefJudge;
+    t.timeControl = nextTimeControl;
+    t.chiefJudge = nextChiefJudge;
     t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder, { fillDefaults: false });
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
@@ -728,6 +754,20 @@ function bindEvents() {
   if (els.tournamentsStatusFilter) {
     els.tournamentsStatusFilter.addEventListener("change", () => {
       tournamentsStatusFilter = String(els.tournamentsStatusFilter.value || "all");
+      renderArchiveTab();
+    });
+  }
+
+  if (els.tournamentsDateFrom) {
+    els.tournamentsDateFrom.addEventListener("change", () => {
+      tournamentsDateFrom = String(els.tournamentsDateFrom.value || "").trim();
+      renderArchiveTab();
+    });
+  }
+
+  if (els.tournamentsDateTo) {
+    els.tournamentsDateTo.addEventListener("change", () => {
+      tournamentsDateTo = String(els.tournamentsDateTo.value || "").trim();
       renderArchiveTab();
     });
   }

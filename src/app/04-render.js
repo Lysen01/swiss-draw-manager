@@ -2113,6 +2113,12 @@ function renderArchiveTab() {
     tournamentsStatusFilter = nextStatusFilter;
     els.tournamentsStatusFilter.value = nextStatusFilter;
   }
+  if (els.tournamentsDateFrom) {
+    els.tournamentsDateFrom.value = tournamentsDateFrom;
+  }
+  if (els.tournamentsDateTo) {
+    els.tournamentsDateTo.value = tournamentsDateTo;
+  }
 
   const records = [];
   if (isCurrentTournamentMeaningful()) {
@@ -2148,6 +2154,10 @@ function renderArchiveTab() {
       return true;
     })
     .filter((entry) => {
+      if (!isTournamentInDateRange(entry, tournamentsDateFrom, tournamentsDateTo)) {
+        return false;
+      }
+
       if (!query) {
         return true;
       }
@@ -2188,7 +2198,7 @@ function renderArchiveTab() {
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
       return `
-      <article class="archive-card">
+      <article class="archive-card${isOpen ? " archive-card--open" : ""}">
         <div class="archive-head">
           <strong>${escapeHtml(t.name)}</strong>
           <div class="toolbar">
@@ -2219,6 +2229,33 @@ function renderArchiveTab() {
     .join("");
 
   els.archiveList.innerHTML = blocks;
+}
+
+function isTournamentInDateRange(entry, fromDate, toDate) {
+  const filterDate = getTournamentFilterDate(entry);
+  if (!filterDate) {
+    return !fromDate && !toDate;
+  }
+  if (fromDate && filterDate < fromDate) {
+    return false;
+  }
+  if (toDate && filterDate > toDate) {
+    return false;
+  }
+  return true;
+}
+
+function getTournamentFilterDate(entry) {
+  const t = entry?.tournament;
+  if (!t) {
+    return "";
+  }
+  if (t.eventDate) {
+    return normalizeBirthDate(t.eventDate);
+  }
+  const fallbackIso = entry.kind === "finished" ? t.finishedAt || t.updatedAt : t.updatedAt || t.createdAt;
+  const parsed = normalizeBirthDate(fallbackIso);
+  return parsed || "";
 }
 
 function isCurrentTournamentMeaningful() {

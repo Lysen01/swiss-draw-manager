@@ -22,6 +22,8 @@ let selectedBasePlayerProfileTab = "ranking";
 let showBasePlayerAddForm = false;
 let tournamentsSearchQuery = "";
 let tournamentsStatusFilter = "all";
+let tournamentsDateFrom = "";
+let tournamentsDateTo = "";
 let remoteApiBaseUrl = null;
 let remoteKnownClubIds = new Set();
 let remoteKnownCoachIds = new Set();
@@ -142,6 +144,8 @@ const els = {
   clubProfile: document.getElementById("clubProfile"),
   tournamentsSearch: document.getElementById("tournamentsSearch"),
   tournamentsStatusFilter: document.getElementById("tournamentsStatusFilter"),
+  tournamentsDateFrom: document.getElementById("tournamentsDateFrom"),
+  tournamentsDateTo: document.getElementById("tournamentsDateTo"),
   archiveList: document.getElementById("archiveList"),
   storageModeLabel: document.getElementById("storageModeLabel"),
   syncStatus: document.getElementById("syncStatus"),
