@@ -75,6 +75,19 @@ node scripts/build-app.js
 
 3. Відкрийте `index.html` і перевірте результат.
 
+## Швидка точкова робота (без перегляду всього коду)
+
+- Детальна карта модулів: [`docs/CODEMAP.md`](docs/CODEMAP.md)
+- Підбір файлів по зоні змін:
+
+```bash
+npm run scope -- --list
+npm run scope -- tournament
+npm run scope -- clubs
+```
+
+Це дозволяє працювати тільки з потрібними файлами, не чіпаючи весь проєкт.
+
 ## Backend API (Render + PostgreSQL)
 
 У репозиторій додано API сервер:

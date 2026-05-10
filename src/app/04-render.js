@@ -1,10 +1,31 @@
 function render() {
   renderTabs();
-  renderTournamentTab();
-  renderBasePlayersTab();
-  renderClubsTab();
-  renderArchiveTab();
+  renderActiveTabPanel();
   renderPersistenceFooter();
+}
+
+function renderActiveTabPanel() {
+  if (state.activeTab === "tournament") {
+    renderTournamentTab();
+    return;
+  }
+
+  if (state.activeTab === "players") {
+    renderBasePlayersTab();
+    return;
+  }
+
+  if (state.activeTab === "clubs") {
+    renderClubsTab();
+    return;
+  }
+
+  if (state.activeTab === "archive") {
+    renderArchiveTab();
+    return;
+  }
+
+  renderTournamentTab();
 }
 
 function renderPersistenceFooter() {

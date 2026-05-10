@@ -5,6 +5,7 @@
   "description": "Арбітр Шашкової Ліги: frontend + PostgreSQL API",
   "scripts": {
     "build:app": "node scripts/build-app.js",
+    "scope": "node scripts/scope-files.js",
     "start:api": "node server/index.js"
   },
   "dependencies": {
