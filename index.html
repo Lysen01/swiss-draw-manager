@@ -70,13 +70,14 @@
             </label>
             <label class="check-inline check-inline--row">
               <input id="tournamentIsMicromatch" type="checkbox" />
-              Грати мікроматчі (2 партії)
+              Режим мікроматчу (2 партії)
             </label>
             <label id="scoreCalculationWrap" hidden>
-              Основний критерій у мікроматчі
+              Ранжування в мікроматчі
+              <span class="field-hint">Працює тільки коли увімкнено режим мікроматчу.</span>
               <select id="scoreCalculationType">
-                <option value="big_points">Великі очки</option>
-                <option value="small_points">Малі очки</option>
+                <option value="big_points">Спочатку великі очки (малі — тай-брейк)</option>
+                <option value="small_points">Спочатку малі очки</option>
               </select>
             </label>
             <label>
