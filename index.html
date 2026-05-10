@@ -7,32 +7,39 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260510-base-profile-stats" />
+    <link rel="stylesheet" href="styles.css?v=20260510-hero-sticky-nav" />
   </head>
   <body>
     <header class="hero">
       <div class="hero__inner">
-        <h1>Арбітр Шашкової Ліги</h1>
-        <p class="hero__description">
-          Професійна цифрова платформа для арбітрів: повний контроль проведення турніру, прозорий підрахунок
-          результатів та офіційний архів підсумкових таблиць.
-        </p>
-        <section id="authPanel" class="auth-panel">
-          <form id="authForm" class="auth-panel__form">
-            <input id="authEmail" type="email" placeholder="Email адміністратора" autocomplete="username" />
-            <input id="authPassword" type="password" placeholder="Пароль" autocomplete="current-password" />
-            <button id="authLoginBtn" type="submit">Увійти</button>
-          </form>
-          <div id="authUserWrap" class="auth-panel__user" hidden>
-            <span id="authUserLabel"></span>
-            <button id="authLogoutBtn" type="button">Вийти</button>
+        <div class="hero__head">
+          <div class="hero__brand">
+            <h1>Арбітр Шашкової Ліги</h1>
+            <p class="hero__description">
+              Професійна цифрова платформа для арбітрів: повний контроль проведення турніру, прозорий підрахунок
+              результатів та офіційний архів підсумкових таблиць.
+            </p>
           </div>
-          <div id="authStatus" class="meta">Режим перегляду. Для редагування увійдіть як адміністратор.</div>
-        </section>
+          <section id="authPanel" class="auth-panel auth-panel--top">
+            <form id="authForm" class="auth-panel__form">
+              <input id="authEmail" type="email" placeholder="Email адміністратора" autocomplete="username" />
+              <input id="authPassword" type="password" placeholder="Пароль" autocomplete="current-password" />
+              <button id="authLoginBtn" type="submit">Увійти</button>
+            </form>
+            <div id="authUserWrap" class="auth-panel__user" hidden>
+              <span id="authUserLabel"></span>
+              <button id="authLogoutBtn" type="button">Вийти</button>
+            </div>
+            <div id="authStatus" class="meta">Режим перегляду. Для редагування увійдіть як адміністратор.</div>
+          </section>
+        </div>
+        <div class="hero__banner">
+          <img src="assets/hero-top.png" alt="Шашковий турнір" />
+        </div>
       </div>
     </header>
 
-    <nav class="tabs" id="tabsNav">
+    <nav class="tabs tabs--sticky" id="tabsNav">
       <button class="tab-btn active" data-tab="tournament" type="button">Турнір</button>
       <button class="tab-btn" data-tab="players" type="button">База гравців</button>
       <button class="tab-btn" data-tab="clubs" type="button">Клуби</button>

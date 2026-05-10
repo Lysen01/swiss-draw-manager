@@ -28,7 +28,7 @@ body {
 }
 
 .hero {
-  padding: 24px var(--page-pad) 14px;
+  padding: 18px var(--page-pad) 8px;
 }
 
 .hero__inner {
@@ -36,13 +36,24 @@ body {
   margin: 0 auto;
 }
 
+.hero__head {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 460px);
+  gap: 14px;
+  align-items: start;
+}
+
+.hero__brand {
+  min-width: 0;
+}
+
 .hero h1 {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: clamp(28px, 4vw, 42px);
 }
 
 .hero p {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--muted);
 }
 
@@ -53,16 +64,23 @@ body {
 }
 
 .auth-panel {
-  margin-top: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.75);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 24px rgba(10, 24, 55, 0.08);
+}
+
+.auth-panel--top {
+  justify-self: end;
+  width: 100%;
+  max-width: 460px;
 }
 
 .auth-panel__form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: 1fr 1fr auto;
   gap: 8px;
 }
 
@@ -77,7 +95,36 @@ body {
   flex-wrap: wrap;
 }
 
+.auth-panel .meta {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.hero__banner {
+  margin-top: 14px;
+  border: 1px solid #d2deef;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.hero__banner img {
+  display: block;
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  object-position: center;
+}
+
 @media (max-width: 900px) {
+  .hero__head {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-panel--top {
+    max-width: none;
+  }
+
   .auth-panel__form {
     grid-template-columns: 1fr;
   }
@@ -559,6 +606,17 @@ button.danger {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.tabs--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: linear-gradient(180deg, rgba(245, 247, 251, 0.97), rgba(245, 247, 251, 0.88));
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(198, 212, 236, 0.8);
 }
 
 .subtabs {
