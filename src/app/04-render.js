@@ -252,12 +252,12 @@ function renderTieBreakSelectors(orderInput) {
 
 function renderTournamentSettingsPreview() {
   const t = state.currentTournament;
-  const hasPlayers = Array.isArray(t.players) && t.players.length > 0;
-  const hasPhoto = Boolean(t.photoDataUrl);
+  const photoUrl = getTournamentDisplayPhotoUrl(t);
+  const hasPhoto = Boolean(photoUrl);
   const hasDate = Boolean(t.eventDate);
   const hasControl = Boolean(t.timeControl);
   const hasChiefJudge = Boolean(t.chiefJudge);
-  const hasAnyMeta = hasPlayers && (hasPhoto || hasDate || hasControl || hasChiefJudge);
+  const hasAnyMeta = hasPhoto || hasDate || hasControl || hasChiefJudge;
 
   els.tournamentSettingsPreview.hidden = !hasAnyMeta;
   els.tournamentSettingsPreview.style.display = hasAnyMeta ? "flex" : "none";
@@ -271,7 +271,7 @@ function renderTournamentSettingsPreview() {
   }
 
   if (hasPhoto) {
-    els.tournamentSettingsPhoto.src = t.photoDataUrl;
+    els.tournamentSettingsPhoto.src = photoUrl;
     els.tournamentSettingsPhoto.hidden = false;
   } else {
     els.tournamentSettingsPhoto.src = "";
@@ -281,6 +281,11 @@ function renderTournamentSettingsPreview() {
   els.tournamentSettingsDate.textContent = `Дата: ${hasDate ? formatDateOnly(t.eventDate) : "не вказана"}`;
   els.tournamentSettingsControl.textContent = `Контроль часу: ${hasControl ? t.timeControl : "не вказано"}`;
   els.tournamentSettingsChiefJudge.textContent = `Головний суддя: ${hasChiefJudge ? t.chiefJudge : "не вказано"}`;
+}
+
+function getTournamentDisplayPhotoUrl(tournament) {
+  const custom = String(tournament?.photoDataUrl || "").trim();
+  return custom || DEFAULT_TOURNAMENT_COVER_URL;
 }
 
 function renderTournamentSubtabs() {
@@ -2211,9 +2216,7 @@ function renderArchiveTab() {
         </div>
         <div class="archive-media">
           ${
-            t.photoDataUrl
-              ? `<img class="archive-photo" src="${t.photoDataUrl}" alt="Фото ${escapeHtml(t.name)}" />`
-              : '<span class="archive-photo-placeholder">Фото</span>'
+            `<img class="archive-photo" src="${getTournamentDisplayPhotoUrl(t)}" alt="Фото ${escapeHtml(t.name)}" />`
           }
           <div>
             <div class="archive-meta"><strong>Турнір:</strong> ${escapeHtml(t.name)}</div>
@@ -2341,11 +2344,7 @@ function printArchivedTournament(tournamentId) {
     <div class="meta"><strong>Контроль часу:</strong> ${escapeHtml(controlText)}</div>
     <div class="meta"><strong>Головний суддя:</strong> ${escapeHtml(judgeText)}</div>
     <div class="meta"><strong>Турів:</strong> ${archived.currentRound}/${archived.roundsCount} | <strong>Учасників:</strong> ${archived.players.length}</div>
-    ${
-      archived.photoDataUrl
-        ? `<div class="media"><img src="${archived.photoDataUrl}" alt="Фото ${escapeHtml(archived.name)}" /></div>`
-        : ""
-    }
+    <div class="media"><img src="${getTournamentDisplayPhotoUrl(archived)}" alt="Фото ${escapeHtml(archived.name)}" /></div>
     ${standingsHtml}
   </body>
 </html>`;
@@ -2374,9 +2373,7 @@ function buildArchivePreviewHtml(archived) {
     <div class="archive-meta">${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}</div>
     <div class="archive-media" style="margin-top:8px;">
       ${
-        archived.photoDataUrl
-          ? `<img class="archive-photo" src="${archived.photoDataUrl}" alt="Фото ${escapeHtml(archived.name)}" />`
-          : '<span class="archive-photo-placeholder">Фото</span>'
+        `<img class="archive-photo" src="${getTournamentDisplayPhotoUrl(archived)}" alt="Фото ${escapeHtml(archived.name)}" />`
       }
       <div>
         <div class="archive-meta"><strong>Дата:</strong> ${archived.eventDate ? formatDateOnly(archived.eventDate) : "не вказана"}</div>
