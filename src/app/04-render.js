@@ -1007,6 +1007,7 @@ function getTournamentPlayerPhotoDataUrl(player) {
 }
 
 function renderBasePlayersTab() {
+  syncBasePlayerFormVisibility();
   renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
   renderBasePlayersClubFilter();
   const filteredPlayers = filterBasePlayers(state.playerBase);

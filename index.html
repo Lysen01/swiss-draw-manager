@@ -162,7 +162,11 @@
       <section id="tab-players" class="layout tab-panel">
         <section class="card full">
           <h2>База гравців</h2>
-          <form id="basePlayerForm" class="base-form">
+          <div class="row-actions">
+            <button id="openBasePlayerFormBtn" type="button">Додати гравця</button>
+          </div>
+          <div id="basePlayerFormWrap" class="tour-view-hidden">
+            <form id="basePlayerForm" class="base-form">
             <div class="base-form-row">
               <label class="base-field">
                 <span class="base-field__label">Прізвище</span>
@@ -223,8 +227,9 @@
               <button id="basePlayerSubmitBtn" type="submit">Додати в базу</button>
               <button id="basePlayerCancelEditBtn" type="button" hidden>Скасувати редагування</button>
             </div>
-          </form>
-          <div id="baseEditHint" class="edit-hint" hidden></div>
+            </form>
+            <div id="baseEditHint" class="edit-hint" hidden></div>
+          </div>
           <div class="base-list-toolbar">
             <input id="basePlayersSearch" type="text" placeholder="Пошук за прізвищем або ім'ям" autocomplete="off" />
             <select id="basePlayersGenderFilter">

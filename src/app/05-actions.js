@@ -175,7 +175,7 @@ async function submitBasePlayerForm() {
     );
   }
 
-  resetBasePlayerForm();
+  resetBasePlayerForm({ keepOpen: true });
   saveAndRender();
 }
 
@@ -215,11 +215,14 @@ function startEditBasePlayer(playerId) {
   els.basePlayerCancelEditBtn.hidden = false;
   els.baseEditHint.hidden = false;
   els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Поля: Прізвище, Ім'я, Рейтинг, Стать, Спортивне звання, Дата народження, Фото.`;
+  showBasePlayerAddForm = true;
+  syncBasePlayerFormVisibility();
   els.basePlayerForm.scrollIntoView({ behavior: "smooth", block: "center" });
   els.basePlayerLastName.focus();
 }
 
-function resetBasePlayerForm() {
+function resetBasePlayerForm(options = {}) {
+  const keepOpen = Boolean(options.keepOpen);
   editingBasePlayerId = null;
   els.basePlayerForm.reset();
   els.basePlayerGender.value = "";
@@ -230,6 +233,19 @@ function resetBasePlayerForm() {
   els.basePlayerCancelEditBtn.hidden = true;
   els.baseEditHint.hidden = true;
   els.baseEditHint.textContent = "";
+  showBasePlayerAddForm = keepOpen;
+  syncBasePlayerFormVisibility();
+}
+
+function syncBasePlayerFormVisibility() {
+  if (!els.basePlayerFormWrap || !els.openBasePlayerFormBtn) {
+    return;
+  }
+
+  const shouldShow = Boolean(showBasePlayerAddForm || editingBasePlayerId);
+  els.basePlayerFormWrap.classList.toggle("tour-view-hidden", !shouldShow);
+  els.openBasePlayerFormBtn.textContent = shouldShow ? "Сховати форму" : "Додати гравця";
+  els.openBasePlayerFormBtn.setAttribute("aria-expanded", shouldShow ? "true" : "false");
 }
 
 function readFileAsDataUrl(file) {

@@ -27,6 +27,7 @@ function bindEvents() {
     if (nextTab && nextTab !== "players") {
       selectedBasePlayerProfileId = null;
       selectedBasePlayerProfileTab = "ranking";
+      showBasePlayerAddForm = false;
     }
     state.activeTab = nextTab || state.activeTab;
     saveAndRender();
@@ -321,8 +322,22 @@ function bindEvents() {
     await submitBasePlayerForm();
   });
 
+  if (els.openBasePlayerFormBtn) {
+    els.openBasePlayerFormBtn.addEventListener("click", () => {
+      if (showBasePlayerAddForm) {
+        resetBasePlayerForm({ keepOpen: false });
+        return;
+      }
+      showBasePlayerAddForm = true;
+      syncBasePlayerFormVisibility();
+      if (!editingBasePlayerId) {
+        els.basePlayerLastName?.focus();
+      }
+    });
+  }
+
   els.basePlayerCancelEditBtn.addEventListener("click", () => {
-    resetBasePlayerForm();
+    resetBasePlayerForm({ keepOpen: true });
   });
 
   els.basePlayerClub.addEventListener("change", () => {

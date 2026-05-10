@@ -107,6 +107,7 @@ let showClubPlayerAddForms = false;
 let showClubCoachAddForm = false;
 let selectedBasePlayerProfileId = null;
 let selectedBasePlayerProfileTab = "ranking";
+let showBasePlayerAddForm = false;
 let tournamentsSearchQuery = "";
 let tournamentsStatusFilter = "all";
 let remoteApiBaseUrl = null;
@@ -178,6 +179,8 @@ const els = {
   finishTournamentBtn: document.getElementById("finishTournamentBtn"),
   resetBtn: document.getElementById("resetBtn"),
   basePlayerForm: document.getElementById("basePlayerForm"),
+  openBasePlayerFormBtn: document.getElementById("openBasePlayerFormBtn"),
+  basePlayerFormWrap: document.getElementById("basePlayerFormWrap"),
   basePlayerLastName: document.getElementById("basePlayerLastName"),
   basePlayerFirstName: document.getElementById("basePlayerFirstName"),
   basePlayerRating: document.getElementById("basePlayerRating"),
@@ -262,6 +265,7 @@ function bindEvents() {
     if (nextTab && nextTab !== "players") {
       selectedBasePlayerProfileId = null;
       selectedBasePlayerProfileTab = "ranking";
+      showBasePlayerAddForm = false;
     }
     state.activeTab = nextTab || state.activeTab;
     saveAndRender();
@@ -556,8 +560,22 @@ function bindEvents() {
     await submitBasePlayerForm();
   });
 
+  if (els.openBasePlayerFormBtn) {
+    els.openBasePlayerFormBtn.addEventListener("click", () => {
+      if (showBasePlayerAddForm) {
+        resetBasePlayerForm({ keepOpen: false });
+        return;
+      }
+      showBasePlayerAddForm = true;
+      syncBasePlayerFormVisibility();
+      if (!editingBasePlayerId) {
+        els.basePlayerLastName?.focus();
+      }
+    });
+  }
+
   els.basePlayerCancelEditBtn.addEventListener("click", () => {
-    resetBasePlayerForm();
+    resetBasePlayerForm({ keepOpen: true });
   });
 
   els.basePlayerClub.addEventListener("change", () => {
@@ -2589,6 +2607,7 @@ function getTournamentPlayerPhotoDataUrl(player) {
 }
 
 function renderBasePlayersTab() {
+  syncBasePlayerFormVisibility();
   renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
   renderBasePlayersClubFilter();
   const filteredPlayers = filterBasePlayers(state.playerBase);
@@ -4558,7 +4577,7 @@ async function submitBasePlayerForm() {
     );
   }
 
-  resetBasePlayerForm();
+  resetBasePlayerForm({ keepOpen: true });
   saveAndRender();
 }
 
@@ -4598,11 +4617,14 @@ function startEditBasePlayer(playerId) {
   els.basePlayerCancelEditBtn.hidden = false;
   els.baseEditHint.hidden = false;
   els.baseEditHint.textContent = `Редагування: ${getBaseFullName(base)}. Поля: Прізвище, Ім'я, Рейтинг, Стать, Спортивне звання, Дата народження, Фото.`;
+  showBasePlayerAddForm = true;
+  syncBasePlayerFormVisibility();
   els.basePlayerForm.scrollIntoView({ behavior: "smooth", block: "center" });
   els.basePlayerLastName.focus();
 }
 
-function resetBasePlayerForm() {
+function resetBasePlayerForm(options = {}) {
+  const keepOpen = Boolean(options.keepOpen);
   editingBasePlayerId = null;
   els.basePlayerForm.reset();
   els.basePlayerGender.value = "";
@@ -4613,6 +4635,19 @@ function resetBasePlayerForm() {
   els.basePlayerCancelEditBtn.hidden = true;
   els.baseEditHint.hidden = true;
   els.baseEditHint.textContent = "";
+  showBasePlayerAddForm = keepOpen;
+  syncBasePlayerFormVisibility();
+}
+
+function syncBasePlayerFormVisibility() {
+  if (!els.basePlayerFormWrap || !els.openBasePlayerFormBtn) {
+    return;
+  }
+
+  const shouldShow = Boolean(showBasePlayerAddForm || editingBasePlayerId);
+  els.basePlayerFormWrap.classList.toggle("tour-view-hidden", !shouldShow);
+  els.openBasePlayerFormBtn.textContent = shouldShow ? "Сховати форму" : "Додати гравця";
+  els.openBasePlayerFormBtn.setAttribute("aria-expanded", shouldShow ? "true" : "false");
 }
 
 function readFileAsDataUrl(file) {

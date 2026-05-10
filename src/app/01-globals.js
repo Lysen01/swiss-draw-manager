@@ -19,6 +19,7 @@ let showClubPlayerAddForms = false;
 let showClubCoachAddForm = false;
 let selectedBasePlayerProfileId = null;
 let selectedBasePlayerProfileTab = "ranking";
+let showBasePlayerAddForm = false;
 let tournamentsSearchQuery = "";
 let tournamentsStatusFilter = "all";
 let remoteApiBaseUrl = null;
@@ -90,6 +91,8 @@ const els = {
   finishTournamentBtn: document.getElementById("finishTournamentBtn"),
   resetBtn: document.getElementById("resetBtn"),
   basePlayerForm: document.getElementById("basePlayerForm"),
+  openBasePlayerFormBtn: document.getElementById("openBasePlayerFormBtn"),
+  basePlayerFormWrap: document.getElementById("basePlayerFormWrap"),
   basePlayerLastName: document.getElementById("basePlayerLastName"),
   basePlayerFirstName: document.getElementById("basePlayerFirstName"),
   basePlayerRating: document.getElementById("basePlayerRating"),
