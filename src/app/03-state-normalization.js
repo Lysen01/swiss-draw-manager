@@ -53,6 +53,8 @@ function normalizeState(raw) {
       id: crypto.randomUUID(),
       name: raw.tournamentName || "Мігрований турнір",
       format: "swiss",
+      isMicromatch: false,
+      scoreCalculationType: "big_points",
       tieBreakOrder: [...DEFAULT_TIEBREAK_ORDER],
       roundsCount: Number(raw.roundsCount) || 5,
       currentRound: Number(raw.currentRound) || 0,
@@ -78,6 +80,10 @@ function normalizeState(raw) {
           whiteId: pair.whiteId,
           blackId: pair.blackId,
           result: pair.result || "pending",
+          isMicromatch: false,
+          gameResults: null,
+          smallPointsWhite: null,
+          smallPointsBlack: null,
         })),
       })),
     };
@@ -157,6 +163,8 @@ function createDefaultTournament() {
     id: crypto.randomUUID(),
     name: "",
     format: "swiss",
+    isMicromatch: false,
+    scoreCalculationType: "big_points",
     eventDate: "",
     timeControl: "",
     chiefJudge: "",
@@ -178,6 +186,9 @@ function normalizeTournament(tournament) {
     id: tournament.id || crypto.randomUUID(),
     name: typeof tournament.name === "string" ? tournament.name : "Турнір",
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
+    isMicromatch: Boolean(tournament.isMicromatch),
+    scoreCalculationType:
+      Boolean(tournament.isMicromatch) && tournament.scoreCalculationType === "small_points" ? "small_points" : "big_points",
     eventDate: normalizeBirthDate(tournament.eventDate),
     timeControl: normalizeTimeControl(tournament.timeControl),
     chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
@@ -213,11 +224,19 @@ function normalizeTournament(tournament) {
     rounds: Array.isArray(tournament.rounds)
       ? tournament.rounds.map((r) => ({
           round: Number(r.round),
-          pairings: (r.pairings || []).map((pair) => ({
+        pairings: (r.pairings || []).map((pair) => ({
+            isMicromatch: Boolean(pair.isMicromatch ?? tournament.isMicromatch),
             board: Number(pair.board),
             whiteId: pair.whiteId,
             blackId: pair.blackId,
             result: pair.result || "pending",
+            gameResults: Boolean(pair.isMicromatch ?? tournament.isMicromatch)
+              ? Array.isArray(pair.gameResults) && pair.gameResults.length === 2
+                ? pair.gameResults.slice(0, 2).map((x) => String(x || "pending"))
+                : ["pending", "pending"]
+              : null,
+            smallPointsWhite: Number.isFinite(Number(pair.smallPointsWhite)) ? Number(pair.smallPointsWhite) : null,
+            smallPointsBlack: Number.isFinite(Number(pair.smallPointsBlack)) ? Number(pair.smallPointsBlack) : null,
           })),
         }))
       : [],

@@ -275,6 +275,24 @@ button.danger {
   color: #2f6d14;
 }
 
+.chip-win {
+  border-color: #8bc79a;
+  background: #d4edda;
+  color: #205f33;
+}
+
+.chip-draw {
+  border-color: #9ec5eb;
+  background: #cce5ff;
+  color: #1d4d82;
+}
+
+.chip-loss {
+  border-color: #e7a6ad;
+  background: #f8d7da;
+  color: #7a2e3a;
+}
+
 .pair-card {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -389,6 +407,53 @@ button.danger {
 .pair-actions {
   display: flex;
   align-items: center;
+}
+
+.pair-actions--micromatch {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.micromatch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.micromatch-row__label {
+  min-width: 72px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4f6288;
+}
+
+.micromatch-summary {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border: 1px solid #d9e3f1;
+  border-radius: 8px;
+  background: #f7faff;
+  color: #2a4677;
+}
+
+.micromatch-summary.result-win {
+  background: #d4edda;
+  border-color: #8bc79a;
+  color: #205f33;
+}
+
+.micromatch-summary.result-draw {
+  background: #cce5ff;
+  border-color: #9ec5eb;
+  color: #1d4d82;
+}
+
+.micromatch-summary.result-loss {
+  background: #f8d7da;
+  border-color: #e7a6ad;
+  color: #7a2e3a;
 }
 
 .result-toggle {

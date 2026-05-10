@@ -4,7 +4,63 @@ function isLastRoundComplete(tournament) {
   }
 
   const lastRound = tournament.rounds[tournament.rounds.length - 1];
-  return lastRound.pairings.every((pair) => !pair.blackId || pair.result !== "pending");
+  return lastRound.pairings.every((pair) => {
+    if (!pair.blackId) {
+      return true;
+    }
+    if (!pair.isMicromatch) {
+      return pair.result !== "pending";
+    }
+    return Array.isArray(pair.gameResults) && pair.gameResults.length === 2 && pair.gameResults.every((x) => x !== "pending");
+  });
+}
+
+function getPairSmallPointsForPlayer(pair, playerId) {
+  if (!pair || !pair.blackId) {
+    return 0;
+  }
+
+  const playerIsWhite = pair.whiteId === playerId;
+  if (!playerIsWhite && pair.blackId !== playerId) {
+    return 0;
+  }
+
+  if (pair.isMicromatch && Array.isArray(pair.gameResults) && pair.gameResults.length === 2) {
+    return pair.gameResults.reduce((sum, resultValue) => sum + getMicromatchGameSmallPoints(resultValue, playerIsWhite), 0);
+  }
+
+  const result = String(pair.result || "");
+  if (result === "1-0") {
+    return playerIsWhite ? 2 : 0;
+  }
+  if (result === "0-1") {
+    return playerIsWhite ? 0 : 2;
+  }
+  if (result === "0.5-0.5") {
+    return 1;
+  }
+  return 0;
+}
+
+function getTotalSmallPoints(tournament, player) {
+  const byeSmall = getTournamentByeSmallPoints(tournament);
+  let total = 0;
+
+  for (const round of tournament.rounds || []) {
+    const game = (round.pairings || []).find((pair) => pair.whiteId === player.id || pair.blackId === player.id);
+    if (!game) {
+      continue;
+    }
+
+    if (!game.blackId) {
+      total += byeSmall;
+      continue;
+    }
+
+    total += getPairSmallPointsForPlayer(game, player.id);
+  }
+
+  return total;
 }
 
 function getBuchholz(tournament, player) {
@@ -99,14 +155,25 @@ function getHeadToHeadPointsForGroup(tournament, player, tiedIdSet) {
         continue;
       }
 
-      if (game.result === "0.5-0.5") {
-        total += 0.5;
-        continue;
-      }
+      if (tournament.isMicromatch) {
+        if (game.result === "0.5-0.5") {
+          total += 1;
+          continue;
+        }
 
-      const playerIsWhite = game.whiteId === player.id;
-      const didPlayerWin = (playerIsWhite && game.result === "1-0") || (!playerIsWhite && game.result === "0-1");
-      total += didPlayerWin ? 1 : 0;
+        const playerIsWhite = game.whiteId === player.id;
+        const didPlayerWin = (playerIsWhite && game.result === "1-0") || (!playerIsWhite && game.result === "0-1");
+        total += didPlayerWin ? 2 : 0;
+      } else {
+        if (game.result === "0.5-0.5") {
+          total += 0.5;
+          continue;
+        }
+
+        const playerIsWhite = game.whiteId === player.id;
+        const didPlayerWin = (playerIsWhite && game.result === "1-0") || (!playerIsWhite && game.result === "0-1");
+        total += didPlayerWin ? 1 : 0;
+      }
     }
   }
 
@@ -117,6 +184,7 @@ function getStandings(tournament) {
   const enriched = tournament.players.map((p) => ({
     ...p,
     h2h: 0,
+    smallPoints: getTotalSmallPoints(tournament, p),
     wins: getWins(p),
     buchholz: getBuchholz(tournament, p),
     solkPlus: getSolkPlus(tournament, p),
@@ -125,8 +193,9 @@ function getStandings(tournament) {
   }));
 
   const grouped = new Map();
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
   for (const player of enriched) {
-    const key = Number(player.score).toFixed(4);
+    const key = Number(player[primaryMetric]).toFixed(4);
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }
@@ -157,6 +226,16 @@ function getStandings(tournament) {
         if (aManual === null && bManual !== null) {
           return 1;
         }
+      }
+
+      if (primaryMetric === "smallPoints" && b.smallPoints !== a.smallPoints) {
+        return b.smallPoints - a.smallPoints;
+      }
+      if (primaryMetric === "score" && b.score !== a.score) {
+        return b.score - a.score;
+      }
+      if (tournament.isMicromatch && tournament.scoreCalculationType === "big_points" && b.smallPoints !== a.smallPoints) {
+        return b.smallPoints - a.smallPoints;
       }
 
       for (const criterion of criteria) {
@@ -221,16 +300,20 @@ function buildRoundCells(tournament, player, placeById) {
 
     let result = "*";
     const r = player.resultsByRound[roundNo];
+    let toneClass = "chip-empty";
     if (r === "W") {
       result = "1";
+      toneClass = "chip-win";
     } else if (r === "D") {
       result = "0.5";
+      toneClass = "chip-draw";
     } else if (r === "L") {
       result = "0";
+      toneClass = "chip-loss";
     }
 
     const tooltip = opponent ? `Суперник: ${opponent.name} (місце ${oppNo})` : "Суперник невідомий";
-    html += `<td><span class="round-chip" data-tooltip="${escapeHtml(tooltip)}">${oppNo}${color} ${result}</span></td>`;
+    html += `<td><span class="round-chip ${toneClass}" data-tooltip="${escapeHtml(tooltip)}">${oppNo}${color} ${result}</span></td>`;
   }
 
   return html;

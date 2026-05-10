@@ -63,6 +63,13 @@ function renderTournamentTab() {
   els.tournamentName.value = draft.name;
   els.roundsCount.value = draft.roundsCount;
   els.tournamentFormat.value = draft.format;
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.checked = Boolean(draft.isMicromatch);
+  }
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
+  }
+  renderScoreCalculationControls();
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
@@ -121,6 +128,19 @@ function renderRoundsRuleHint() {
   els.roundsRuleHint.textContent = `Кругова: ${playersCount} гравців -> ${roundsCount} турів.`;
 }
 
+function renderScoreCalculationControls() {
+  ensureTournamentSettingsDraftForCurrentTournament();
+  const draft = tournamentSettingsDraft;
+  if (!els.scoreCalculationWrap || !els.scoreCalculationType || !els.tournamentIsMicromatch) {
+    return;
+  }
+
+  const isMicromatch = Boolean(draft.isMicromatch);
+  els.scoreCalculationWrap.hidden = !isMicromatch;
+  els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
+  els.tournamentIsMicromatch.checked = isMicromatch;
+}
+
 function createTournamentSettingsDraft(tournament) {
   const normalizedEventDate = normalizeBirthDate(tournament.eventDate);
   return {
@@ -128,6 +148,9 @@ function createTournamentSettingsDraft(tournament) {
     name: typeof tournament.name === "string" ? tournament.name : "Турнір",
     roundsCount: Number(tournament.roundsCount) || 1,
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
+    isMicromatch: Boolean(tournament.isMicromatch),
+    scoreCalculationType:
+      Boolean(tournament.isMicromatch) && tournament.scoreCalculationType === "small_points" ? "small_points" : "big_points",
     eventDate: normalizedEventDate,
     timeControl: normalizeTimeControl(tournament.timeControl),
     chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
@@ -155,6 +178,9 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.name = els.tournamentName.value.trim();
   tournamentSettingsDraft.format = els.tournamentFormat.value === "round_robin" ? "round_robin" : "swiss";
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
+  tournamentSettingsDraft.isMicromatch = Boolean(els.tournamentIsMicromatch?.checked);
+  tournamentSettingsDraft.scoreCalculationType =
+    tournamentSettingsDraft.isMicromatch && els.scoreCalculationType?.value === "small_points" ? "small_points" : "big_points";
   tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
   tournamentSettingsDraft.chiefJudge = normalizeChiefJudge(els.tournamentChiefJudge.value);
@@ -451,13 +477,50 @@ function renderRounds() {
           const blackName = black ? black.name : pair.blackId ? `ID:${String(pair.blackId).slice(0, 8)}` : null;
 
           if (!black) {
+            const byeBig = getTournamentByeBigPoints(t);
             return `
               <div class="pair-card pair-card--row">
                 <div class="pair-main">
                   <span class="pair-board">Дошка ${pair.board}</span>
                   <span class="pair-vs">${escapeHtml(whiteName)} - BYE</span>
                 </div>
-                <div class="pair-bye-note">1 очко</div>
+                <div class="pair-bye-note">${byeBig.toFixed(1)} очк.</div>
+              </div>`;
+          }
+
+          if (pair.isMicromatch) {
+            const games = Array.isArray(pair.gameResults) && pair.gameResults.length === 2 ? pair.gameResults : ["pending", "pending"];
+            const done = games.every((x) => x === "1-0" || x === "0-1" || x === "0.5-0.5");
+            const whiteSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, true), 0) : 0;
+            const blackSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, false), 0) : 0;
+            const pairResultClass = done ? resolvePairResultClass(resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall)) : "";
+
+            return `
+              <div class="pair-card pair-card--row pair-card--micromatch">
+                <div class="pair-main">
+                  <span class="pair-board">Дошка ${pair.board}</span>
+                  <span class="pair-vs">${escapeHtml(whiteName)} - ${escapeHtml(blackName)}</span>
+                  ${roundLocked ? '<span class="pair-lock">зафіксовано</span>' : ""}
+                </div>
+                <div class="pair-actions pair-actions--micromatch">
+                  <div class="micromatch-row">
+                    <span class="micromatch-row__label">Партія 1</span>
+                    <div class="result-toggle" role="group" aria-label="Результат партії 1">
+                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "1-0", "W", "Білі перемогли", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0.5-0.5", "D", "Нічия", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0-1", "L", "Чорні перемогли", roundLocked)}
+                    </div>
+                  </div>
+                  <div class="micromatch-row">
+                    <span class="micromatch-row__label">Партія 2</span>
+                    <div class="result-toggle" role="group" aria-label="Результат партії 2">
+                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "1-0", "W", "Білі перемогли", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0.5-0.5", "D", "Нічия", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0-1", "L", "Чорні перемогли", roundLocked)}
+                    </div>
+                  </div>
+                  <div class="micromatch-summary ${pairResultClass}">Малі очки: ( ${whiteSmall} : ${blackSmall} )</div>
+                </div>
               </div>`;
           }
 
@@ -587,6 +650,38 @@ function buildPairResultButton(roundIdx, board, currentResult, nextResult, label
   `;
 }
 
+function buildMicromatchGameButton(roundIdx, board, gameIndex, currentValue, nextResult, label, title, disabled) {
+  const active = currentValue === nextResult;
+  return `
+    <button
+      type="button"
+      class="result-btn ${active ? "active" : ""}"
+      data-action="set-pair-game-result"
+      data-round-idx="${roundIdx}"
+      data-board="${board}"
+      data-game-index="${gameIndex}"
+      data-current="${currentValue}"
+      data-result-value="${nextResult}"
+      title="${escapeHtml(title)}"
+      aria-pressed="${active ? "true" : "false"}"
+      ${disabled ? "disabled" : ""}
+    >${label}</button>
+  `;
+}
+
+function resolvePairResultClass(result) {
+  if (result === "1-0") {
+    return "result-win";
+  }
+  if (result === "0.5-0.5") {
+    return "result-draw";
+  }
+  if (result === "0-1") {
+    return "result-loss";
+  }
+  return "";
+}
+
 function printCurrentRound() {
   const t = state.currentTournament;
   if (t.status === "archived_view") {
@@ -618,8 +713,10 @@ function printCurrentRound() {
       const blackName = black ? black.name : "BYE";
       const resultText =
         pair.result === "1-0" || pair.result === "0-1" || pair.result === "0.5-0.5"
-          ? pair.result
-          : black ? "—" : "1-0 (BYE)";
+          ? pair.isMicromatch && Number.isFinite(Number(pair.smallPointsWhite)) && Number.isFinite(Number(pair.smallPointsBlack))
+            ? `${pair.result} | малі ${pair.smallPointsWhite}:${pair.smallPointsBlack}`
+            : pair.result
+          : black ? "—" : `BYE (${getTournamentByeBigPoints(t).toFixed(1)})`;
 
       return `<tr>
         <td>${pair.board}</td>
@@ -694,6 +791,8 @@ function renderStandings() {
 function buildStandingsTableHtml(tournament, options = {}) {
   const { showRoundDetails = true } = options;
   ensureStartNumbers(tournament);
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
+  const scoreLabel = primaryMetric === "smallPoints" ? "Малі очки" : "Очки";
 
   const enriched = getStandings(tournament);
   const placeById = Object.fromEntries(enriched.map((p, idx) => [p.id, idx + 1]));
@@ -701,9 +800,9 @@ function buildStandingsTableHtml(tournament, options = {}) {
   let cursor = 1;
   let i = 0;
   while (i < enriched.length) {
-    const scoreKey = Number(enriched[i].score).toFixed(4);
+    const scoreKey = Number(enriched[i][primaryMetric]).toFixed(4);
     let j = i;
-    while (j < enriched.length && Number(enriched[j].score).toFixed(4) === scoreKey) {
+    while (j < enriched.length && Number(enriched[j][primaryMetric]).toFixed(4) === scoreKey) {
       j += 1;
     }
     const start = cursor;
@@ -723,7 +822,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
         <td>${buildStandingsPlayerCell(tournament, p)}</td>
         <td>${p.rating}</td>
         ${showRoundDetails ? buildRoundCells(tournament, p, placeById) : ""}
-        <td>${p.score.toFixed(1)}</td>
+        <td>${Number(p[primaryMetric] || 0).toFixed(1)}</td>
+        ${tournament.isMicromatch ? `<td>${Number(p.score || 0).toFixed(1)}</td><td>${Number(p.smallPoints || 0).toFixed(1)}</td>` : ""}
         <td>${p.h2h.toFixed(1)}</td>
         <td>${p.wins}</td>
         <td>${p.buchholz.toFixed(1)}</td>
@@ -746,7 +846,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
           <th>Гравець</th>
           <th>Рейтинг</th>
           ${roundHeaders}
-          <th>Очки</th>
+          <th>${scoreLabel}</th>
+          ${tournament.isMicromatch ? "<th>Великі</th><th>Малі</th>" : ""}
           <th>H2H</th>
           <th>Wins</th>
           <th>Buchholz</th>
@@ -782,9 +883,13 @@ function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tie
 }
 
 function getScoreTieGroupsForDisplay(tournament) {
+  const standings = getStandings(tournament);
+  const byId = new Map(standings.map((player) => [player.id, player]));
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
   const grouped = new Map();
   for (const player of tournament.players || []) {
-    const key = Number(player.score).toFixed(4);
+    const enrichedPlayer = byId.get(player.id) || player;
+    const key = Number(enrichedPlayer[primaryMetric] || 0).toFixed(4);
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }

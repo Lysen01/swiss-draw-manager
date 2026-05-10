@@ -1,3 +1,61 @@
+function getTournamentByeBigPoints(tournament) {
+  return tournament?.format === "round_robin" ? 0 : 1;
+}
+
+function getTournamentByeSmallPoints(tournament) {
+  return tournament?.format === "round_robin" ? 0 : 2;
+}
+
+function createPendingPairingForTournament(tournament, board, whiteId, blackId) {
+  const isMicromatch = Boolean(tournament?.isMicromatch);
+  return {
+    board,
+    whiteId,
+    blackId,
+    result: "pending",
+    isMicromatch,
+    gameResults: isMicromatch ? ["pending", "pending"] : null,
+    smallPointsWhite: isMicromatch ? 0 : null,
+    smallPointsBlack: isMicromatch ? 0 : null,
+  };
+}
+
+function createByePairingForTournament(tournament, board, playerId) {
+  return {
+    board,
+    whiteId: playerId,
+    blackId: null,
+    result: "BYE",
+    isMicromatch: false,
+    gameResults: null,
+    smallPointsWhite: getTournamentByeSmallPoints(tournament),
+    smallPointsBlack: 0,
+  };
+}
+
+function getMicromatchGameSmallPoints(resultCode, isWhitePlayer) {
+  if (resultCode === "1-0") {
+    return isWhitePlayer ? 2 : 0;
+  }
+  if (resultCode === "0-1") {
+    return isWhitePlayer ? 0 : 2;
+  }
+  if (resultCode === "0.5-0.5") {
+    return 1;
+  }
+  return 0;
+}
+
+function resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall) {
+  if (whiteSmall > blackSmall) {
+    return "1-0";
+  }
+  if (blackSmall > whiteSmall) {
+    return "0-1";
+  }
+  return "0.5-0.5";
+}
+
 function generateNextRound() {
   const t = state.currentTournament;
 
@@ -97,7 +155,7 @@ function createManualRoundFromForm() {
 
     used.add(whiteId);
     used.add(blackId);
-    pairings.push({ board, whiteId, blackId, result: "pending" });
+    pairings.push(createPendingPairingForTournament(t, board, whiteId, blackId));
   }
 
   if (t.players.length % 2 === 1) {
@@ -119,9 +177,9 @@ function createManualRoundFromForm() {
     }
 
     byePlayer.hadBye = true;
-    byePlayer.score += 1;
+    byePlayer.score += getTournamentByeBigPoints(t);
     byePlayer.resultsByRound[nextRoundNumber] = "BYE";
-    pairings.push({ board: pairings.length + 1, whiteId: byePlayer.id, blackId: null, result: "1-0 BYE" });
+    pairings.push(createByePairingForTournament(t, pairings.length + 1, byePlayer.id));
   }
 
   applyPendingMetadata(t, pairings);
@@ -160,19 +218,14 @@ function swissPairRound(tournament, roundNumber) {
 
   if (byePlayer) {
     byePlayer.hadBye = true;
-    byePlayer.score += 1;
+    byePlayer.score += getTournamentByeBigPoints(tournament);
     byePlayer.resultsByRound[roundNumber] = "BYE";
-    pairings.push({ board: pairings.length + 1, whiteId: byePlayer.id, blackId: null, result: "1-0 BYE" });
+    pairings.push(createByePairingForTournament(tournament, pairings.length + 1, byePlayer.id));
   }
 
   for (const [p1, p2] of pairedTuples) {
     const colors = assignColors(p1, p2);
-    pairings.push({
-      board: pairings.length + 1,
-      whiteId: colors.white.id,
-      blackId: colors.black.id,
-      result: "pending",
-    });
+    pairings.push(createPendingPairingForTournament(tournament, pairings.length + 1, colors.white.id, colors.black.id));
   }
 
   applyPendingMetadata(tournament, pairings);
@@ -201,24 +254,13 @@ function roundRobinPairRound(tournament, roundNumber) {
       }
 
       byePlayer.hadBye = true;
-      byePlayer.score += 1;
+      byePlayer.score += getTournamentByeBigPoints(tournament);
       byePlayer.resultsByRound[roundNumber] = "BYE";
-
-      pairings.push({
-        board: pairings.length + 1,
-        whiteId: byePlayer.id,
-        blackId: null,
-        result: "1-0 BYE",
-      });
+      pairings.push(createByePairingForTournament(tournament, pairings.length + 1, byePlayer.id));
       continue;
     }
 
-    pairings.push({
-      board: pairings.length + 1,
-      whiteId: pair.whiteId,
-      blackId: pair.blackId,
-      result: "pending",
-    });
+    pairings.push(createPendingPairingForTournament(tournament, pairings.length + 1, pair.whiteId, pair.blackId));
   }
 
   applyPendingMetadata(tournament, pairings);
@@ -462,6 +504,9 @@ function updateResult(roundIdx, board, value) {
 
   rollbackResultIfNeeded(t, round.round, pairing);
   pairing.result = value;
+  pairing.gameResults = null;
+  pairing.smallPointsWhite = null;
+  pairing.smallPointsBlack = null;
 
   const white = t.players.find((p) => p.id === pairing.whiteId);
   const black = t.players.find((p) => p.id === pairing.blackId);
@@ -488,6 +533,79 @@ function updateResult(roundIdx, board, value) {
   saveAndRender();
 }
 
+function updateMicromatchGameResult(roundIdx, board, gameIndex, value) {
+  const t = state.currentTournament;
+  const round = t.rounds[roundIdx];
+  if (!round || round.round < t.currentRound) {
+    return;
+  }
+
+  const pairing = round.pairings.find((p) => p.board === board);
+  if (!pairing || !pairing.blackId || !pairing.isMicromatch) {
+    return;
+  }
+
+  const safeIndex = Number(gameIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex > 1) {
+    return;
+  }
+
+  if (!Array.isArray(pairing.gameResults) || pairing.gameResults.length !== 2) {
+    pairing.gameResults = ["pending", "pending"];
+  }
+
+  rollbackResultIfNeeded(t, round.round, pairing);
+  pairing.result = "pending";
+  pairing.smallPointsWhite = 0;
+  pairing.smallPointsBlack = 0;
+
+  pairing.gameResults[safeIndex] = value;
+  const done = pairing.gameResults.every((x) => x === "1-0" || x === "0-1" || x === "0.5-0.5");
+  if (!done) {
+    const white = t.players.find((p) => p.id === pairing.whiteId);
+    const black = t.players.find((p) => p.id === pairing.blackId);
+    if (white && white.resultsByRound) {
+      delete white.resultsByRound[round.round];
+    }
+    if (black && black.resultsByRound) {
+      delete black.resultsByRound[round.round];
+    }
+    t.updatedAt = new Date().toISOString();
+    saveAndRender();
+    return;
+  }
+
+  const white = t.players.find((p) => p.id === pairing.whiteId);
+  const black = t.players.find((p) => p.id === pairing.blackId);
+  if (!white || !black) {
+    return;
+  }
+
+  const whiteSmall = pairing.gameResults.reduce((sum, r) => sum + getMicromatchGameSmallPoints(r, true), 0);
+  const blackSmall = pairing.gameResults.reduce((sum, r) => sum + getMicromatchGameSmallPoints(r, false), 0);
+  pairing.smallPointsWhite = whiteSmall;
+  pairing.smallPointsBlack = blackSmall;
+  pairing.result = resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall);
+
+  if (pairing.result === "1-0") {
+    white.score += 2;
+    white.resultsByRound[round.round] = "W";
+    black.resultsByRound[round.round] = "L";
+  } else if (pairing.result === "0-1") {
+    black.score += 2;
+    black.resultsByRound[round.round] = "W";
+    white.resultsByRound[round.round] = "L";
+  } else {
+    white.score += 1;
+    black.score += 1;
+    white.resultsByRound[round.round] = "D";
+    black.resultsByRound[round.round] = "D";
+  }
+
+  t.updatedAt = new Date().toISOString();
+  saveAndRender();
+}
+
 function rollbackResultIfNeeded(tournament, roundNumber, pairing) {
   const white = tournament.players.find((p) => p.id === pairing.whiteId);
   const black = tournament.players.find((p) => p.id === pairing.blackId);
@@ -497,16 +615,29 @@ function rollbackResultIfNeeded(tournament, roundNumber, pairing) {
   }
 
   if (pairing.result === "1-0") {
-    white.score -= 1;
+    if (pairing.isMicromatch) {
+      white.score -= 2;
+    } else {
+      white.score -= 1;
+    }
   }
 
   if (pairing.result === "0-1") {
-    black.score -= 1;
+    if (pairing.isMicromatch) {
+      black.score -= 2;
+    } else {
+      black.score -= 1;
+    }
   }
 
   if (pairing.result === "0.5-0.5") {
-    white.score -= 0.5;
-    black.score -= 0.5;
+    if (pairing.isMicromatch) {
+      white.score -= 1;
+      black.score -= 1;
+    } else {
+      white.score -= 0.5;
+      black.score -= 0.5;
+    }
   }
 
   delete white.resultsByRound[roundNumber];

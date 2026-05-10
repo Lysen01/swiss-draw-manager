@@ -296,6 +296,8 @@ function mapApiTournamentToState(row) {
     id: row.id,
     name: row.name || payload.name || "Турнір",
     format: row.format === "round_robin" ? "round_robin" : "swiss",
+    isMicromatch: Boolean(payload.isMicromatch),
+    scoreCalculationType: payload.scoreCalculationType === "small_points" ? "small_points" : "big_points",
     eventDate: row.event_date || payload.eventDate || "",
     timeControl: row.time_control || payload.timeControl || "",
     chiefJudge: row.chief_judge || payload.chiefJudge || "",
@@ -496,6 +498,8 @@ function buildTournamentApiPayload(tournament, status) {
       updatedAt: tournament.updatedAt || new Date().toISOString(),
       finishedAt: archivedAt,
       tieBreakOrder,
+      isMicromatch: Boolean(tournament.isMicromatch),
+      scoreCalculationType: tournament.scoreCalculationType === "small_points" ? "small_points" : "big_points",
       photoDataUrl: tournament.photoDataUrl || null,
       eventDate: normalizeBirthDate(tournament.eventDate) || "",
       timeControl: normalizeTimeControl(tournament.timeControl),
@@ -821,9 +825,13 @@ function finishCurrentTournament() {
 }
 
 function validateManualPlacesForTiedScores(tournament) {
+  const standings = getStandings(tournament);
+  const byId = new Map(standings.map((player) => [player.id, player]));
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
   const grouped = new Map();
   for (const player of tournament.players || []) {
-    const key = Number(player.score).toFixed(4);
+    const enrichedPlayer = byId.get(player.id) || player;
+    const key = Number(enrichedPlayer[primaryMetric] || 0).toFixed(4);
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }

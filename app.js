@@ -144,6 +144,9 @@ const els = {
   tournamentDate: document.getElementById("tournamentDate"),
   tournamentTimeControl: document.getElementById("tournamentTimeControl"),
   tournamentChiefJudge: document.getElementById("tournamentChiefJudge"),
+  tournamentIsMicromatch: document.getElementById("tournamentIsMicromatch"),
+  scoreCalculationWrap: document.getElementById("scoreCalculationWrap"),
+  scoreCalculationType: document.getElementById("scoreCalculationType"),
   tournamentPhoto: document.getElementById("tournamentPhoto"),
   tournamentRemovePhoto: document.getElementById("tournamentRemovePhoto"),
   tournamentSettingsPreview: document.getElementById("tournamentSettingsPreview"),
@@ -298,6 +301,11 @@ function bindEvents() {
       return;
     }
 
+    if (Boolean(draft.isMicromatch) !== Boolean(t.isMicromatch) && t.currentRound > 0) {
+      alert("Після старту турніру не можна змінити режим мікроматчів.");
+      return;
+    }
+
     if (nextFormat === "swiss") {
       const maxRounds = getMaxRoundsByFormat(nextFormat, t.players.length);
       if (maxRounds > 0 && nextRounds > maxRounds) {
@@ -313,6 +321,8 @@ function bindEvents() {
     t.name = draft.name || "Турнір";
     t.roundsCount = nextRounds;
     t.format = nextFormat;
+    t.isMicromatch = Boolean(draft.isMicromatch);
+    t.scoreCalculationType = t.isMicromatch && draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
     t.eventDate = nextEventDate;
     t.timeControl = draft.timeControl;
     t.chiefJudge = draft.chiefJudge;
@@ -369,6 +379,24 @@ function bindEvents() {
     ensureTournamentSettingsDraftForCurrentTournament();
     tournamentSettingsDraft.chiefJudge = normalizeChiefJudge(els.tournamentChiefJudge.value);
   });
+
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.addEventListener("change", () => {
+      ensureTournamentSettingsDraftForCurrentTournament();
+      tournamentSettingsDraft.isMicromatch = Boolean(els.tournamentIsMicromatch.checked);
+      if (!tournamentSettingsDraft.isMicromatch) {
+        tournamentSettingsDraft.scoreCalculationType = "big_points";
+      }
+      renderScoreCalculationControls();
+    });
+  }
+
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.addEventListener("change", () => {
+      ensureTournamentSettingsDraftForCurrentTournament();
+      tournamentSettingsDraft.scoreCalculationType = els.scoreCalculationType.value === "small_points" ? "small_points" : "big_points";
+    });
+  }
 
   els.tournamentRemovePhoto.addEventListener("change", () => {
     ensureTournamentSettingsDraftForCurrentTournament();
@@ -791,16 +819,28 @@ function bindEvents() {
   }
 
   els.pairings.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-action='set-pair-result']");
+    const btn = event.target.closest("button[data-action]");
     if (!btn || btn.disabled) {
       return;
     }
 
-    const roundIdx = Number(btn.dataset.roundIdx);
-    const board = Number(btn.dataset.board);
-    const currentValue = btn.dataset.current || "pending";
-    const nextValue = btn.dataset.resultValue || "pending";
-    updateResult(roundIdx, board, currentValue === nextValue ? "pending" : nextValue);
+    if (btn.dataset.action === "set-pair-result") {
+      const roundIdx = Number(btn.dataset.roundIdx);
+      const board = Number(btn.dataset.board);
+      const currentValue = btn.dataset.current || "pending";
+      const nextValue = btn.dataset.resultValue || "pending";
+      updateResult(roundIdx, board, currentValue === nextValue ? "pending" : nextValue);
+      return;
+    }
+
+    if (btn.dataset.action === "set-pair-game-result") {
+      const roundIdx = Number(btn.dataset.roundIdx);
+      const board = Number(btn.dataset.board);
+      const gameIndex = Number(btn.dataset.gameIndex);
+      const currentValue = btn.dataset.current || "pending";
+      const nextValue = btn.dataset.resultValue || "pending";
+      updateMicromatchGameResult(roundIdx, board, gameIndex, currentValue === nextValue ? "pending" : nextValue);
+    }
   });
 
   els.standings.addEventListener("change", (event) => {
@@ -947,6 +987,8 @@ function normalizeState(raw) {
       id: crypto.randomUUID(),
       name: raw.tournamentName || "Мігрований турнір",
       format: "swiss",
+      isMicromatch: false,
+      scoreCalculationType: "big_points",
       tieBreakOrder: [...DEFAULT_TIEBREAK_ORDER],
       roundsCount: Number(raw.roundsCount) || 5,
       currentRound: Number(raw.currentRound) || 0,
@@ -972,6 +1014,10 @@ function normalizeState(raw) {
           whiteId: pair.whiteId,
           blackId: pair.blackId,
           result: pair.result || "pending",
+          isMicromatch: false,
+          gameResults: null,
+          smallPointsWhite: null,
+          smallPointsBlack: null,
         })),
       })),
     };
@@ -1051,6 +1097,8 @@ function createDefaultTournament() {
     id: crypto.randomUUID(),
     name: "",
     format: "swiss",
+    isMicromatch: false,
+    scoreCalculationType: "big_points",
     eventDate: "",
     timeControl: "",
     chiefJudge: "",
@@ -1072,6 +1120,9 @@ function normalizeTournament(tournament) {
     id: tournament.id || crypto.randomUUID(),
     name: typeof tournament.name === "string" ? tournament.name : "Турнір",
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
+    isMicromatch: Boolean(tournament.isMicromatch),
+    scoreCalculationType:
+      Boolean(tournament.isMicromatch) && tournament.scoreCalculationType === "small_points" ? "small_points" : "big_points",
     eventDate: normalizeBirthDate(tournament.eventDate),
     timeControl: normalizeTimeControl(tournament.timeControl),
     chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
@@ -1107,11 +1158,19 @@ function normalizeTournament(tournament) {
     rounds: Array.isArray(tournament.rounds)
       ? tournament.rounds.map((r) => ({
           round: Number(r.round),
-          pairings: (r.pairings || []).map((pair) => ({
+        pairings: (r.pairings || []).map((pair) => ({
+            isMicromatch: Boolean(pair.isMicromatch ?? tournament.isMicromatch),
             board: Number(pair.board),
             whiteId: pair.whiteId,
             blackId: pair.blackId,
             result: pair.result || "pending",
+            gameResults: Boolean(pair.isMicromatch ?? tournament.isMicromatch)
+              ? Array.isArray(pair.gameResults) && pair.gameResults.length === 2
+                ? pair.gameResults.slice(0, 2).map((x) => String(x || "pending"))
+                : ["pending", "pending"]
+              : null,
+            smallPointsWhite: Number.isFinite(Number(pair.smallPointsWhite)) ? Number(pair.smallPointsWhite) : null,
+            smallPointsBlack: Number.isFinite(Number(pair.smallPointsBlack)) ? Number(pair.smallPointsBlack) : null,
           })),
         }))
       : [],
@@ -1564,6 +1623,13 @@ function renderTournamentTab() {
   els.tournamentName.value = draft.name;
   els.roundsCount.value = draft.roundsCount;
   els.tournamentFormat.value = draft.format;
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.checked = Boolean(draft.isMicromatch);
+  }
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
+  }
+  renderScoreCalculationControls();
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
@@ -1622,6 +1688,19 @@ function renderRoundsRuleHint() {
   els.roundsRuleHint.textContent = `Кругова: ${playersCount} гравців -> ${roundsCount} турів.`;
 }
 
+function renderScoreCalculationControls() {
+  ensureTournamentSettingsDraftForCurrentTournament();
+  const draft = tournamentSettingsDraft;
+  if (!els.scoreCalculationWrap || !els.scoreCalculationType || !els.tournamentIsMicromatch) {
+    return;
+  }
+
+  const isMicromatch = Boolean(draft.isMicromatch);
+  els.scoreCalculationWrap.hidden = !isMicromatch;
+  els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
+  els.tournamentIsMicromatch.checked = isMicromatch;
+}
+
 function createTournamentSettingsDraft(tournament) {
   const normalizedEventDate = normalizeBirthDate(tournament.eventDate);
   return {
@@ -1629,6 +1708,9 @@ function createTournamentSettingsDraft(tournament) {
     name: typeof tournament.name === "string" ? tournament.name : "Турнір",
     roundsCount: Number(tournament.roundsCount) || 1,
     format: tournament.format === "round_robin" ? "round_robin" : "swiss",
+    isMicromatch: Boolean(tournament.isMicromatch),
+    scoreCalculationType:
+      Boolean(tournament.isMicromatch) && tournament.scoreCalculationType === "small_points" ? "small_points" : "big_points",
     eventDate: normalizedEventDate,
     timeControl: normalizeTimeControl(tournament.timeControl),
     chiefJudge: normalizeChiefJudge(tournament.chiefJudge),
@@ -1656,6 +1738,9 @@ function captureTournamentSettingsDraftFromForm() {
   tournamentSettingsDraft.name = els.tournamentName.value.trim();
   tournamentSettingsDraft.format = els.tournamentFormat.value === "round_robin" ? "round_robin" : "swiss";
   tournamentSettingsDraft.roundsCount = Number(els.roundsCount.value) || 1;
+  tournamentSettingsDraft.isMicromatch = Boolean(els.tournamentIsMicromatch?.checked);
+  tournamentSettingsDraft.scoreCalculationType =
+    tournamentSettingsDraft.isMicromatch && els.scoreCalculationType?.value === "small_points" ? "small_points" : "big_points";
   tournamentSettingsDraft.eventDate = normalizeBirthDate(els.tournamentDate.value);
   tournamentSettingsDraft.timeControl = normalizeTimeControl(els.tournamentTimeControl.value);
   tournamentSettingsDraft.chiefJudge = normalizeChiefJudge(els.tournamentChiefJudge.value);
@@ -1952,13 +2037,50 @@ function renderRounds() {
           const blackName = black ? black.name : pair.blackId ? `ID:${String(pair.blackId).slice(0, 8)}` : null;
 
           if (!black) {
+            const byeBig = getTournamentByeBigPoints(t);
             return `
               <div class="pair-card pair-card--row">
                 <div class="pair-main">
                   <span class="pair-board">Дошка ${pair.board}</span>
                   <span class="pair-vs">${escapeHtml(whiteName)} - BYE</span>
                 </div>
-                <div class="pair-bye-note">1 очко</div>
+                <div class="pair-bye-note">${byeBig.toFixed(1)} очк.</div>
+              </div>`;
+          }
+
+          if (pair.isMicromatch) {
+            const games = Array.isArray(pair.gameResults) && pair.gameResults.length === 2 ? pair.gameResults : ["pending", "pending"];
+            const done = games.every((x) => x === "1-0" || x === "0-1" || x === "0.5-0.5");
+            const whiteSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, true), 0) : 0;
+            const blackSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, false), 0) : 0;
+            const pairResultClass = done ? resolvePairResultClass(resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall)) : "";
+
+            return `
+              <div class="pair-card pair-card--row pair-card--micromatch">
+                <div class="pair-main">
+                  <span class="pair-board">Дошка ${pair.board}</span>
+                  <span class="pair-vs">${escapeHtml(whiteName)} - ${escapeHtml(blackName)}</span>
+                  ${roundLocked ? '<span class="pair-lock">зафіксовано</span>' : ""}
+                </div>
+                <div class="pair-actions pair-actions--micromatch">
+                  <div class="micromatch-row">
+                    <span class="micromatch-row__label">Партія 1</span>
+                    <div class="result-toggle" role="group" aria-label="Результат партії 1">
+                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "1-0", "W", "Білі перемогли", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0.5-0.5", "D", "Нічия", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0-1", "L", "Чорні перемогли", roundLocked)}
+                    </div>
+                  </div>
+                  <div class="micromatch-row">
+                    <span class="micromatch-row__label">Партія 2</span>
+                    <div class="result-toggle" role="group" aria-label="Результат партії 2">
+                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "1-0", "W", "Білі перемогли", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0.5-0.5", "D", "Нічия", roundLocked)}
+                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0-1", "L", "Чорні перемогли", roundLocked)}
+                    </div>
+                  </div>
+                  <div class="micromatch-summary ${pairResultClass}">Малі очки: ( ${whiteSmall} : ${blackSmall} )</div>
+                </div>
               </div>`;
           }
 
@@ -2088,6 +2210,38 @@ function buildPairResultButton(roundIdx, board, currentResult, nextResult, label
   `;
 }
 
+function buildMicromatchGameButton(roundIdx, board, gameIndex, currentValue, nextResult, label, title, disabled) {
+  const active = currentValue === nextResult;
+  return `
+    <button
+      type="button"
+      class="result-btn ${active ? "active" : ""}"
+      data-action="set-pair-game-result"
+      data-round-idx="${roundIdx}"
+      data-board="${board}"
+      data-game-index="${gameIndex}"
+      data-current="${currentValue}"
+      data-result-value="${nextResult}"
+      title="${escapeHtml(title)}"
+      aria-pressed="${active ? "true" : "false"}"
+      ${disabled ? "disabled" : ""}
+    >${label}</button>
+  `;
+}
+
+function resolvePairResultClass(result) {
+  if (result === "1-0") {
+    return "result-win";
+  }
+  if (result === "0.5-0.5") {
+    return "result-draw";
+  }
+  if (result === "0-1") {
+    return "result-loss";
+  }
+  return "";
+}
+
 function printCurrentRound() {
   const t = state.currentTournament;
   if (t.status === "archived_view") {
@@ -2119,8 +2273,10 @@ function printCurrentRound() {
       const blackName = black ? black.name : "BYE";
       const resultText =
         pair.result === "1-0" || pair.result === "0-1" || pair.result === "0.5-0.5"
-          ? pair.result
-          : black ? "—" : "1-0 (BYE)";
+          ? pair.isMicromatch && Number.isFinite(Number(pair.smallPointsWhite)) && Number.isFinite(Number(pair.smallPointsBlack))
+            ? `${pair.result} | малі ${pair.smallPointsWhite}:${pair.smallPointsBlack}`
+            : pair.result
+          : black ? "—" : `BYE (${getTournamentByeBigPoints(t).toFixed(1)})`;
 
       return `<tr>
         <td>${pair.board}</td>
@@ -2195,6 +2351,8 @@ function renderStandings() {
 function buildStandingsTableHtml(tournament, options = {}) {
   const { showRoundDetails = true } = options;
   ensureStartNumbers(tournament);
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
+  const scoreLabel = primaryMetric === "smallPoints" ? "Малі очки" : "Очки";
 
   const enriched = getStandings(tournament);
   const placeById = Object.fromEntries(enriched.map((p, idx) => [p.id, idx + 1]));
@@ -2202,9 +2360,9 @@ function buildStandingsTableHtml(tournament, options = {}) {
   let cursor = 1;
   let i = 0;
   while (i < enriched.length) {
-    const scoreKey = Number(enriched[i].score).toFixed(4);
+    const scoreKey = Number(enriched[i][primaryMetric]).toFixed(4);
     let j = i;
-    while (j < enriched.length && Number(enriched[j].score).toFixed(4) === scoreKey) {
+    while (j < enriched.length && Number(enriched[j][primaryMetric]).toFixed(4) === scoreKey) {
       j += 1;
     }
     const start = cursor;
@@ -2224,7 +2382,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
         <td>${buildStandingsPlayerCell(tournament, p)}</td>
         <td>${p.rating}</td>
         ${showRoundDetails ? buildRoundCells(tournament, p, placeById) : ""}
-        <td>${p.score.toFixed(1)}</td>
+        <td>${Number(p[primaryMetric] || 0).toFixed(1)}</td>
+        ${tournament.isMicromatch ? `<td>${Number(p.score || 0).toFixed(1)}</td><td>${Number(p.smallPoints || 0).toFixed(1)}</td>` : ""}
         <td>${p.h2h.toFixed(1)}</td>
         <td>${p.wins}</td>
         <td>${p.buchholz.toFixed(1)}</td>
@@ -2247,7 +2406,8 @@ function buildStandingsTableHtml(tournament, options = {}) {
           <th>Гравець</th>
           <th>Рейтинг</th>
           ${roundHeaders}
-          <th>Очки</th>
+          <th>${scoreLabel}</th>
+          ${tournament.isMicromatch ? "<th>Великі</th><th>Малі</th>" : ""}
           <th>H2H</th>
           <th>Wins</th>
           <th>Buchholz</th>
@@ -2283,9 +2443,13 @@ function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tie
 }
 
 function getScoreTieGroupsForDisplay(tournament) {
+  const standings = getStandings(tournament);
+  const byId = new Map(standings.map((player) => [player.id, player]));
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
   const grouped = new Map();
   for (const player of tournament.players || []) {
-    const key = Number(player.score).toFixed(4);
+    const enrichedPlayer = byId.get(player.id) || player;
+    const key = Number(enrichedPlayer[primaryMetric] || 0).toFixed(4);
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }
@@ -3703,6 +3867,13 @@ function renderTournamentTab() {
   els.tournamentName.value = draft.name;
   els.roundsCount.value = draft.roundsCount;
   els.tournamentFormat.value = draft.format;
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.checked = Boolean(draft.isMicromatch);
+  }
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
+  }
+  renderScoreCalculationControls();
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
@@ -4990,6 +5161,64 @@ function openTournamentFromPlayerProfile(tournamentId) {
 }
 
 // ===== 06-pairing.js =====
+function getTournamentByeBigPoints(tournament) {
+  return tournament?.format === "round_robin" ? 0 : 1;
+}
+
+function getTournamentByeSmallPoints(tournament) {
+  return tournament?.format === "round_robin" ? 0 : 2;
+}
+
+function createPendingPairingForTournament(tournament, board, whiteId, blackId) {
+  const isMicromatch = Boolean(tournament?.isMicromatch);
+  return {
+    board,
+    whiteId,
+    blackId,
+    result: "pending",
+    isMicromatch,
+    gameResults: isMicromatch ? ["pending", "pending"] : null,
+    smallPointsWhite: isMicromatch ? 0 : null,
+    smallPointsBlack: isMicromatch ? 0 : null,
+  };
+}
+
+function createByePairingForTournament(tournament, board, playerId) {
+  return {
+    board,
+    whiteId: playerId,
+    blackId: null,
+    result: "BYE",
+    isMicromatch: false,
+    gameResults: null,
+    smallPointsWhite: getTournamentByeSmallPoints(tournament),
+    smallPointsBlack: 0,
+  };
+}
+
+function getMicromatchGameSmallPoints(resultCode, isWhitePlayer) {
+  if (resultCode === "1-0") {
+    return isWhitePlayer ? 2 : 0;
+  }
+  if (resultCode === "0-1") {
+    return isWhitePlayer ? 0 : 2;
+  }
+  if (resultCode === "0.5-0.5") {
+    return 1;
+  }
+  return 0;
+}
+
+function resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall) {
+  if (whiteSmall > blackSmall) {
+    return "1-0";
+  }
+  if (blackSmall > whiteSmall) {
+    return "0-1";
+  }
+  return "0.5-0.5";
+}
+
 function generateNextRound() {
   const t = state.currentTournament;
 
@@ -5089,7 +5318,7 @@ function createManualRoundFromForm() {
 
     used.add(whiteId);
     used.add(blackId);
-    pairings.push({ board, whiteId, blackId, result: "pending" });
+    pairings.push(createPendingPairingForTournament(t, board, whiteId, blackId));
   }
 
   if (t.players.length % 2 === 1) {
@@ -5111,9 +5340,9 @@ function createManualRoundFromForm() {
     }
 
     byePlayer.hadBye = true;
-    byePlayer.score += 1;
+    byePlayer.score += getTournamentByeBigPoints(t);
     byePlayer.resultsByRound[nextRoundNumber] = "BYE";
-    pairings.push({ board: pairings.length + 1, whiteId: byePlayer.id, blackId: null, result: "1-0 BYE" });
+    pairings.push(createByePairingForTournament(t, pairings.length + 1, byePlayer.id));
   }
 
   applyPendingMetadata(t, pairings);
@@ -5152,19 +5381,14 @@ function swissPairRound(tournament, roundNumber) {
 
   if (byePlayer) {
     byePlayer.hadBye = true;
-    byePlayer.score += 1;
+    byePlayer.score += getTournamentByeBigPoints(tournament);
     byePlayer.resultsByRound[roundNumber] = "BYE";
-    pairings.push({ board: pairings.length + 1, whiteId: byePlayer.id, blackId: null, result: "1-0 BYE" });
+    pairings.push(createByePairingForTournament(tournament, pairings.length + 1, byePlayer.id));
   }
 
   for (const [p1, p2] of pairedTuples) {
     const colors = assignColors(p1, p2);
-    pairings.push({
-      board: pairings.length + 1,
-      whiteId: colors.white.id,
-      blackId: colors.black.id,
-      result: "pending",
-    });
+    pairings.push(createPendingPairingForTournament(tournament, pairings.length + 1, colors.white.id, colors.black.id));
   }
 
   applyPendingMetadata(tournament, pairings);
@@ -5193,24 +5417,13 @@ function roundRobinPairRound(tournament, roundNumber) {
       }
 
       byePlayer.hadBye = true;
-      byePlayer.score += 1;
+      byePlayer.score += getTournamentByeBigPoints(tournament);
       byePlayer.resultsByRound[roundNumber] = "BYE";
-
-      pairings.push({
-        board: pairings.length + 1,
-        whiteId: byePlayer.id,
-        blackId: null,
-        result: "1-0 BYE",
-      });
+      pairings.push(createByePairingForTournament(tournament, pairings.length + 1, byePlayer.id));
       continue;
     }
 
-    pairings.push({
-      board: pairings.length + 1,
-      whiteId: pair.whiteId,
-      blackId: pair.blackId,
-      result: "pending",
-    });
+    pairings.push(createPendingPairingForTournament(tournament, pairings.length + 1, pair.whiteId, pair.blackId));
   }
 
   applyPendingMetadata(tournament, pairings);
@@ -5454,6 +5667,9 @@ function updateResult(roundIdx, board, value) {
 
   rollbackResultIfNeeded(t, round.round, pairing);
   pairing.result = value;
+  pairing.gameResults = null;
+  pairing.smallPointsWhite = null;
+  pairing.smallPointsBlack = null;
 
   const white = t.players.find((p) => p.id === pairing.whiteId);
   const black = t.players.find((p) => p.id === pairing.blackId);
@@ -5480,6 +5696,79 @@ function updateResult(roundIdx, board, value) {
   saveAndRender();
 }
 
+function updateMicromatchGameResult(roundIdx, board, gameIndex, value) {
+  const t = state.currentTournament;
+  const round = t.rounds[roundIdx];
+  if (!round || round.round < t.currentRound) {
+    return;
+  }
+
+  const pairing = round.pairings.find((p) => p.board === board);
+  if (!pairing || !pairing.blackId || !pairing.isMicromatch) {
+    return;
+  }
+
+  const safeIndex = Number(gameIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex > 1) {
+    return;
+  }
+
+  if (!Array.isArray(pairing.gameResults) || pairing.gameResults.length !== 2) {
+    pairing.gameResults = ["pending", "pending"];
+  }
+
+  rollbackResultIfNeeded(t, round.round, pairing);
+  pairing.result = "pending";
+  pairing.smallPointsWhite = 0;
+  pairing.smallPointsBlack = 0;
+
+  pairing.gameResults[safeIndex] = value;
+  const done = pairing.gameResults.every((x) => x === "1-0" || x === "0-1" || x === "0.5-0.5");
+  if (!done) {
+    const white = t.players.find((p) => p.id === pairing.whiteId);
+    const black = t.players.find((p) => p.id === pairing.blackId);
+    if (white && white.resultsByRound) {
+      delete white.resultsByRound[round.round];
+    }
+    if (black && black.resultsByRound) {
+      delete black.resultsByRound[round.round];
+    }
+    t.updatedAt = new Date().toISOString();
+    saveAndRender();
+    return;
+  }
+
+  const white = t.players.find((p) => p.id === pairing.whiteId);
+  const black = t.players.find((p) => p.id === pairing.blackId);
+  if (!white || !black) {
+    return;
+  }
+
+  const whiteSmall = pairing.gameResults.reduce((sum, r) => sum + getMicromatchGameSmallPoints(r, true), 0);
+  const blackSmall = pairing.gameResults.reduce((sum, r) => sum + getMicromatchGameSmallPoints(r, false), 0);
+  pairing.smallPointsWhite = whiteSmall;
+  pairing.smallPointsBlack = blackSmall;
+  pairing.result = resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall);
+
+  if (pairing.result === "1-0") {
+    white.score += 2;
+    white.resultsByRound[round.round] = "W";
+    black.resultsByRound[round.round] = "L";
+  } else if (pairing.result === "0-1") {
+    black.score += 2;
+    black.resultsByRound[round.round] = "W";
+    white.resultsByRound[round.round] = "L";
+  } else {
+    white.score += 1;
+    black.score += 1;
+    white.resultsByRound[round.round] = "D";
+    black.resultsByRound[round.round] = "D";
+  }
+
+  t.updatedAt = new Date().toISOString();
+  saveAndRender();
+}
+
 function rollbackResultIfNeeded(tournament, roundNumber, pairing) {
   const white = tournament.players.find((p) => p.id === pairing.whiteId);
   const black = tournament.players.find((p) => p.id === pairing.blackId);
@@ -5489,16 +5778,29 @@ function rollbackResultIfNeeded(tournament, roundNumber, pairing) {
   }
 
   if (pairing.result === "1-0") {
-    white.score -= 1;
+    if (pairing.isMicromatch) {
+      white.score -= 2;
+    } else {
+      white.score -= 1;
+    }
   }
 
   if (pairing.result === "0-1") {
-    black.score -= 1;
+    if (pairing.isMicromatch) {
+      black.score -= 2;
+    } else {
+      black.score -= 1;
+    }
   }
 
   if (pairing.result === "0.5-0.5") {
-    white.score -= 0.5;
-    black.score -= 0.5;
+    if (pairing.isMicromatch) {
+      white.score -= 1;
+      black.score -= 1;
+    } else {
+      white.score -= 0.5;
+      black.score -= 0.5;
+    }
   }
 
   delete white.resultsByRound[roundNumber];
@@ -5512,7 +5814,63 @@ function isLastRoundComplete(tournament) {
   }
 
   const lastRound = tournament.rounds[tournament.rounds.length - 1];
-  return lastRound.pairings.every((pair) => !pair.blackId || pair.result !== "pending");
+  return lastRound.pairings.every((pair) => {
+    if (!pair.blackId) {
+      return true;
+    }
+    if (!pair.isMicromatch) {
+      return pair.result !== "pending";
+    }
+    return Array.isArray(pair.gameResults) && pair.gameResults.length === 2 && pair.gameResults.every((x) => x !== "pending");
+  });
+}
+
+function getPairSmallPointsForPlayer(pair, playerId) {
+  if (!pair || !pair.blackId) {
+    return 0;
+  }
+
+  const playerIsWhite = pair.whiteId === playerId;
+  if (!playerIsWhite && pair.blackId !== playerId) {
+    return 0;
+  }
+
+  if (pair.isMicromatch && Array.isArray(pair.gameResults) && pair.gameResults.length === 2) {
+    return pair.gameResults.reduce((sum, resultValue) => sum + getMicromatchGameSmallPoints(resultValue, playerIsWhite), 0);
+  }
+
+  const result = String(pair.result || "");
+  if (result === "1-0") {
+    return playerIsWhite ? 2 : 0;
+  }
+  if (result === "0-1") {
+    return playerIsWhite ? 0 : 2;
+  }
+  if (result === "0.5-0.5") {
+    return 1;
+  }
+  return 0;
+}
+
+function getTotalSmallPoints(tournament, player) {
+  const byeSmall = getTournamentByeSmallPoints(tournament);
+  let total = 0;
+
+  for (const round of tournament.rounds || []) {
+    const game = (round.pairings || []).find((pair) => pair.whiteId === player.id || pair.blackId === player.id);
+    if (!game) {
+      continue;
+    }
+
+    if (!game.blackId) {
+      total += byeSmall;
+      continue;
+    }
+
+    total += getPairSmallPointsForPlayer(game, player.id);
+  }
+
+  return total;
 }
 
 function getBuchholz(tournament, player) {
@@ -5607,14 +5965,25 @@ function getHeadToHeadPointsForGroup(tournament, player, tiedIdSet) {
         continue;
       }
 
-      if (game.result === "0.5-0.5") {
-        total += 0.5;
-        continue;
-      }
+      if (tournament.isMicromatch) {
+        if (game.result === "0.5-0.5") {
+          total += 1;
+          continue;
+        }
 
-      const playerIsWhite = game.whiteId === player.id;
-      const didPlayerWin = (playerIsWhite && game.result === "1-0") || (!playerIsWhite && game.result === "0-1");
-      total += didPlayerWin ? 1 : 0;
+        const playerIsWhite = game.whiteId === player.id;
+        const didPlayerWin = (playerIsWhite && game.result === "1-0") || (!playerIsWhite && game.result === "0-1");
+        total += didPlayerWin ? 2 : 0;
+      } else {
+        if (game.result === "0.5-0.5") {
+          total += 0.5;
+          continue;
+        }
+
+        const playerIsWhite = game.whiteId === player.id;
+        const didPlayerWin = (playerIsWhite && game.result === "1-0") || (!playerIsWhite && game.result === "0-1");
+        total += didPlayerWin ? 1 : 0;
+      }
     }
   }
 
@@ -5625,6 +5994,7 @@ function getStandings(tournament) {
   const enriched = tournament.players.map((p) => ({
     ...p,
     h2h: 0,
+    smallPoints: getTotalSmallPoints(tournament, p),
     wins: getWins(p),
     buchholz: getBuchholz(tournament, p),
     solkPlus: getSolkPlus(tournament, p),
@@ -5633,8 +6003,9 @@ function getStandings(tournament) {
   }));
 
   const grouped = new Map();
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
   for (const player of enriched) {
-    const key = Number(player.score).toFixed(4);
+    const key = Number(player[primaryMetric]).toFixed(4);
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }
@@ -5665,6 +6036,16 @@ function getStandings(tournament) {
         if (aManual === null && bManual !== null) {
           return 1;
         }
+      }
+
+      if (primaryMetric === "smallPoints" && b.smallPoints !== a.smallPoints) {
+        return b.smallPoints - a.smallPoints;
+      }
+      if (primaryMetric === "score" && b.score !== a.score) {
+        return b.score - a.score;
+      }
+      if (tournament.isMicromatch && tournament.scoreCalculationType === "big_points" && b.smallPoints !== a.smallPoints) {
+        return b.smallPoints - a.smallPoints;
       }
 
       for (const criterion of criteria) {
@@ -5729,16 +6110,20 @@ function buildRoundCells(tournament, player, placeById) {
 
     let result = "*";
     const r = player.resultsByRound[roundNo];
+    let toneClass = "chip-empty";
     if (r === "W") {
       result = "1";
+      toneClass = "chip-win";
     } else if (r === "D") {
       result = "0.5";
+      toneClass = "chip-draw";
     } else if (r === "L") {
       result = "0";
+      toneClass = "chip-loss";
     }
 
     const tooltip = opponent ? `Суперник: ${opponent.name} (місце ${oppNo})` : "Суперник невідомий";
-    html += `<td><span class="round-chip" data-tooltip="${escapeHtml(tooltip)}">${oppNo}${color} ${result}</span></td>`;
+    html += `<td><span class="round-chip ${toneClass}" data-tooltip="${escapeHtml(tooltip)}">${oppNo}${color} ${result}</span></td>`;
   }
 
   return html;
@@ -6043,6 +6428,8 @@ function mapApiTournamentToState(row) {
     id: row.id,
     name: row.name || payload.name || "Турнір",
     format: row.format === "round_robin" ? "round_robin" : "swiss",
+    isMicromatch: Boolean(payload.isMicromatch),
+    scoreCalculationType: payload.scoreCalculationType === "small_points" ? "small_points" : "big_points",
     eventDate: row.event_date || payload.eventDate || "",
     timeControl: row.time_control || payload.timeControl || "",
     chiefJudge: row.chief_judge || payload.chiefJudge || "",
@@ -6243,6 +6630,8 @@ function buildTournamentApiPayload(tournament, status) {
       updatedAt: tournament.updatedAt || new Date().toISOString(),
       finishedAt: archivedAt,
       tieBreakOrder,
+      isMicromatch: Boolean(tournament.isMicromatch),
+      scoreCalculationType: tournament.scoreCalculationType === "small_points" ? "small_points" : "big_points",
       photoDataUrl: tournament.photoDataUrl || null,
       eventDate: normalizeBirthDate(tournament.eventDate) || "",
       timeControl: normalizeTimeControl(tournament.timeControl),
@@ -6568,9 +6957,13 @@ function finishCurrentTournament() {
 }
 
 function validateManualPlacesForTiedScores(tournament) {
+  const standings = getStandings(tournament);
+  const byId = new Map(standings.map((player) => [player.id, player]));
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
   const grouped = new Map();
   for (const player of tournament.players || []) {
-    const key = Number(player.score).toFixed(4);
+    const enrichedPlayer = byId.get(player.id) || player;
+    const key = Number(enrichedPlayer[primaryMetric] || 0).toFixed(4);
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }

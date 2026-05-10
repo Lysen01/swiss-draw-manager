@@ -68,6 +68,11 @@ function bindEvents() {
       return;
     }
 
+    if (Boolean(draft.isMicromatch) !== Boolean(t.isMicromatch) && t.currentRound > 0) {
+      alert("Після старту турніру не можна змінити режим мікроматчів.");
+      return;
+    }
+
     if (nextFormat === "swiss") {
       const maxRounds = getMaxRoundsByFormat(nextFormat, t.players.length);
       if (maxRounds > 0 && nextRounds > maxRounds) {
@@ -83,6 +88,8 @@ function bindEvents() {
     t.name = draft.name || "Турнір";
     t.roundsCount = nextRounds;
     t.format = nextFormat;
+    t.isMicromatch = Boolean(draft.isMicromatch);
+    t.scoreCalculationType = t.isMicromatch && draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
     t.eventDate = nextEventDate;
     t.timeControl = draft.timeControl;
     t.chiefJudge = draft.chiefJudge;
@@ -139,6 +146,24 @@ function bindEvents() {
     ensureTournamentSettingsDraftForCurrentTournament();
     tournamentSettingsDraft.chiefJudge = normalizeChiefJudge(els.tournamentChiefJudge.value);
   });
+
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.addEventListener("change", () => {
+      ensureTournamentSettingsDraftForCurrentTournament();
+      tournamentSettingsDraft.isMicromatch = Boolean(els.tournamentIsMicromatch.checked);
+      if (!tournamentSettingsDraft.isMicromatch) {
+        tournamentSettingsDraft.scoreCalculationType = "big_points";
+      }
+      renderScoreCalculationControls();
+    });
+  }
+
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.addEventListener("change", () => {
+      ensureTournamentSettingsDraftForCurrentTournament();
+      tournamentSettingsDraft.scoreCalculationType = els.scoreCalculationType.value === "small_points" ? "small_points" : "big_points";
+    });
+  }
 
   els.tournamentRemovePhoto.addEventListener("change", () => {
     ensureTournamentSettingsDraftForCurrentTournament();
@@ -561,16 +586,28 @@ function bindEvents() {
   }
 
   els.pairings.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-action='set-pair-result']");
+    const btn = event.target.closest("button[data-action]");
     if (!btn || btn.disabled) {
       return;
     }
 
-    const roundIdx = Number(btn.dataset.roundIdx);
-    const board = Number(btn.dataset.board);
-    const currentValue = btn.dataset.current || "pending";
-    const nextValue = btn.dataset.resultValue || "pending";
-    updateResult(roundIdx, board, currentValue === nextValue ? "pending" : nextValue);
+    if (btn.dataset.action === "set-pair-result") {
+      const roundIdx = Number(btn.dataset.roundIdx);
+      const board = Number(btn.dataset.board);
+      const currentValue = btn.dataset.current || "pending";
+      const nextValue = btn.dataset.resultValue || "pending";
+      updateResult(roundIdx, board, currentValue === nextValue ? "pending" : nextValue);
+      return;
+    }
+
+    if (btn.dataset.action === "set-pair-game-result") {
+      const roundIdx = Number(btn.dataset.roundIdx);
+      const board = Number(btn.dataset.board);
+      const gameIndex = Number(btn.dataset.gameIndex);
+      const currentValue = btn.dataset.current || "pending";
+      const nextValue = btn.dataset.resultValue || "pending";
+      updateMicromatchGameResult(roundIdx, board, gameIndex, currentValue === nextValue ? "pending" : nextValue);
+    }
   });
 
   els.standings.addEventListener("change", (event) => {

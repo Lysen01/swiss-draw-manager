@@ -10,6 +10,13 @@ function renderTournamentTab() {
   els.tournamentName.value = draft.name;
   els.roundsCount.value = draft.roundsCount;
   els.tournamentFormat.value = draft.format;
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.checked = Boolean(draft.isMicromatch);
+  }
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
+  }
+  renderScoreCalculationControls();
   els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);

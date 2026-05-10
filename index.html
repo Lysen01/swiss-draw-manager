@@ -68,6 +68,17 @@
               Головний суддя
               <input id="tournamentChiefJudge" type="text" placeholder="Наприклад: Іваненко І.І." />
             </label>
+            <label class="check-inline check-inline--row">
+              <input id="tournamentIsMicromatch" type="checkbox" />
+              Грати мікроматчі (2 партії)
+            </label>
+            <label id="scoreCalculationWrap" hidden>
+              Основний критерій у мікроматчі
+              <select id="scoreCalculationType">
+                <option value="big_points">Великі очки</option>
+                <option value="small_points">Малі очки</option>
+              </select>
+            </label>
             <label>
               Фото турніру
               <input id="tournamentPhoto" type="file" accept="image/*" />
