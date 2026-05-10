@@ -709,6 +709,9 @@ function bindEvents() {
       selectedBasePlayerProfileId = playerId || null;
       selectedBasePlayerProfileTab = "ranking";
       renderBasePlayersTab();
+      if (els.basePlayerProfile && selectedBasePlayerProfileId) {
+        els.basePlayerProfile.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
 
     if (action === "sort-base-column") {
