@@ -786,11 +786,28 @@ function renderStandings() {
   const t = state.currentTournament;
   const showRoundDetails = t.status !== "archived_view";
   const tieGroups = getScoreTieGroupsForDisplay(t);
+  const quickActions = buildStandingsQuickActions(t, tieGroups);
   const manualHint =
     t.status === "active" && tieGroups.length > 0
       ? '<div class="manual-place-hint">Є гравці з однаковими очками. У колонці "Місце" оберіть підсумкові місця перед завершенням турніру.</div>'
       : "";
-  els.standings.innerHTML = `${manualHint}${buildStandingsTableHtml(t, { showRoundDetails })}`;
+  els.standings.innerHTML = `${quickActions}${manualHint}${buildStandingsTableHtml(t, { showRoundDetails })}`;
+}
+
+function buildStandingsQuickActions(tournament, tieGroups) {
+  if (!tournament || tournament.status !== "active") {
+    return "";
+  }
+
+  const hasTies = tieGroups.length > 0;
+  return `
+    <details class="standings-quick-actions">
+      <summary>Швидкі дії таблиці</summary>
+      <div class="standings-quick-actions__body">
+        <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Підтвердити авто-місця</button>
+        <button type="button" class="danger" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
+      </div>
+    </details>`;
 }
 
 function buildStandingsTableHtml(tournament, options = {}) {

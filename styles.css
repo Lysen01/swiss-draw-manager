@@ -1644,6 +1644,33 @@ label.base-pick-item {
   font-weight: 600;
 }
 
+.standings-quick-actions {
+  margin: 0 0 10px;
+  border: 1px solid #c9d5ea;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.standings-quick-actions > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.standings-quick-actions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.standings-quick-actions__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
 .place-edit select {
   min-width: 86px;
   padding: 6px 10px;

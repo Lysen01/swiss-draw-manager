@@ -694,6 +694,22 @@ function bindEvents() {
     saveAndRender();
   });
 
+  els.standings.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    if (btn.dataset.action === "confirm-auto-places") {
+      applyAutoPlacesForTiedScores(state.currentTournament);
+      return;
+    }
+
+    if (btn.dataset.action === "emergency-finish-tournament") {
+      emergencyFinishCurrentTournament();
+    }
+  });
+
   els.playersList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {

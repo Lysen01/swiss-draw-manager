@@ -938,6 +938,22 @@ function bindEvents() {
     saveAndRender();
   });
 
+  els.standings.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) {
+      return;
+    }
+
+    if (btn.dataset.action === "confirm-auto-places") {
+      applyAutoPlacesForTiedScores(state.currentTournament);
+      return;
+    }
+
+    if (btn.dataset.action === "emergency-finish-tournament") {
+      emergencyFinishCurrentTournament();
+    }
+  });
+
   els.playersList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
@@ -2432,11 +2448,28 @@ function renderStandings() {
   const t = state.currentTournament;
   const showRoundDetails = t.status !== "archived_view";
   const tieGroups = getScoreTieGroupsForDisplay(t);
+  const quickActions = buildStandingsQuickActions(t, tieGroups);
   const manualHint =
     t.status === "active" && tieGroups.length > 0
       ? '<div class="manual-place-hint">Є гравці з однаковими очками. У колонці "Місце" оберіть підсумкові місця перед завершенням турніру.</div>'
       : "";
-  els.standings.innerHTML = `${manualHint}${buildStandingsTableHtml(t, { showRoundDetails })}`;
+  els.standings.innerHTML = `${quickActions}${manualHint}${buildStandingsTableHtml(t, { showRoundDetails })}`;
+}
+
+function buildStandingsQuickActions(tournament, tieGroups) {
+  if (!tournament || tournament.status !== "active") {
+    return "";
+  }
+
+  const hasTies = tieGroups.length > 0;
+  return `
+    <details class="standings-quick-actions">
+      <summary>Швидкі дії таблиці</summary>
+      <div class="standings-quick-actions__body">
+        <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Підтвердити авто-місця</button>
+        <button type="button" class="danger" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
+      </div>
+    </details>`;
 }
 
 function buildStandingsTableHtml(tournament, options = {}) {
@@ -7175,6 +7208,78 @@ function finishCurrentTournament() {
   state.archivePreviewTournamentId = null;
   saveAndRender();
   alert("Турнір завершено і перенесено в архів.");
+}
+
+function emergencyFinishCurrentTournament() {
+  const t = state.currentTournament;
+  if (!t || t.status === "archived_view") {
+    return;
+  }
+
+  const title = (t.name || "турнір").trim();
+  const confirmed = confirm(
+    `Екстрено завершити "${title}" без архівування?\n\nУВАГА: дані поточного турніру буде скинуто, в архів цей турнір не потрапить.`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  state.currentTournament = createDefaultTournament();
+  tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+  state.activeTab = "tournament";
+  state.tournamentView = "setup";
+  state.archivePreviewTournamentId = null;
+  manualRoundBuilderOpen = false;
+  saveAndRender();
+  alert("Турнір екстрено завершено без архівування.");
+}
+
+function applyAutoPlacesForTiedScores(tournament) {
+  if (!tournament || tournament.status !== "active") {
+    return;
+  }
+
+  const standings = getStandings(tournament);
+  if (!standings.length) {
+    return;
+  }
+
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
+  let changed = false;
+  let cursor = 1;
+  let idx = 0;
+
+  while (idx < standings.length) {
+    const key = Number(standings[idx][primaryMetric] || 0).toFixed(4);
+    let end = idx + 1;
+    while (end < standings.length && Number(standings[end][primaryMetric] || 0).toFixed(4) === key) {
+      end += 1;
+    }
+
+    const groupSize = end - idx;
+    if (groupSize > 1) {
+      for (let i = idx; i < end; i += 1) {
+        const player = tournament.players.find((p) => p.id === standings[i].id);
+        const place = cursor + (i - idx);
+        if (player && player.manualPlace !== place) {
+          player.manualPlace = place;
+          changed = true;
+        }
+      }
+    }
+
+    cursor += groupSize;
+    idx = end;
+  }
+
+  if (!changed) {
+    alert("Авто-місця вже підтверджені.");
+    return;
+  }
+
+  tournament.updatedAt = new Date().toISOString();
+  saveAndRender();
+  alert("Система підтвердила авто-місця для груп з однаковими очками.");
 }
 
 function validateManualPlacesForTiedScores(tournament) {

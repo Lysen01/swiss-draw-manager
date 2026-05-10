@@ -824,6 +824,78 @@ function finishCurrentTournament() {
   alert("Турнір завершено і перенесено в архів.");
 }
 
+function emergencyFinishCurrentTournament() {
+  const t = state.currentTournament;
+  if (!t || t.status === "archived_view") {
+    return;
+  }
+
+  const title = (t.name || "турнір").trim();
+  const confirmed = confirm(
+    `Екстрено завершити "${title}" без архівування?\n\nУВАГА: дані поточного турніру буде скинуто, в архів цей турнір не потрапить.`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  state.currentTournament = createDefaultTournament();
+  tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+  state.activeTab = "tournament";
+  state.tournamentView = "setup";
+  state.archivePreviewTournamentId = null;
+  manualRoundBuilderOpen = false;
+  saveAndRender();
+  alert("Турнір екстрено завершено без архівування.");
+}
+
+function applyAutoPlacesForTiedScores(tournament) {
+  if (!tournament || tournament.status !== "active") {
+    return;
+  }
+
+  const standings = getStandings(tournament);
+  if (!standings.length) {
+    return;
+  }
+
+  const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
+  let changed = false;
+  let cursor = 1;
+  let idx = 0;
+
+  while (idx < standings.length) {
+    const key = Number(standings[idx][primaryMetric] || 0).toFixed(4);
+    let end = idx + 1;
+    while (end < standings.length && Number(standings[end][primaryMetric] || 0).toFixed(4) === key) {
+      end += 1;
+    }
+
+    const groupSize = end - idx;
+    if (groupSize > 1) {
+      for (let i = idx; i < end; i += 1) {
+        const player = tournament.players.find((p) => p.id === standings[i].id);
+        const place = cursor + (i - idx);
+        if (player && player.manualPlace !== place) {
+          player.manualPlace = place;
+          changed = true;
+        }
+      }
+    }
+
+    cursor += groupSize;
+    idx = end;
+  }
+
+  if (!changed) {
+    alert("Авто-місця вже підтверджені.");
+    return;
+  }
+
+  tournament.updatedAt = new Date().toISOString();
+  saveAndRender();
+  alert("Система підтвердила авто-місця для груп з однаковими очками.");
+}
+
 function validateManualPlacesForTiedScores(tournament) {
   const standings = getStandings(tournament);
   const byId = new Map(standings.map((player) => [player.id, player]));
