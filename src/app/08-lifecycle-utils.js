@@ -163,6 +163,8 @@ async function bootstrapPersistence() {
       lastSyncedAt: new Date().toISOString(),
     });
 
+    const preferLocalState = shouldPreferLocalStateOverRemote(state, tournamentRows);
+
     if (!remoteHasData && localHasData && hasStoredLocalState) {
       setPersistenceInfo({
         mode: "remote",
@@ -171,6 +173,14 @@ async function bootstrapPersistence() {
         lastSyncedAt: "",
       });
       scheduleRemoteSync("bootstrap-seed");
+    } else if (preferLocalState) {
+      setPersistenceInfo({
+        mode: "remote",
+        status: "ready",
+        message: "Знайдено новіші локальні зміни. Синхронізую їх у Render...",
+        lastSyncedAt: "",
+      });
+      scheduleRemoteSync("bootstrap-local-newer");
     } else if (stateRevision === remoteBootstrapRevision) {
       state = buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows);
       tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
@@ -244,6 +254,54 @@ function buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows) {
   rebuildPlayerBaseHistoryForState(nextState);
 
   return nextState;
+}
+
+function getTournamentStateFreshnessTimestamp(tournament) {
+  if (!tournament) {
+    return 0;
+  }
+  const iso = tournament.finishedAt || tournament.updatedAt || tournament.createdAt || null;
+  const value = iso ? new Date(iso).getTime() : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function getAppStateFreshnessTimestamp(appState) {
+  if (!appState) {
+    return 0;
+  }
+  let latest = 0;
+  latest = Math.max(latest, getTournamentStateFreshnessTimestamp(appState.currentTournament));
+  for (const archived of appState.tournamentsArchive || []) {
+    latest = Math.max(latest, getTournamentStateFreshnessTimestamp(archived));
+  }
+  return latest;
+}
+
+function getRemoteTournamentFreshnessTimestamp(tournamentRows) {
+  if (!Array.isArray(tournamentRows) || tournamentRows.length === 0) {
+    return 0;
+  }
+  let latest = 0;
+  for (const row of tournamentRows) {
+    const iso = row?.archived_at || row?.updated_at || row?.created_at || null;
+    const ts = iso ? new Date(iso).getTime() : 0;
+    if (Number.isFinite(ts)) {
+      latest = Math.max(latest, ts);
+    }
+  }
+  return latest;
+}
+
+function shouldPreferLocalStateOverRemote(localState, remoteTournamentRows) {
+  if (!hasStoredLocalState || !hasMeaningfulAppState(localState) || !Array.isArray(remoteTournamentRows) || remoteTournamentRows.length === 0) {
+    return false;
+  }
+  const localTs = getAppStateFreshnessTimestamp(localState);
+  const remoteTs = getRemoteTournamentFreshnessTimestamp(remoteTournamentRows);
+  if (!localTs || !remoteTs) {
+    return false;
+  }
+  return localTs > remoteTs;
 }
 
 function mapApiPlayerToBasePlayer(row) {
@@ -569,6 +627,17 @@ function scheduleRemoteSync(_reason = "state-change") {
   }, REMOTE_SYNC_DEBOUNCE_MS);
 }
 
+function flushRemoteSyncNow(_reason = "manual-sync") {
+  if (persistenceInfo.mode !== "remote") {
+    return;
+  }
+  if (remoteSyncTimerId) {
+    window.clearTimeout(remoteSyncTimerId);
+    remoteSyncTimerId = null;
+  }
+  void flushRemoteSync();
+}
+
 async function flushRemoteSync() {
   if (persistenceInfo.mode !== "remote") {
     return;
@@ -821,6 +890,7 @@ function finishCurrentTournament() {
   state.tournamentView = "setup";
   state.archivePreviewTournamentId = null;
   saveAndRender();
+  flushRemoteSyncNow("finish-tournament");
   alert("Турнір завершено і перенесено в архів.");
 }
 
