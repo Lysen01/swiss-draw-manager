@@ -1,4 +1,35 @@
 function bindEvents() {
+  const adminOnlyActions = new Set([
+    "edit-club",
+    "delete-club",
+    "open-club-manage",
+    "toggle-club-player-add",
+    "toggle-club-coach-add",
+    "add-to-tournament",
+    "edit-club-coach",
+    "edit-club-player",
+    "remove-player-from-club",
+    "delete-base-player",
+    "edit-base-player",
+    "remove-tour-player",
+    "edit-tour-player",
+    "delete-archive",
+    "confirm-auto-places",
+    "finish-tournament-from-table",
+    "emergency-finish-tournament",
+  ]);
+
+  const blockIfViewerAction = (action) => {
+    if (!adminOnlyActions.has(String(action || ""))) {
+      return false;
+    }
+    if (canManageAdminUi()) {
+      return false;
+    }
+    alert("Режим перегляду: ця дія доступна тільки адміністратору.");
+    return true;
+  };
+
   if (els.authForm) {
     els.authForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -86,6 +117,10 @@ function bindEvents() {
 
   els.settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: редагування налаштувань турніру доступне лише адміністратору.");
+      return;
+    }
     captureTournamentSettingsDraftFromForm();
     const t = state.currentTournament;
     ensureTournamentSettingsDraftForCurrentTournament();
@@ -318,9 +353,17 @@ function bindEvents() {
   });
 
   els.generateRoundBtn.addEventListener("click", () => {
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: генерація туру доступна лише адміністратору.");
+      return;
+    }
     generateNextRound();
   });
   els.manualRoundBtn.addEventListener("click", () => {
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: ручне формування туру доступне лише адміністратору.");
+      return;
+    }
     captureTournamentSettingsDraftFromForm();
     manualRoundBuilderOpen = !manualRoundBuilderOpen;
     render();
@@ -372,11 +415,19 @@ function bindEvents() {
   }
 
   els.finishTournamentBtn.addEventListener("click", () => {
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: завершення турніру доступне лише адміністратору.");
+      return;
+    }
     finishCurrentTournament();
   });
 
   if (els.resetBtn) {
     els.resetBtn.addEventListener("click", () => {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: створення нового турніру доступне лише адміністратору.");
+        return;
+      }
       captureTournamentSettingsDraftFromForm();
       createNewTournamentFlow();
     });
@@ -384,11 +435,19 @@ function bindEvents() {
 
   els.basePlayerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: додавання гравців доступне лише адміністратору.");
+      return;
+    }
     await submitBasePlayerForm();
   });
 
   if (els.openBasePlayerFormBtn) {
     els.openBasePlayerFormBtn.addEventListener("click", () => {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: додавання гравців доступне лише адміністратору.");
+        return;
+      }
       if (showBasePlayerAddForm) {
         resetBasePlayerForm({ keepOpen: false });
         return;
@@ -435,6 +494,10 @@ function bindEvents() {
 
   els.clubForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: редагування клубів доступне лише адміністратору.");
+      return;
+    }
     await submitClubForm();
   });
 
@@ -444,6 +507,10 @@ function bindEvents() {
 
   els.coachForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: редагування тренерів доступне лише адміністратору.");
+      return;
+    }
     await submitCoachForm();
   });
 
@@ -453,6 +520,10 @@ function bindEvents() {
 
   if (els.openAddClubBtn) {
     els.openAddClubBtn.addEventListener("click", () => {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування клубів доступне лише адміністратору.");
+        return;
+      }
       resetClubForm();
       resetCoachForm();
       selectedClubsView = "manage";
@@ -470,6 +541,9 @@ function bindEvents() {
 
     const clubId = btn.dataset.clubId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "view-club") {
       selectedClubProfileId = clubId || null;
@@ -507,12 +581,24 @@ function bindEvents() {
     }
     event.preventDefault();
     if (form.dataset.action === "quick-add-club-player") {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування доступне лише адміністратору.");
+        return;
+      }
       await submitQuickClubPlayerForm(form);
     }
     if (form.dataset.action === "attach-existing-player") {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування доступне лише адміністратору.");
+        return;
+      }
       submitAttachExistingPlayerToClubForm(form);
     }
     if (form.dataset.action === "quick-add-club-coach") {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування доступне лише адміністратору.");
+        return;
+      }
       await submitQuickClubCoachForm(form);
     }
   });
@@ -520,6 +606,9 @@ function bindEvents() {
   els.clubProfile.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
+      return;
+    }
+    if (blockIfViewerAction(btn.dataset.action)) {
       return;
     }
 
@@ -613,6 +702,9 @@ function bindEvents() {
 
     const playerId = btn.dataset.playerId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "add-to-tournament") {
       addBasePlayerToTournament(playerId);
@@ -763,6 +855,9 @@ function bindEvents() {
     captureTournamentSettingsDraftFromForm();
     const playerId = btn.dataset.playerId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "edit-tour-player") {
       editTournamentPlayer(playerId);
@@ -781,6 +876,9 @@ function bindEvents() {
 
     const tournamentId = btn.dataset.tournamentId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "open-archive") {
       openArchivePreview(tournamentId);

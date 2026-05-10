@@ -1,4 +1,13 @@
 function renderBasePlayersTab() {
+  const canManage = canManageAdminUi();
+  if (els.openBasePlayerFormBtn) {
+    els.openBasePlayerFormBtn.hidden = !canManage;
+  }
+  if (!canManage) {
+    showBasePlayerAddForm = false;
+    editingBasePlayerId = null;
+  }
+  syncBasePlayerFormVisibility();
   renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
   renderBasePlayersClubFilter();
   const filteredPlayers = filterBasePlayers(state.playerBase);
@@ -13,13 +22,20 @@ function renderBasePlayersTab() {
   els.basePlayersSummary.textContent = `Показано ${sortedPlayers.length} з ${totalPlayers} гравців${filtersActive ? " за фільтром" : ""}.`;
   const rows = sortedPlayers
     .map((p) => {
+      const actionsHtml = canManage
+        ? `
+            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
+            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
+          `
+        : `
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
+          `;
       return `
       <tr>
         <td>
           <div class="row-actions">
-            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
-            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
-            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
+            ${actionsHtml}
           </div>
         </td>
         <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>

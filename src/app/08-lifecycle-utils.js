@@ -36,6 +36,15 @@ function getRoleLabel(role) {
   return "Перегляд";
 }
 
+function canManageAdminUi() {
+  if (persistenceInfo.mode !== "remote") {
+    return true;
+  }
+
+  const role = String(authUser?.role || "");
+  return role === "admin" || role === "super_admin";
+}
+
 function renderAuthPanel() {
   if (!els.authStatus) {
     return;

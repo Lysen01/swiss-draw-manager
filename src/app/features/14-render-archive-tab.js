@@ -1,4 +1,5 @@
 function renderArchiveTab() {
+  const canManage = canManageAdminUi();
   if (els.tournamentsSearch) {
     els.tournamentsSearch.value = tournamentsSearchQuery;
   }
@@ -88,7 +89,7 @@ function renderArchiveTab() {
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
             <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
-            <button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>`
+            ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
       return `

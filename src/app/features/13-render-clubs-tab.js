@@ -1,7 +1,14 @@
 function renderClubsTab() {
+  const canManage = canManageAdminUi();
   renderCoachClubSelector();
   if (!els.clubsList || !els.clubProfile) {
     return;
+  }
+  if (els.openAddClubBtn) {
+    els.openAddClubBtn.hidden = !canManage;
+  }
+  if (!canManage && selectedClubsView === "manage") {
+    selectedClubsView = "directory";
   }
   renderClubsSubtabs();
 
@@ -14,7 +21,7 @@ function renderClubsTab() {
   }
 
   if (!clubs.length) {
-    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Натисніть "Додати клуб".</div>';
+    els.clubsList.innerHTML = `<div class="club-card">Клубів поки немає.${canManage ? ' Натисніть "Додати клуб".' : ""}</div>`;
     els.clubProfile.innerHTML = renderIndependentPlayersBlock();
     if (selectedClubsView === "profile") {
       selectedClubsView = "directory";
@@ -48,8 +55,13 @@ function renderClubsTab() {
           ${descriptionHtml}
           <div class="row-actions">
             <button type="button" data-action="view-club" data-club-id="${club.id}">Відкрити</button>
+            ${
+              canManage
+                ? `
             <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
-            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>
+            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>`
+                : ""
+            }
           </div>
         </article>`;
     })

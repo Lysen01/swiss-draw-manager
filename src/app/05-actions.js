@@ -242,8 +242,10 @@ function syncBasePlayerFormVisibility() {
     return;
   }
 
-  const shouldShow = Boolean(showBasePlayerAddForm || editingBasePlayerId);
+  const canManage = canManageAdminUi();
+  const shouldShow = canManage && Boolean(showBasePlayerAddForm || editingBasePlayerId);
   els.basePlayerFormWrap.classList.toggle("tour-view-hidden", !shouldShow);
+  els.openBasePlayerFormBtn.hidden = !canManage;
   els.openBasePlayerFormBtn.textContent = shouldShow ? "Сховати форму" : "Додати гравця";
   els.openBasePlayerFormBtn.setAttribute("aria-expanded", shouldShow ? "true" : "false");
 }

@@ -253,6 +253,37 @@ const els = {
 
 // ===== 02-events.js =====
 function bindEvents() {
+  const adminOnlyActions = new Set([
+    "edit-club",
+    "delete-club",
+    "open-club-manage",
+    "toggle-club-player-add",
+    "toggle-club-coach-add",
+    "add-to-tournament",
+    "edit-club-coach",
+    "edit-club-player",
+    "remove-player-from-club",
+    "delete-base-player",
+    "edit-base-player",
+    "remove-tour-player",
+    "edit-tour-player",
+    "delete-archive",
+    "confirm-auto-places",
+    "finish-tournament-from-table",
+    "emergency-finish-tournament",
+  ]);
+
+  const blockIfViewerAction = (action) => {
+    if (!adminOnlyActions.has(String(action || ""))) {
+      return false;
+    }
+    if (canManageAdminUi()) {
+      return false;
+    }
+    alert("Режим перегляду: ця дія доступна тільки адміністратору.");
+    return true;
+  };
+
   if (els.authForm) {
     els.authForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -340,6 +371,10 @@ function bindEvents() {
 
   els.settingsForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: редагування налаштувань турніру доступне лише адміністратору.");
+      return;
+    }
     captureTournamentSettingsDraftFromForm();
     const t = state.currentTournament;
     ensureTournamentSettingsDraftForCurrentTournament();
@@ -572,9 +607,17 @@ function bindEvents() {
   });
 
   els.generateRoundBtn.addEventListener("click", () => {
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: генерація туру доступна лише адміністратору.");
+      return;
+    }
     generateNextRound();
   });
   els.manualRoundBtn.addEventListener("click", () => {
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: ручне формування туру доступне лише адміністратору.");
+      return;
+    }
     captureTournamentSettingsDraftFromForm();
     manualRoundBuilderOpen = !manualRoundBuilderOpen;
     render();
@@ -626,11 +669,19 @@ function bindEvents() {
   }
 
   els.finishTournamentBtn.addEventListener("click", () => {
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: завершення турніру доступне лише адміністратору.");
+      return;
+    }
     finishCurrentTournament();
   });
 
   if (els.resetBtn) {
     els.resetBtn.addEventListener("click", () => {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: створення нового турніру доступне лише адміністратору.");
+        return;
+      }
       captureTournamentSettingsDraftFromForm();
       createNewTournamentFlow();
     });
@@ -638,11 +689,19 @@ function bindEvents() {
 
   els.basePlayerForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: додавання гравців доступне лише адміністратору.");
+      return;
+    }
     await submitBasePlayerForm();
   });
 
   if (els.openBasePlayerFormBtn) {
     els.openBasePlayerFormBtn.addEventListener("click", () => {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: додавання гравців доступне лише адміністратору.");
+        return;
+      }
       if (showBasePlayerAddForm) {
         resetBasePlayerForm({ keepOpen: false });
         return;
@@ -689,6 +748,10 @@ function bindEvents() {
 
   els.clubForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: редагування клубів доступне лише адміністратору.");
+      return;
+    }
     await submitClubForm();
   });
 
@@ -698,6 +761,10 @@ function bindEvents() {
 
   els.coachForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canManageAdminUi()) {
+      alert("Режим перегляду: редагування тренерів доступне лише адміністратору.");
+      return;
+    }
     await submitCoachForm();
   });
 
@@ -707,6 +774,10 @@ function bindEvents() {
 
   if (els.openAddClubBtn) {
     els.openAddClubBtn.addEventListener("click", () => {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування клубів доступне лише адміністратору.");
+        return;
+      }
       resetClubForm();
       resetCoachForm();
       selectedClubsView = "manage";
@@ -724,6 +795,9 @@ function bindEvents() {
 
     const clubId = btn.dataset.clubId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "view-club") {
       selectedClubProfileId = clubId || null;
@@ -761,12 +835,24 @@ function bindEvents() {
     }
     event.preventDefault();
     if (form.dataset.action === "quick-add-club-player") {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування доступне лише адміністратору.");
+        return;
+      }
       await submitQuickClubPlayerForm(form);
     }
     if (form.dataset.action === "attach-existing-player") {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування доступне лише адміністратору.");
+        return;
+      }
       submitAttachExistingPlayerToClubForm(form);
     }
     if (form.dataset.action === "quick-add-club-coach") {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: редагування доступне лише адміністратору.");
+        return;
+      }
       await submitQuickClubCoachForm(form);
     }
   });
@@ -774,6 +860,9 @@ function bindEvents() {
   els.clubProfile.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
+      return;
+    }
+    if (blockIfViewerAction(btn.dataset.action)) {
       return;
     }
 
@@ -867,6 +956,9 @@ function bindEvents() {
 
     const playerId = btn.dataset.playerId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "add-to-tournament") {
       addBasePlayerToTournament(playerId);
@@ -1017,6 +1109,9 @@ function bindEvents() {
     captureTournamentSettingsDraftFromForm();
     const playerId = btn.dataset.playerId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "edit-tour-player") {
       editTournamentPlayer(playerId);
@@ -1035,6 +1130,9 @@ function bindEvents() {
 
     const tournamentId = btn.dataset.tournamentId;
     const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
 
     if (action === "open-archive") {
       openArchivePreview(tournamentId);
@@ -2753,6 +2851,14 @@ function getTournamentPlayerPhotoDataUrl(player) {
 }
 
 function renderBasePlayersTab() {
+  const canManage = canManageAdminUi();
+  if (els.openBasePlayerFormBtn) {
+    els.openBasePlayerFormBtn.hidden = !canManage;
+  }
+  if (!canManage) {
+    showBasePlayerAddForm = false;
+    editingBasePlayerId = null;
+  }
   syncBasePlayerFormVisibility();
   renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
   renderBasePlayersClubFilter();
@@ -2768,13 +2874,20 @@ function renderBasePlayersTab() {
   els.basePlayersSummary.textContent = `Показано ${sortedPlayers.length} з ${totalPlayers} гравців${filtersActive ? " за фільтром" : ""}.`;
   const rows = sortedPlayers
     .map((p) => {
+      const actionsHtml = canManage
+        ? `
+            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
+            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
+          `
+        : `
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
+          `;
       return `
       <tr>
         <td>
           <div class="row-actions">
-            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
-            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
-            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
+            ${actionsHtml}
           </div>
         </td>
         <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
@@ -2976,9 +3089,16 @@ function formatGenderLabel(value) {
 }
 
 function renderClubsTab() {
+  const canManage = canManageAdminUi();
   renderCoachClubSelector();
   if (!els.clubsList || !els.clubProfile) {
     return;
+  }
+  if (els.openAddClubBtn) {
+    els.openAddClubBtn.hidden = !canManage;
+  }
+  if (!canManage && selectedClubsView === "manage") {
+    selectedClubsView = "directory";
   }
   renderClubsSubtabs();
 
@@ -2991,7 +3111,7 @@ function renderClubsTab() {
   }
 
   if (!clubs.length) {
-    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Натисніть "Додати клуб".</div>';
+    els.clubsList.innerHTML = `<div class="club-card">Клубів поки немає.${canManage ? ' Натисніть "Додати клуб".' : ""}</div>`;
     els.clubProfile.innerHTML = renderIndependentPlayersBlock();
     if (selectedClubsView === "profile") {
       selectedClubsView = "directory";
@@ -3025,8 +3145,13 @@ function renderClubsTab() {
           ${descriptionHtml}
           <div class="row-actions">
             <button type="button" data-action="view-club" data-club-id="${club.id}">Відкрити</button>
+            ${
+              canManage
+                ? `
             <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
-            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>
+            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>`
+                : ""
+            }
           </div>
         </article>`;
     })
@@ -3105,6 +3230,7 @@ function renderClubProfileSwitcher(clubs) {
 }
 
 function renderClubProfile(clubId) {
+  const canManage = canManageAdminUi();
   const club = state.clubs.find((item) => item.id === clubId);
   if (!club) {
     return "";
@@ -3148,11 +3274,15 @@ function renderClubProfile(clubId) {
   const tabContent =
     activeTab === "players"
       ? `
-      <div class="row-actions">
-        <button type="button" data-action="toggle-club-player-add">${playerAddToggleButtonLabel}</button>
-      </div>
       ${
-        showClubPlayerAddForms
+        canManage
+          ? `<div class="row-actions">
+        <button type="button" data-action="toggle-club-player-add">${playerAddToggleButtonLabel}</button>
+      </div>`
+          : ""
+      }
+      ${
+        canManage && showClubPlayerAddForms
           ? `<div class="club-management-grid">
         ${renderAttachExistingPlayerForm(club, coaches)}
         ${renderQuickClubPlayerForm(club, coaches)}
@@ -3163,11 +3293,15 @@ function renderClubProfile(clubId) {
       ${selectedClubPlayerProfileCard}`
       : activeTab === "coaches"
         ? `
-      <div class="row-actions">
-        <button type="button" data-action="toggle-club-coach-add">${coachAddToggleButtonLabel}</button>
-      </div>
       ${
-        showClubCoachAddForm
+        canManage
+          ? `<div class="row-actions">
+        <button type="button" data-action="toggle-club-coach-add">${coachAddToggleButtonLabel}</button>
+      </div>`
+          : ""
+      }
+      ${
+        canManage && showClubCoachAddForm
           ? `<div class="club-management-grid">
         ${renderQuickClubCoachForm(club)}
         ${renderClubCoachesTable(coaches)}
@@ -3187,7 +3321,7 @@ function renderClubProfile(clubId) {
           </div>
           <div class="row-actions">
             <strong>${players.length} гравців</strong>
-            <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
+            ${canManage ? `<button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>` : ""}
           </div>
         </div>
         <div class="player-stat-grid">
@@ -3283,6 +3417,7 @@ function renderQuickClubCoachForm(club) {
 }
 
 function renderClubCoachesTable(coaches) {
+  const canManage = canManageAdminUi();
   if (!coaches.length) {
     return `
       <div class="club-action-panel">
@@ -3302,7 +3437,7 @@ function renderClubCoachesTable(coaches) {
         <td>${escapeHtml(coach.phone || "-")}</td>
         <td>${escapeHtml(coach.email || "-")}</td>
         <td class="wrap-cell">${escapeHtml(coach.bio || "-")}</td>
-        <td><button type="button" data-action="edit-club-coach" data-coach-id="${coach.id}">Редагувати</button></td>
+        ${canManage ? `<td><button type="button" data-action="edit-club-coach" data-coach-id="${coach.id}">Редагувати</button></td>` : ""}
       </tr>`
     )
     .join("");
@@ -3310,7 +3445,7 @@ function renderClubCoachesTable(coaches) {
   return `
     <div class="scroll">
       <table class="table">
-        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th><th>Дії</th></tr></thead>
+        <thead><tr><th>Фото</th><th>Тренер</th><th>Телефон</th><th>Email</th><th>Інфо</th>${canManage ? "<th>Дії</th>" : ""}</tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -3349,6 +3484,7 @@ function renderIndependentPlayersBlock() {
 }
 
 function renderClubPlayersTable(players, options = {}) {
+  const canManage = canManageAdminUi();
   const { compactActions = false } = options;
   if (!players.length) {
     return '<div class="club-empty">У цьому клубі поки немає гравців.</div>';
@@ -3372,10 +3508,10 @@ function renderClubPlayersTable(players, options = {}) {
           <td>
             <div class="row-actions">
               <button type="button" data-action="view-player-profile" data-player-id="${player.id}">Профіль</button>
-              <button type="button" data-action="edit-club-player" data-player-id="${player.id}">Ред.</button>
-              <button type="button" data-action="add-to-tournament" data-player-id="${player.id}">У турнір</button>
+              ${canManage ? `<button type="button" data-action="edit-club-player" data-player-id="${player.id}">Ред.</button>` : ""}
+              ${canManage ? `<button type="button" data-action="add-to-tournament" data-player-id="${player.id}">У турнір</button>` : ""}
               ${
-                player.clubId && !compactActions
+                canManage && player.clubId && !compactActions
                   ? `<button type="button" class="danger" data-action="remove-player-from-club" data-player-id="${player.id}">Відвʼязати</button>`
                   : ""
               }
@@ -3851,6 +3987,7 @@ function renderTournamentJumpButton(tournamentId, title, className = "inline-lin
 }
 
 function renderArchiveTab() {
+  const canManage = canManageAdminUi();
   if (els.tournamentsSearch) {
     els.tournamentsSearch.value = tournamentsSearchQuery;
   }
@@ -3940,7 +4077,7 @@ function renderArchiveTab() {
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
             <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
-            <button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>`
+            ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
       return `
@@ -4221,6 +4358,15 @@ function renderTournamentTab() {
 
 // ===== features/12-render-players-tab.js =====
 function renderBasePlayersTab() {
+  const canManage = canManageAdminUi();
+  if (els.openBasePlayerFormBtn) {
+    els.openBasePlayerFormBtn.hidden = !canManage;
+  }
+  if (!canManage) {
+    showBasePlayerAddForm = false;
+    editingBasePlayerId = null;
+  }
+  syncBasePlayerFormVisibility();
   renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
   renderBasePlayersClubFilter();
   const filteredPlayers = filterBasePlayers(state.playerBase);
@@ -4235,13 +4381,20 @@ function renderBasePlayersTab() {
   els.basePlayersSummary.textContent = `Показано ${sortedPlayers.length} з ${totalPlayers} гравців${filtersActive ? " за фільтром" : ""}.`;
   const rows = sortedPlayers
     .map((p) => {
+      const actionsHtml = canManage
+        ? `
+            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
+            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
+          `
+        : `
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
+          `;
       return `
       <tr>
         <td>
           <div class="row-actions">
-            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
-            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
-            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
+            ${actionsHtml}
           </div>
         </td>
         <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
@@ -4392,9 +4545,16 @@ function renderBasePlayerProfileCard(playerId) {
 
 // ===== features/13-render-clubs-tab.js =====
 function renderClubsTab() {
+  const canManage = canManageAdminUi();
   renderCoachClubSelector();
   if (!els.clubsList || !els.clubProfile) {
     return;
+  }
+  if (els.openAddClubBtn) {
+    els.openAddClubBtn.hidden = !canManage;
+  }
+  if (!canManage && selectedClubsView === "manage") {
+    selectedClubsView = "directory";
   }
   renderClubsSubtabs();
 
@@ -4407,7 +4567,7 @@ function renderClubsTab() {
   }
 
   if (!clubs.length) {
-    els.clubsList.innerHTML = '<div class="club-card">Клубів поки немає. Натисніть "Додати клуб".</div>';
+    els.clubsList.innerHTML = `<div class="club-card">Клубів поки немає.${canManage ? ' Натисніть "Додати клуб".' : ""}</div>`;
     els.clubProfile.innerHTML = renderIndependentPlayersBlock();
     if (selectedClubsView === "profile") {
       selectedClubsView = "directory";
@@ -4441,8 +4601,13 @@ function renderClubsTab() {
           ${descriptionHtml}
           <div class="row-actions">
             <button type="button" data-action="view-club" data-club-id="${club.id}">Відкрити</button>
+            ${
+              canManage
+                ? `
             <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
-            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>
+            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>`
+                : ""
+            }
           </div>
         </article>`;
     })
@@ -4458,6 +4623,7 @@ function renderClubsTab() {
 
 // ===== features/14-render-archive-tab.js =====
 function renderArchiveTab() {
+  const canManage = canManageAdminUi();
   if (els.tournamentsSearch) {
     els.tournamentsSearch.value = tournamentsSearchQuery;
   }
@@ -4547,7 +4713,7 @@ function renderArchiveTab() {
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
             <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
-            <button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>`
+            ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
       return `
@@ -4825,8 +4991,10 @@ function syncBasePlayerFormVisibility() {
     return;
   }
 
-  const shouldShow = Boolean(showBasePlayerAddForm || editingBasePlayerId);
+  const canManage = canManageAdminUi();
+  const shouldShow = canManage && Boolean(showBasePlayerAddForm || editingBasePlayerId);
   els.basePlayerFormWrap.classList.toggle("tour-view-hidden", !shouldShow);
+  els.openBasePlayerFormBtn.hidden = !canManage;
   els.openBasePlayerFormBtn.textContent = shouldShow ? "Сховати форму" : "Додати гравця";
   els.openBasePlayerFormBtn.setAttribute("aria-expanded", shouldShow ? "true" : "false");
 }
@@ -6488,6 +6656,15 @@ function getRoleLabel(role) {
     return "Адміністратор";
   }
   return "Перегляд";
+}
+
+function canManageAdminUi() {
+  if (persistenceInfo.mode !== "remote") {
+    return true;
+  }
+
+  const role = String(authUser?.role || "");
+  return role === "admin" || role === "super_admin";
 }
 
 function renderAuthPanel() {

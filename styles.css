@@ -12,6 +12,10 @@
   --page-pad: clamp(18px, 3vw, 34px);
 }
 
+[hidden] {
+  display: none !important;
+}
+
 * {
   box-sizing: border-box;
 }
