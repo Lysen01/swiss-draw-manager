@@ -5,6 +5,7 @@ const STORAGE_KEY = "swiss-manager-v2";
 const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const KYIV_PRESET_VERSION = "kyiv-v1";
 const API_BASE_URL_STORAGE_KEY = "arbiter-api-origin";
+const AUTH_TOKEN_STORAGE_KEY = "arbiter-auth-token";
 const REMOTE_SYNC_DEBOUNCE_MS = 400;
 const DEFAULT_TOURNAMENT_COVER_URL = "/assets/default-tournament-cover.png";
 const DEFAULT_TIEBREAK_ORDER = ["head_to_head", "buchholz", "solk_plus", "tsolk", "wins"];
@@ -123,6 +124,8 @@ let remoteSyncInFlight = false;
 let remoteSyncQueued = false;
 let remoteBootstrapStarted = false;
 let remoteBootstrapRevision = 0;
+let authToken = "";
+let authUser = null;
 let persistenceInfo = {
   mode: "local",
   status: "idle",
@@ -131,6 +134,14 @@ let persistenceInfo = {
 };
 
 const els = {
+  authForm: document.getElementById("authForm"),
+  authEmail: document.getElementById("authEmail"),
+  authPassword: document.getElementById("authPassword"),
+  authLoginBtn: document.getElementById("authLoginBtn"),
+  authUserWrap: document.getElementById("authUserWrap"),
+  authUserLabel: document.getElementById("authUserLabel"),
+  authLogoutBtn: document.getElementById("authLogoutBtn"),
+  authStatus: document.getElementById("authStatus"),
   tabsNav: document.getElementById("tabsNav"),
   tabPanels: {
     tournament: document.getElementById("tab-tournament"),
@@ -242,6 +253,45 @@ const els = {
 
 // ===== 02-events.js =====
 function bindEvents() {
+  if (els.authForm) {
+    els.authForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = String(els.authEmail?.value || "").trim();
+      const password = String(els.authPassword?.value || "");
+      if (!email || !password) {
+        alert("Введіть email і пароль.");
+        return;
+      }
+      try {
+        if (els.authLoginBtn) {
+          els.authLoginBtn.disabled = true;
+        }
+        await loginAsAdmin(email, password);
+        if (els.authPassword) {
+          els.authPassword.value = "";
+        }
+        remoteBootstrapStarted = false;
+        await bootstrapPersistence();
+        saveAndRender();
+      } catch (error) {
+        alert(`Помилка входу: ${String(error.message || error)}`);
+      } finally {
+        if (els.authLoginBtn) {
+          els.authLoginBtn.disabled = false;
+        }
+      }
+    });
+  }
+
+  if (els.authLogoutBtn) {
+    els.authLogoutBtn.addEventListener("click", async () => {
+      await logoutAdmin();
+      remoteBootstrapStarted = false;
+      await bootstrapPersistence();
+      saveAndRender();
+    });
+  }
+
   const tieBreakSelects = [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5];
   for (const select of tieBreakSelects) {
     select.addEventListener("change", () => {
@@ -1213,6 +1263,9 @@ function createDefaultTournament() {
     roundsCount: 1,
     currentRound: 0,
     status: "active",
+    ownerAdminId: null,
+    cityId: null,
+    isPublic: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ratingDeltas: [],
@@ -1239,6 +1292,9 @@ function normalizeTournament(tournament) {
     roundsCount: Number(tournament.roundsCount) || 5,
     currentRound: Number(tournament.currentRound) || 0,
     status: tournament.status || "active",
+    ownerAdminId: normalizeEntityId(tournament.ownerAdminId),
+    cityId: normalizeEntityId(tournament.cityId),
+    isPublic: tournament.isPublic !== false,
     createdAt: tournament.createdAt || new Date().toISOString(),
     updatedAt: tournament.updatedAt || new Date().toISOString(),
     ratingDeltas: normalizeTournamentRatingDeltas(tournament.ratingDeltas),
@@ -1665,6 +1721,7 @@ function isValidCoachPhotoFile(file) {
 
 // ===== 04-render.js =====
 function render() {
+  renderAuthPanel();
   renderTabs();
   renderActiveTabPanel();
   renderPersistenceFooter();
@@ -6402,6 +6459,60 @@ function setPersistenceInfo(next) {
   };
 }
 
+function loadStoredAuthToken() {
+  try {
+    return String(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function storeAuthToken(token) {
+  authToken = String(token || "").trim();
+  try {
+    if (authToken) {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, authToken);
+    } else {
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage failures, auth still works for current session.
+  }
+}
+
+function getRoleLabel(role) {
+  if (role === "super_admin") {
+    return "Супер-адміністратор";
+  }
+  if (role === "admin") {
+    return "Адміністратор";
+  }
+  return "Перегляд";
+}
+
+function renderAuthPanel() {
+  if (!els.authStatus) {
+    return;
+  }
+  const isLoggedIn = Boolean(authUser);
+  if (els.authForm) {
+    els.authForm.hidden = isLoggedIn;
+  }
+  if (els.authUserWrap) {
+    els.authUserWrap.hidden = !isLoggedIn;
+  }
+  if (els.authUserLabel) {
+    els.authUserLabel.textContent = isLoggedIn
+      ? `${authUser.fullName || authUser.email} · ${getRoleLabel(authUser.role)}`
+      : "";
+  }
+  if (isLoggedIn) {
+    els.authStatus.textContent = `Ви увійшли як ${getRoleLabel(authUser.role)}.`;
+  } else {
+    els.authStatus.textContent = "Режим перегляду. Для редагування увійдіть як адміністратор.";
+  }
+}
+
 function persistLocalState(options = {}) {
   const { notifyOnError = true } = options;
 
@@ -6483,9 +6594,17 @@ async function apiRequest(path, options = {}) {
       : null;
 
   try {
+    const headers = {};
+    if (body) {
+      headers["Content-Type"] = "application/json";
+    }
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`;
+    }
+
     const response = await fetch(buildApiUrl(path), {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller ? controller.signal : undefined,
     });
@@ -6499,6 +6618,11 @@ async function apiRequest(path, options = {}) {
     const payload = isJson ? await response.json() : await response.text();
 
     if (!response.ok) {
+      if (response.status === 401 && path !== "/api/auth/login") {
+        authUser = null;
+        storeAuthToken("");
+        renderAuthPanel();
+      }
       const errorMessage =
         payload && typeof payload === "object" && payload.error
           ? payload.error
@@ -6545,6 +6669,19 @@ async function bootstrapPersistence() {
   render();
 
   try {
+    authToken = loadStoredAuthToken();
+    if (authToken) {
+      try {
+        const me = await apiRequest("/api/auth/me", { timeoutMs: 5000 });
+        authUser = me?.user || null;
+      } catch {
+        authUser = null;
+        storeAuthToken("");
+      }
+    } else {
+      authUser = null;
+    }
+
     const { clubRows, coachRows, playersRows, tournamentRows } = await fetchRemoteBootstrapPayload();
     remoteKnownClubIds = new Set(clubRows.map((item) => item.id).filter(Boolean));
     remoteKnownCoachIds = new Set(coachRows.map((item) => item.id).filter(Boolean));
@@ -6596,6 +6733,33 @@ async function bootstrapPersistence() {
   }
 
   render();
+}
+
+async function loginAsAdmin(email, password) {
+  const payload = await apiRequest("/api/auth/login", {
+    method: "POST",
+    body: { email, password },
+    timeoutMs: 6000,
+  });
+  if (!payload?.token || !payload?.user) {
+    throw new Error("Не вдалося виконати вхід");
+  }
+  storeAuthToken(payload.token);
+  authUser = payload.user;
+  renderAuthPanel();
+}
+
+async function logoutAdmin() {
+  if (authToken) {
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST", timeoutMs: 5000 });
+    } catch {
+      // Ignore logout failures, token will be removed locally.
+    }
+  }
+  authUser = null;
+  storeAuthToken("");
+  renderAuthPanel();
 }
 
 async function fetchRemoteBootstrapPayload() {
@@ -6761,6 +6925,9 @@ function mapApiTournamentToState(row) {
     roundsCount: row.rounds_count || payload.roundsCount || 1,
     currentRound: row.current_round || payload.currentRound || 0,
     status: row.status || payload.status || "active",
+    ownerAdminId: row.owner_admin_id || payload.ownerAdminId || null,
+    cityId: row.city_id || payload.cityId || null,
+    isPublic: row.is_public !== false && payload.isPublic !== false,
     createdAt: row.created_at || payload.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || payload.updatedAt || new Date().toISOString(),
     finishedAt: row.archived_at || payload.finishedAt || row.updated_at || new Date().toISOString(),
@@ -6940,6 +7107,9 @@ function buildTournamentApiPayload(tournament, status) {
     rounds_count: Number(tournament.roundsCount) || 1,
     current_round: Number(tournament.currentRound) || 0,
     status,
+    owner_admin_id: tournament.ownerAdminId || null,
+    city_id: tournament.cityId || null,
+    is_public: tournament.isPublic !== false,
     event_date: normalizeBirthDate(tournament.eventDate) || null,
     time_control: normalizeTimeControl(tournament.timeControl) || null,
     chief_judge: normalizeChiefJudge(tournament.chiefJudge) || null,
@@ -6955,6 +7125,9 @@ function buildTournamentApiPayload(tournament, status) {
       tieBreakOrder,
       isMicromatch: Boolean(tournament.isMicromatch),
       scoreCalculationType: tournament.scoreCalculationType === "small_points" ? "small_points" : "big_points",
+      ownerAdminId: tournament.ownerAdminId || null,
+      cityId: tournament.cityId || null,
+      isPublic: tournament.isPublic !== false,
       photoDataUrl: tournament.photoDataUrl || null,
       eventDate: normalizeBirthDate(tournament.eventDate) || "",
       timeControl: normalizeTimeControl(tournament.timeControl),
@@ -7662,6 +7835,7 @@ function saveAndRender() {
   stateRevision += 1;
   persistLocalState();
   render();
+  renderAuthPanel();
   scheduleRemoteSync("state-change");
 }
 

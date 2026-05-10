@@ -34,6 +34,8 @@ let remoteSyncInFlight = false;
 let remoteSyncQueued = false;
 let remoteBootstrapStarted = false;
 let remoteBootstrapRevision = 0;
+let authToken = "";
+let authUser = null;
 let persistenceInfo = {
   mode: "local",
   status: "idle",
@@ -42,6 +44,14 @@ let persistenceInfo = {
 };
 
 const els = {
+  authForm: document.getElementById("authForm"),
+  authEmail: document.getElementById("authEmail"),
+  authPassword: document.getElementById("authPassword"),
+  authLoginBtn: document.getElementById("authLoginBtn"),
+  authUserWrap: document.getElementById("authUserWrap"),
+  authUserLabel: document.getElementById("authUserLabel"),
+  authLogoutBtn: document.getElementById("authLogoutBtn"),
+  authStatus: document.getElementById("authStatus"),
   tabsNav: document.getElementById("tabsNav"),
   tabPanels: {
     tournament: document.getElementById("tab-tournament"),

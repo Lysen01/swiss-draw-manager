@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../lib/db');
 const { asSafeString, asLongString, asUuidOrNull, asRating, asGender, asDateOrNull } = require('../lib/validators');
+const { requireRoles } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRoles(['super_admin', 'admin']), async (req, res, next) => {
   try {
     const id = asUuidOrNull(req.body.id);
     const lastName = asSafeString(req.body.last_name || req.body.lastName, 120);
@@ -60,7 +61,7 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', requireRoles(['super_admin', 'admin']), async (req, res, next) => {
   try {
     const id = asSafeString(req.params.id, 64);
     const lastName = asSafeString(req.body.last_name || req.body.lastName, 120);
@@ -104,7 +105,7 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireRoles(['super_admin', 'admin']), async (req, res, next) => {
   try {
     const id = asSafeString(req.params.id, 64);
     const result = await query('DELETE FROM players WHERE id = $1', [id]);

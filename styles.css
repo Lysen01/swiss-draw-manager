@@ -48,6 +48,37 @@ body {
   font-weight: 600;
 }
 
+.auth-panel {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.auth-panel__form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 1fr) auto;
+  gap: 8px;
+}
+
+.auth-panel__form input {
+  width: 100%;
+}
+
+.auth-panel__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .auth-panel__form {
+    grid-template-columns: 1fr;
+  }
+}
+
 .layout {
   max-width: var(--page-max);
   margin: 0 auto;

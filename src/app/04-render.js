@@ -1,4 +1,5 @@
 function render() {
+  renderAuthPanel();
   renderTabs();
   renderActiveTabPanel();
   renderPersistenceFooter();

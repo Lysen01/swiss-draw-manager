@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../lib/db');
 const { asSafeString, asLongString, asUuidOrNull } = require('../lib/validators');
+const { requireRoles } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.get('/', async (_req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRoles(['super_admin', 'admin']), async (req, res, next) => {
   try {
     const id = asUuidOrNull(req.body.id);
     const name = asSafeString(req.body.name, 140);
@@ -43,7 +44,7 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', requireRoles(['super_admin', 'admin']), async (req, res, next) => {
   try {
     const id = asSafeString(req.params.id, 64);
     const name = asSafeString(req.body.name, 140);
@@ -74,7 +75,7 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireRoles(['super_admin', 'admin']), async (req, res, next) => {
   try {
     const id = asSafeString(req.params.id, 64);
     await query('UPDATE players SET club_id = NULL, coach_id = NULL WHERE club_id = $1', [id]);

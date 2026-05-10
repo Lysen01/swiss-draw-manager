@@ -129,3 +129,19 @@ DATABASE_URL=postgresql://... npm run start:api
 
 Після деплою перевірка:
 - `GET /api/health`
+
+## Авторизація та ролі (Phase 1)
+
+- `POST /api/auth/login` — вхід адміністратора.
+- `POST /api/auth/logout` — вихід.
+- `GET /api/auth/me` — поточний користувач.
+- `GET /api/cities` — список активних міст.
+
+Ролі:
+- `super_admin` — повний доступ.
+- `admin` — створення/редагування своїх турнірів + керування базами.
+- `viewer` (або гість без входу) — лише перегляд публічних даних.
+
+Сервер створює стартового `super_admin`, якщо таблиця `users` порожня:
+- `ADMIN_EMAIL` (за замовчуванням: `admin@arbiter.local`)
+- `ADMIN_PASSWORD` (за замовчуванням: `admin12345`)

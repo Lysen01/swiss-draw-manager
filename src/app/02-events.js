@@ -1,4 +1,43 @@
 function bindEvents() {
+  if (els.authForm) {
+    els.authForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = String(els.authEmail?.value || "").trim();
+      const password = String(els.authPassword?.value || "");
+      if (!email || !password) {
+        alert("Введіть email і пароль.");
+        return;
+      }
+      try {
+        if (els.authLoginBtn) {
+          els.authLoginBtn.disabled = true;
+        }
+        await loginAsAdmin(email, password);
+        if (els.authPassword) {
+          els.authPassword.value = "";
+        }
+        remoteBootstrapStarted = false;
+        await bootstrapPersistence();
+        saveAndRender();
+      } catch (error) {
+        alert(`Помилка входу: ${String(error.message || error)}`);
+      } finally {
+        if (els.authLoginBtn) {
+          els.authLoginBtn.disabled = false;
+        }
+      }
+    });
+  }
+
+  if (els.authLogoutBtn) {
+    els.authLogoutBtn.addEventListener("click", async () => {
+      await logoutAdmin();
+      remoteBootstrapStarted = false;
+      await bootstrapPersistence();
+      saveAndRender();
+    });
+  }
+
   const tieBreakSelects = [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5];
   for (const select of tieBreakSelects) {
     select.addEventListener("change", () => {

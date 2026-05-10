@@ -17,6 +17,18 @@
           Професійна цифрова платформа для арбітрів: повний контроль проведення турніру, прозорий підрахунок
           результатів та офіційний архів підсумкових таблиць.
         </p>
+        <section id="authPanel" class="auth-panel">
+          <form id="authForm" class="auth-panel__form">
+            <input id="authEmail" type="email" placeholder="Email адміністратора" autocomplete="username" />
+            <input id="authPassword" type="password" placeholder="Пароль" autocomplete="current-password" />
+            <button id="authLoginBtn" type="submit">Увійти</button>
+          </form>
+          <div id="authUserWrap" class="auth-panel__user" hidden>
+            <span id="authUserLabel"></span>
+            <button id="authLogoutBtn" type="button">Вийти</button>
+          </div>
+          <div id="authStatus" class="meta">Режим перегляду. Для редагування увійдіть як адміністратор.</div>
+        </section>
       </div>
     </header>
 
@@ -372,6 +384,6 @@
       <p id="syncStatus" class="meta">Автономний режим: збереження лише в браузері.</p>
     </footer>
 
-    <script src="app.js?v=20260510-clubs-tournament-filter"></script>
+    <script src="app.js?v=20260510-auth-phase1"></script>
   </body>
 </html>
