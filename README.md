@@ -57,6 +57,11 @@
 - `src/app/02-events.js` - обробники подій.
 - `src/app/03-state-normalization.js` - завантаження та нормалізація стану.
 - `src/app/04-render.js` - рендер вкладок, форм, таблиць.
+- `src/app/features/10-render-active-tab.js` - роутинг рендера по активній вкладці.
+- `src/app/features/11-render-tournament-tab.js` - рендер вкладки турніру (entry-point).
+- `src/app/features/12-render-players-tab.js` - рендер вкладки бази гравців (entry-point).
+- `src/app/features/13-render-clubs-tab.js` - рендер вкладки клубів (entry-point).
+- `src/app/features/14-render-archive-tab.js` - рендер вкладки турнірів/архіву (entry-point).
 - `src/app/05-actions.js` - дії з гравцями і формами.
 - `src/app/06-pairing.js` - генерація турів і пар.
 - `src/app/07-standings.js` - підрахунок коефіцієнтів і місць.

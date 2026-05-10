@@ -18,6 +18,16 @@
   Нормалізація стану, фабрики сутностей, дефолтний турнір.
 - `/Users/admin/Documents/New project 3/src/app/04-render.js`
   Візуальний рендер усіх вкладок і таблиць.
+- `/Users/admin/Documents/New project 3/src/app/features/10-render-active-tab.js`
+  Роутинг рендера по активній вкладці.
+- `/Users/admin/Documents/New project 3/src/app/features/11-render-tournament-tab.js`
+  Entry-point рендера вкладки турніру.
+- `/Users/admin/Documents/New project 3/src/app/features/12-render-players-tab.js`
+  Entry-point рендера вкладки бази гравців.
+- `/Users/admin/Documents/New project 3/src/app/features/13-render-clubs-tab.js`
+  Entry-point рендера вкладки клубів.
+- `/Users/admin/Documents/New project 3/src/app/features/14-render-archive-tab.js`
+  Entry-point рендера вкладки турнірів (архів/активні).
 - `/Users/admin/Documents/New project 3/src/app/05-actions.js`
   CRUD дії для гравців/клубів/тренерів/турніру.
 - `/Users/admin/Documents/New project 3/src/app/06-pairing.js`
@@ -32,6 +42,7 @@
 ## Маршрут змін по задачах
 
 ### 1) Налаштування турніру / формат / тури
+- `src/app/features/11-render-tournament-tab.js`
 - `02-events.js` (валідація форми, зміни полів)
 - `03-state-normalization.js` (`getMaxRoundsByFormat`, дефолти)
 - `04-render.js` (блок налаштувань)
@@ -47,16 +58,19 @@
 - `08-lifecycle-utils.js` (перевірки перед завершенням)
 
 ### 4) База гравців
+- `src/app/features/12-render-players-tab.js`
 - `05-actions.js` (create/edit/delete)
 - `04-render.js` (`renderBasePlayersTab`)
 - `02-events.js` (фільтри/кнопки/сортування)
 
 ### 5) Клуби і тренери
+- `src/app/features/13-render-clubs-tab.js`
 - `05-actions.js` (клуби/тренери CRUD, привʼязки)
 - `04-render.js` (`renderClubsTab`, `renderClubProfile`)
 - `02-events.js` (вкладки профілю клубу, кнопки)
 
 ### 6) Турніри (активні + завершені), пошук і статуси
+- `src/app/features/14-render-archive-tab.js`
 - `04-render.js` (`renderArchiveTab`)
 - `02-events.js` (пошук, фільтри)
 - `08-lifecycle-utils.js` (архівація/відкриття)
