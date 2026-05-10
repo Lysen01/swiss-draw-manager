@@ -705,6 +705,11 @@ function bindEvents() {
       return;
     }
 
+    if (btn.dataset.action === "finish-tournament-from-table") {
+      finishCurrentTournament();
+      return;
+    }
+
     if (btn.dataset.action === "emergency-finish-tournament") {
       emergencyFinishCurrentTournament();
     }

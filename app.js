@@ -948,6 +948,11 @@ function bindEvents() {
       return;
     }
 
+    if (btn.dataset.action === "finish-tournament-from-table") {
+      finishCurrentTournament();
+      return;
+    }
+
     if (btn.dataset.action === "emergency-finish-tournament") {
       emergencyFinishCurrentTournament();
     }
@@ -2462,10 +2467,11 @@ function buildStandingsQuickActions(tournament, tieGroups) {
 
   const hasTies = tieGroups.length > 0;
   return `
-    <details class="standings-quick-actions">
+    <details class="standings-quick-actions" open>
       <summary>Швидкі дії таблиці</summary>
       <div class="standings-quick-actions__body">
-        <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Підтвердити авто-місця</button>
+        <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Погодитися з авто-місцями</button>
+        <button type="button" data-action="finish-tournament-from-table">Завершити турнір</button>
         <button type="button" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
       </div>
     </details>`;

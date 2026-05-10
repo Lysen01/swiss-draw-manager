@@ -1658,7 +1658,7 @@ label.base-pick-item {
   font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: var(--accent);
+  background: var(--brand);
   border-radius: 8px;
   margin: 6px;
   display: inline-flex;
