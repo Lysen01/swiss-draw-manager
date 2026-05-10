@@ -2353,6 +2353,7 @@ function buildStandingsTableHtml(tournament, options = {}) {
   ensureStartNumbers(tournament);
   const primaryMetric = tournament.isMicromatch && tournament.scoreCalculationType === "small_points" ? "smallPoints" : "score";
   const scoreLabel = primaryMetric === "smallPoints" ? "Малі очки" : "Очки";
+  const tieColumns = getStandingsTieColumns(tournament, primaryMetric);
 
   const enriched = getStandings(tournament);
   const placeById = Object.fromEntries(enriched.map((p, idx) => [p.id, idx + 1]));
@@ -2383,13 +2384,7 @@ function buildStandingsTableHtml(tournament, options = {}) {
         <td>${p.rating}</td>
         ${showRoundDetails ? buildRoundCells(tournament, p, placeById) : ""}
         <td>${Number(p[primaryMetric] || 0).toFixed(1)}</td>
-        ${tournament.isMicromatch ? `<td>${Number(p.score || 0).toFixed(1)}</td><td>${Number(p.smallPoints || 0).toFixed(1)}</td>` : ""}
-        <td>${p.h2h.toFixed(1)}</td>
-        <td>${p.wins}</td>
-        <td>${p.buchholz.toFixed(1)}</td>
-        <td>${p.solkPlus.toFixed(1)}</td>
-        <td>${p.tsolk.toFixed(1)}</td>
-        <td>${p.sb.toFixed(2)}</td>
+        ${tieColumns.map((col) => `<td>${col.render(p)}</td>`).join("")}
       </tr>`
     )
     .join("");
@@ -2407,17 +2402,90 @@ function buildStandingsTableHtml(tournament, options = {}) {
           <th>Рейтинг</th>
           ${roundHeaders}
           <th>${scoreLabel}</th>
-          ${tournament.isMicromatch ? "<th>Великі</th><th>Малі</th>" : ""}
-          <th>H2H</th>
-          <th>Wins</th>
-          <th>Buchholz</th>
-          <th>SOLK+</th>
-          <th>TSOLK</th>
-          <th>SB</th>
+          ${tieColumns.map((col) => `<th>${col.label}</th>`).join("")}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+function getStandingsTieColumns(tournament, primaryMetric) {
+  const columns = [];
+
+  if (tournament.isMicromatch && primaryMetric === "score") {
+    columns.push({
+      key: "small_points_auto",
+      label: "Малі очки",
+      render: (player) => Number(player.smallPoints || 0).toFixed(1),
+    });
+  }
+
+  const criteria = Array.isArray(tournament.tieBreakers) ? tournament.tieBreakers : [];
+  for (const criterion of criteria) {
+    const column = getTieColumnByCriterion(criterion);
+    if (!column) {
+      continue;
+    }
+    if (columns.some((item) => item.key === column.key)) {
+      continue;
+    }
+    columns.push(column);
+  }
+
+  return columns;
+}
+
+function getTieColumnByCriterion(criterion) {
+  if (criterion === "head_to_head") {
+    return {
+      key: "h2h",
+      label: "H2H",
+      render: (player) => Number(player.h2h || 0).toFixed(1),
+    };
+  }
+  if (criterion === "wins") {
+    return {
+      key: "wins",
+      label: "Wins",
+      render: (player) => String(Number(player.wins || 0)),
+    };
+  }
+  if (criterion === "buchholz") {
+    return {
+      key: "buchholz",
+      label: "Buchholz",
+      render: (player) => Number(player.buchholz || 0).toFixed(1),
+    };
+  }
+  if (criterion === "solk_plus") {
+    return {
+      key: "solk_plus",
+      label: "SOLK+",
+      render: (player) => Number(player.solkPlus || 0).toFixed(1),
+    };
+  }
+  if (criterion === "tsolk") {
+    return {
+      key: "tsolk",
+      label: "TSOLK",
+      render: (player) => Number(player.tsolk || 0).toFixed(1),
+    };
+  }
+  if (criterion === "sb") {
+    return {
+      key: "sb",
+      label: "SB",
+      render: (player) => Number(player.sb || 0).toFixed(2),
+    };
+  }
+  if (criterion === "rating") {
+    return {
+      key: "rating_tiebreak",
+      label: "Рейтинг (ТБ)",
+      render: (player) => String(Number(player.rating || 0)),
+    };
+  }
+  return null;
 }
 
 function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tieRange) {
