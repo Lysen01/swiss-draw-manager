@@ -6,8 +6,7 @@ const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const KYIV_PRESET_VERSION = "kyiv-v1";
 const API_BASE_URL_STORAGE_KEY = "arbiter-api-origin";
 const REMOTE_SYNC_DEBOUNCE_MS = 400;
-const DEFAULT_TOURNAMENT_COVER_URL =
-  "https://raw.githubusercontent.com/Lysen01/swiss-draw-manager/main/assets/default-tournament-cover.png";
+const DEFAULT_TOURNAMENT_COVER_URL = "/assets/default-tournament-cover.png";
 const DEFAULT_TIEBREAK_ORDER = ["head_to_head", "buchholz", "solk_plus", "tsolk", "wins"];
 const TIEBREAK_OPTIONS = [
   { value: "head_to_head", label: "Особисті зустрічі (H2H)" },
@@ -2467,7 +2466,7 @@ function buildStandingsQuickActions(tournament, tieGroups) {
       <summary>Швидкі дії таблиці</summary>
       <div class="standings-quick-actions__body">
         <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Підтвердити авто-місця</button>
-        <button type="button" class="danger" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
+        <button type="button" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
       </div>
     </details>`;
 }
@@ -4404,6 +4403,12 @@ function renderArchiveTab() {
     tournamentsStatusFilter = nextStatusFilter;
     els.tournamentsStatusFilter.value = nextStatusFilter;
   }
+  if (els.tournamentsDateFrom) {
+    els.tournamentsDateFrom.value = tournamentsDateFrom;
+  }
+  if (els.tournamentsDateTo) {
+    els.tournamentsDateTo.value = tournamentsDateTo;
+  }
 
   const records = [];
   if (isCurrentTournamentMeaningful()) {
@@ -4439,6 +4444,10 @@ function renderArchiveTab() {
       return true;
     })
     .filter((entry) => {
+      if (!isTournamentInDateRange(entry, tournamentsDateFrom, tournamentsDateTo)) {
+        return false;
+      }
+
       if (!query) {
         return true;
       }
@@ -4479,7 +4488,7 @@ function renderArchiveTab() {
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
       return `
-      <article class="archive-card">
+      <article class="archive-card${isOpen ? " archive-card--open" : ""}">
         <div class="archive-head">
           <strong>${escapeHtml(t.name)}</strong>
           <div class="toolbar">
@@ -4491,11 +4500,7 @@ function renderArchiveTab() {
           ${statusHtml} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}
         </div>
         <div class="archive-media">
-          ${
-            t.photoDataUrl
-              ? `<img class="archive-photo" src="${t.photoDataUrl}" alt="Фото ${escapeHtml(t.name)}" />`
-              : '<span class="archive-photo-placeholder">Фото</span>'
-          }
+          <img class="archive-photo" src="${getTournamentDisplayPhotoUrl(t)}" alt="Фото ${escapeHtml(t.name)}" />
           <div>
             <div class="archive-meta"><strong>Турнір:</strong> ${escapeHtml(t.name)}</div>
             <div class="archive-meta"><strong>Дата:</strong> ${t.eventDate ? formatDateOnly(t.eventDate) : "не вказана"}</div>

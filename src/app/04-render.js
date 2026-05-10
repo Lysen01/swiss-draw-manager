@@ -805,7 +805,7 @@ function buildStandingsQuickActions(tournament, tieGroups) {
       <summary>Швидкі дії таблиці</summary>
       <div class="standings-quick-actions__body">
         <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Підтвердити авто-місця</button>
-        <button type="button" class="danger" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
+        <button type="button" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
       </div>
     </details>`;
 }

@@ -1657,7 +1657,13 @@ label.base-pick-item {
   padding: 8px 10px;
   font-size: 13px;
   font-weight: 700;
-  color: var(--ink);
+  color: #fff;
+  background: var(--accent);
+  border-radius: 8px;
+  margin: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .standings-quick-actions > summary::-webkit-details-marker {
@@ -1669,6 +1675,10 @@ label.base-pick-item {
   flex-wrap: wrap;
   gap: 8px;
   padding: 0 10px 10px;
+}
+
+.standings-quick-actions[open] > summary {
+  background: #2f58c5;
 }
 
 .place-edit select {
