@@ -6,7 +6,8 @@ const LEGACY_STORAGE_KEY = "swiss-manager-v1";
 const KYIV_PRESET_VERSION = "kyiv-v1";
 const API_BASE_URL_STORAGE_KEY = "arbiter-api-origin";
 const REMOTE_SYNC_DEBOUNCE_MS = 400;
-const DEFAULT_TOURNAMENT_COVER_URL = "./assets/default-tournament-cover.png";
+const DEFAULT_TOURNAMENT_COVER_URL =
+  "https://raw.githubusercontent.com/Lysen01/swiss-draw-manager/main/assets/default-tournament-cover.png";
 const DEFAULT_TIEBREAK_ORDER = ["head_to_head", "buchholz", "solk_plus", "tsolk", "wins"];
 const TIEBREAK_OPTIONS = [
   { value: "head_to_head", label: "Особисті зустрічі (H2H)" },
