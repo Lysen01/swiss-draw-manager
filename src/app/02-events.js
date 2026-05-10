@@ -100,6 +100,9 @@ function bindEvents() {
       showBasePlayerAddForm = false;
     }
     state.activeTab = nextTab || state.activeTab;
+    if (!canManageAdminUi() && state.activeTab === "tournament") {
+      state.activeTab = "archive";
+    }
     saveAndRender();
   });
 

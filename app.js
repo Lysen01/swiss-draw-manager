@@ -354,6 +354,9 @@ function bindEvents() {
       showBasePlayerAddForm = false;
     }
     state.activeTab = nextTab || state.activeTab;
+    if (!canManageAdminUi() && state.activeTab === "tournament") {
+      state.activeTab = "archive";
+    }
     saveAndRender();
   });
 
@@ -1863,6 +1866,15 @@ function renderPersistenceFooter() {
 }
 
 function renderTabs() {
+  const canManage = canManageAdminUi();
+  const tournamentTabBtn = els.tabsNav?.querySelector(".tab-btn[data-tab='tournament']");
+  if (tournamentTabBtn) {
+    tournamentTabBtn.hidden = !canManage;
+  }
+  if (!canManage && state.activeTab === "tournament") {
+    state.activeTab = "archive";
+  }
+
   for (const btn of els.tabsNav.querySelectorAll(".tab-btn")) {
     btn.classList.toggle("active", btn.dataset.tab === state.activeTab);
   }
