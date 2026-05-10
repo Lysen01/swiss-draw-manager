@@ -15,6 +15,8 @@ let selectedClubPlayerProfileId = null;
 let selectedClubPlayerProfileTab = "info";
 let selectedClubsView = "directory";
 let selectedClubDetailTab = "profile";
+let selectedBasePlayerProfileId = null;
+let selectedBasePlayerProfileTab = "ranking";
 let tournamentsSearchQuery = "";
 let tournamentsStatusFilter = "all";
 let remoteApiBaseUrl = null;
@@ -103,6 +105,7 @@ const els = {
   basePlayersClearFilters: document.getElementById("basePlayersClearFilters"),
   basePlayersSummary: document.getElementById("basePlayersSummary"),
   basePlayersList: document.getElementById("basePlayersList"),
+  basePlayerProfile: document.getElementById("basePlayerProfile"),
   clubForm: document.getElementById("clubForm"),
   clubName: document.getElementById("clubName"),
   clubCity: document.getElementById("clubCity"),

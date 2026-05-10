@@ -1541,6 +1541,17 @@ label.base-pick-item {
   white-space: nowrap;
 }
 
+#basePlayerProfile {
+  margin-top: 12px;
+}
+
+.base-player-profile-shell .player-profile-tabbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .manual-place-hint {
   margin: 0 0 10px;
   padding: 8px 10px;

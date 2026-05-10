@@ -19,6 +19,7 @@ function renderBasePlayersTab() {
           <div class="row-actions">
             <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
             <button class="icon-btn" type="button" title="Історія" aria-label="Історія" data-action="view-base-history" data-player-id="${p.id}">⏱</button>
+            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
             <button class="icon-btn" type="button" title="Додати в турнір" aria-label="Додати в турнір" data-action="add-to-tournament" data-player-id="${p.id}">＋</button>
             <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
           </div>
@@ -66,4 +67,105 @@ function renderBasePlayersTab() {
       </thead>
       <tbody>${rows || '<tr><td colspan="13">База порожня.</td></tr>'}</tbody>
     </table>`;
+
+  if (!els.basePlayerProfile) {
+    return;
+  }
+
+  const selectedPlayer = state.playerBase.find((player) => player.id === selectedBasePlayerProfileId) || null;
+  if (!selectedPlayer) {
+    selectedBasePlayerProfileId = null;
+    selectedBasePlayerProfileTab = "ranking";
+    els.basePlayerProfile.innerHTML = "";
+    return;
+  }
+
+  els.basePlayerProfile.innerHTML = renderBasePlayerProfileCard(selectedPlayer.id);
+}
+
+function renderBasePlayerProfileCard(playerId) {
+  const player = state.playerBase.find((item) => item.id === playerId);
+  if (!player) {
+    return "";
+  }
+
+  const tabs = [
+    { key: "info", label: "INFO" },
+    { key: "skill", label: "Skill" },
+    { key: "ranking", label: "Ranking" },
+    { key: "matches", label: "Matches" },
+    { key: "opponents", label: "Opponents" },
+    { key: "events", label: "Events" },
+    { key: "memberships", label: "Memberships" },
+  ];
+  const activeTab = tabs.some((tab) => tab.key === selectedBasePlayerProfileTab) ? selectedBasePlayerProfileTab : "ranking";
+  const stats = player.stats || emptyStats();
+  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt)) : [];
+  const matches = collectArchivedMatchesForPlayer(player.id);
+  const opponents = buildOpponentStatsFromMatches(matches);
+  const ratingSeries = buildPlayerRatingSeries(history, player.rating);
+  const bestRating = ratingSeries.reduce((max, x) => (x.rating > max ? x.rating : max), Math.round(Number(player.rating) || 0));
+  const worstRating = ratingSeries.reduce((min, x) => (x.rating < min ? x.rating : min), Math.round(Number(player.rating) || 0));
+  const avgDelta =
+    history.filter((item) => Number.isFinite(Number(item.ratingDelta))).reduce((sum, item) => sum + Number(item.ratingDelta), 0) /
+    Math.max(1, history.filter((item) => Number.isFinite(Number(item.ratingDelta))).length);
+  const winRate = stats.games > 0 ? Math.round((stats.wins / stats.games) * 100) : 0;
+  const ratingLabel = Math.round(Number(player.rating) || 0);
+  const gaugePercent = Math.max(5, Math.min(100, Math.round((ratingLabel / 3000) * 100)));
+  const tabsHtml = tabs
+    .map(
+      (tab) =>
+        `<button type="button" class="player-profile-tab-btn${activeTab === tab.key ? " active" : ""}" data-action="set-base-player-profile-tab" data-tab="${tab.key}">${tab.label}</button>`
+    )
+    .join("");
+  const formLine = history.slice(0, 5).map((item) => ratingDeltaToFormSymbol(item.ratingDelta)).join(" ");
+  const contentHtml = renderPlayerProfileTabContent(activeTab, {
+    player,
+    stats,
+    history,
+    matches,
+    opponents,
+    ratingSeries,
+    bestRating,
+    worstRating,
+    avgDelta,
+    winRate,
+  });
+
+  return `
+    <section class="club-profile-card player-profile-shell base-player-profile-shell">
+      <div class="player-profile-tabbar">
+        ${tabsHtml}
+        <button type="button" class="pill" data-action="close-base-player-profile">Закрити</button>
+      </div>
+      <div class="player-profile-breadcrumb">База гравців > ${escapeHtml(getBaseFullName(player))} > ${activeTab.toUpperCase()}</div>
+      <div class="player-profile-hero">
+        <div class="player-profile-head">
+          ${
+            player.photoDataUrl
+              ? `<img class="player-profile-photo player-profile-photo--xl" src="${player.photoDataUrl}" alt="${escapeHtml(getBaseFullName(player))}" />`
+              : '<span class="player-profile-photo player-profile-photo--empty player-profile-photo--xl">Фото</span>'
+          }
+          <div>
+            <h3>${escapeHtml(getBaseFullName(player))}</h3>
+            <div class="meta">Клуб: ${escapeHtml(getClubName(player.clubId) || "Без клубу")} | Тренер: ${escapeHtml(getCoachName(player.coachId) || "-")}</div>
+            <div class="meta">Стать: ${formatGenderLabel(player.gender)} | Дата нар.: ${escapeHtml(player.birthDate || "-")} | Звання: ${escapeHtml(player.rank || "б/р")}</div>
+            <div class="player-profile-stats">
+              <span>Рейтинг: <strong>${ratingLabel}</strong></span>
+              <span>Турніри: <strong>${stats.tournaments}</strong></span>
+              <span>Партії: <strong>${stats.games}</strong></span>
+              <span>W/D/L: <strong>${stats.wins}/${stats.draws}/${stats.losses}</strong></span>
+              <span>Форма: <strong>${escapeHtml(formLine || "-")}</strong></span>
+            </div>
+          </div>
+        </div>
+        <div class="player-skill-panel">
+          <div class="player-skill-ring" style="--value:${gaugePercent}%;">
+            <span>${ratingLabel}</span>
+          </div>
+          <div class="meta">Внутрішній рейтинг платформи</div>
+        </div>
+      </div>
+      ${contentHtml}
+    </section>`;
 }

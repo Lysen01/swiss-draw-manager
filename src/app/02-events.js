@@ -22,6 +22,10 @@ function bindEvents() {
       selectedClubDetailTab = "profile";
       selectedClubsView = "directory";
     }
+    if (nextTab && nextTab !== "players") {
+      selectedBasePlayerProfileId = null;
+      selectedBasePlayerProfileTab = "ranking";
+    }
     state.activeTab = nextTab || state.activeTab;
     saveAndRender();
   });
@@ -473,6 +477,12 @@ function bindEvents() {
       viewBasePlayerHistory(playerId);
     }
 
+    if (action === "view-base-profile") {
+      selectedBasePlayerProfileId = playerId || null;
+      selectedBasePlayerProfileTab = "ranking";
+      renderBasePlayersTab();
+    }
+
     if (action === "sort-base-column") {
       const sortKey = btn.dataset.sortKey;
       if (!sortKey) {
@@ -487,6 +497,37 @@ function bindEvents() {
       renderBasePlayersTab();
     }
   });
+
+  if (els.basePlayerProfile) {
+    els.basePlayerProfile.addEventListener("click", (event) => {
+      const btn = event.target.closest("button[data-action]");
+      if (!btn) {
+        return;
+      }
+
+      if (btn.dataset.action === "set-base-player-profile-tab") {
+        const tab = String(btn.dataset.tab || "").trim();
+        if (!tab) {
+          return;
+        }
+        selectedBasePlayerProfileTab = tab;
+        renderBasePlayersTab();
+        return;
+      }
+
+      if (btn.dataset.action === "close-base-player-profile") {
+        selectedBasePlayerProfileId = null;
+        selectedBasePlayerProfileTab = "ranking";
+        renderBasePlayersTab();
+        return;
+      }
+
+      if (btn.dataset.action === "open-player-tournament") {
+        const tournamentId = btn.dataset.tournamentId || "";
+        openTournamentFromPlayerProfile(tournamentId);
+      }
+    });
+  }
 
   els.pairings.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action='set-pair-result']");
