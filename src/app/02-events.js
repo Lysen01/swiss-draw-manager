@@ -21,6 +21,8 @@ function bindEvents() {
       selectedClubPlayerProfileTab = "info";
       selectedClubDetailTab = "profile";
       selectedClubsView = "directory";
+      showClubPlayerAddForms = false;
+      showClubCoachAddForm = false;
     }
     if (nextTab && nextTab !== "players") {
       selectedBasePlayerProfileId = null;
@@ -394,6 +396,8 @@ function bindEvents() {
       selectedClubPlayerProfileId = null;
       selectedClubPlayerProfileTab = "info";
       selectedClubDetailTab = "profile";
+      showClubPlayerAddForms = false;
+      showClubCoachAddForm = false;
       selectedClubsView = "profile";
       renderClubsTab();
     }
@@ -479,6 +483,8 @@ function bindEvents() {
       selectedClubProfileId = btn.dataset.clubId || null;
       selectedClubPlayerProfileId = null;
       selectedClubPlayerProfileTab = "info";
+      showClubPlayerAddForms = false;
+      showClubCoachAddForm = false;
       selectedClubsView = "profile";
       renderClubsTab();
     }
@@ -492,7 +498,21 @@ function bindEvents() {
       if (tab !== "players") {
         selectedClubPlayerProfileId = null;
         selectedClubPlayerProfileTab = "info";
+        showClubPlayerAddForms = false;
       }
+      if (tab !== "coaches") {
+        showClubCoachAddForm = false;
+      }
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "toggle-club-player-add") {
+      showClubPlayerAddForms = !showClubPlayerAddForms;
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "toggle-club-coach-add") {
+      showClubCoachAddForm = !showClubCoachAddForm;
       renderClubsTab();
     }
 

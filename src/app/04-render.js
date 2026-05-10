@@ -1396,21 +1396,37 @@ function renderClubProfile(clubId) {
   const selectedClubPlayer =
     activeTab === "players" ? players.find((player) => player.id === selectedClubPlayerProfileId) || null : null;
   const selectedClubPlayerProfileCard = selectedClubPlayer ? renderClubPlayerProfileCard(selectedClubPlayer.id) : "";
+  const playerAddToggleButtonLabel = showClubPlayerAddForms ? "Сховати додавання гравця" : "Додати гравця";
+  const coachAddToggleButtonLabel = showClubCoachAddForm ? "Сховати додавання тренера" : "Додати тренера";
   const tabContent =
     activeTab === "players"
       ? `
-      <div class="club-management-grid">
+      <div class="row-actions">
+        <button type="button" data-action="toggle-club-player-add">${playerAddToggleButtonLabel}</button>
+      </div>
+      ${
+        showClubPlayerAddForms
+          ? `<div class="club-management-grid">
         ${renderAttachExistingPlayerForm(club, coaches)}
         ${renderQuickClubPlayerForm(club, coaches)}
-      </div>
+      </div>`
+          : ""
+      }
       ${renderClubPlayersTable(players)}
       ${selectedClubPlayerProfileCard}`
       : activeTab === "coaches"
         ? `
-      <div class="club-management-grid">
+      <div class="row-actions">
+        <button type="button" data-action="toggle-club-coach-add">${coachAddToggleButtonLabel}</button>
+      </div>
+      ${
+        showClubCoachAddForm
+          ? `<div class="club-management-grid">
         ${renderQuickClubCoachForm(club)}
         ${renderClubCoachesTable(coaches)}
       </div>`
+          : `${renderClubCoachesTable(coaches)}`
+      }`
         : `
       <section class="club-profile-card">
         <div class="club-profile-head">

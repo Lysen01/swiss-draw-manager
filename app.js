@@ -103,6 +103,8 @@ let selectedClubPlayerProfileId = null;
 let selectedClubPlayerProfileTab = "info";
 let selectedClubsView = "directory";
 let selectedClubDetailTab = "profile";
+let showClubPlayerAddForms = false;
+let showClubCoachAddForm = false;
 let selectedBasePlayerProfileId = null;
 let selectedBasePlayerProfileTab = "ranking";
 let tournamentsSearchQuery = "";
@@ -254,6 +256,8 @@ function bindEvents() {
       selectedClubPlayerProfileTab = "info";
       selectedClubDetailTab = "profile";
       selectedClubsView = "directory";
+      showClubPlayerAddForms = false;
+      showClubCoachAddForm = false;
     }
     if (nextTab && nextTab !== "players") {
       selectedBasePlayerProfileId = null;
@@ -627,6 +631,8 @@ function bindEvents() {
       selectedClubPlayerProfileId = null;
       selectedClubPlayerProfileTab = "info";
       selectedClubDetailTab = "profile";
+      showClubPlayerAddForms = false;
+      showClubCoachAddForm = false;
       selectedClubsView = "profile";
       renderClubsTab();
     }
@@ -712,6 +718,8 @@ function bindEvents() {
       selectedClubProfileId = btn.dataset.clubId || null;
       selectedClubPlayerProfileId = null;
       selectedClubPlayerProfileTab = "info";
+      showClubPlayerAddForms = false;
+      showClubCoachAddForm = false;
       selectedClubsView = "profile";
       renderClubsTab();
     }
@@ -725,7 +733,21 @@ function bindEvents() {
       if (tab !== "players") {
         selectedClubPlayerProfileId = null;
         selectedClubPlayerProfileTab = "info";
+        showClubPlayerAddForms = false;
       }
+      if (tab !== "coaches") {
+        showClubCoachAddForm = false;
+      }
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "toggle-club-player-add") {
+      showClubPlayerAddForms = !showClubPlayerAddForms;
+      renderClubsTab();
+    }
+
+    if (btn.dataset.action === "toggle-club-coach-add") {
+      showClubCoachAddForm = !showClubCoachAddForm;
       renderClubsTab();
     }
 
@@ -2956,21 +2978,37 @@ function renderClubProfile(clubId) {
   const selectedClubPlayer =
     activeTab === "players" ? players.find((player) => player.id === selectedClubPlayerProfileId) || null : null;
   const selectedClubPlayerProfileCard = selectedClubPlayer ? renderClubPlayerProfileCard(selectedClubPlayer.id) : "";
+  const playerAddToggleButtonLabel = showClubPlayerAddForms ? "Сховати додавання гравця" : "Додати гравця";
+  const coachAddToggleButtonLabel = showClubCoachAddForm ? "Сховати додавання тренера" : "Додати тренера";
   const tabContent =
     activeTab === "players"
       ? `
-      <div class="club-management-grid">
+      <div class="row-actions">
+        <button type="button" data-action="toggle-club-player-add">${playerAddToggleButtonLabel}</button>
+      </div>
+      ${
+        showClubPlayerAddForms
+          ? `<div class="club-management-grid">
         ${renderAttachExistingPlayerForm(club, coaches)}
         ${renderQuickClubPlayerForm(club, coaches)}
-      </div>
+      </div>`
+          : ""
+      }
       ${renderClubPlayersTable(players)}
       ${selectedClubPlayerProfileCard}`
       : activeTab === "coaches"
         ? `
-      <div class="club-management-grid">
+      <div class="row-actions">
+        <button type="button" data-action="toggle-club-coach-add">${coachAddToggleButtonLabel}</button>
+      </div>
+      ${
+        showClubCoachAddForm
+          ? `<div class="club-management-grid">
         ${renderQuickClubCoachForm(club)}
         ${renderClubCoachesTable(coaches)}
       </div>`
+          : `${renderClubCoachesTable(coaches)}`
+      }`
         : `
       <section class="club-profile-card">
         <div class="club-profile-head">
