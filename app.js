@@ -2420,7 +2420,7 @@ function getStandingsTieColumns(tournament, primaryMetric) {
     });
   }
 
-  const criteria = Array.isArray(tournament.tieBreakers) ? tournament.tieBreakers : [];
+  const criteria = normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false }).filter((x) => x !== "none");
   for (const criterion of criteria) {
     const column = getTieColumnByCriterion(criterion);
     if (!column) {
