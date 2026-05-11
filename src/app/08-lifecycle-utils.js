@@ -252,8 +252,6 @@ async function bootstrapPersistence() {
       lastSyncedAt: new Date().toISOString(),
     });
 
-    const preferLocalState = shouldPreferLocalStateOverRemote(state, tournamentRows);
-
     if (!remoteHasData && localHasData && hasStoredLocalState) {
       setPersistenceInfo({
         mode: "remote",
@@ -262,20 +260,13 @@ async function bootstrapPersistence() {
         lastSyncedAt: "",
       });
       scheduleRemoteSync("bootstrap-seed");
-    } else if (preferLocalState) {
-      setPersistenceInfo({
-        mode: "remote",
-        status: "ready",
-        message: "Знайдено новіші локальні зміни. Синхронізую їх у Render...",
-        lastSyncedAt: "",
-      });
-      scheduleRemoteSync("bootstrap-local-newer");
-    } else if (stateRevision === remoteBootstrapRevision) {
+    } else {
+      // Render/PostgreSQL is the source of truth whenever it already has data.
+      // This prevents stale browser localStorage from overwriting cross-device fields
+      // such as tournament dates and player birth dates.
       state = buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows);
       tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
       persistLocalState({ notifyOnError: false });
-    } else {
-      scheduleRemoteSync("bootstrap-catchup");
     }
   } catch (error) {
     console.error("[bootstrapPersistence]", error);
@@ -430,7 +421,7 @@ function mapApiPlayerToBasePlayer(row) {
     clubId: row.club_id,
     coachId: row.coach_id,
     rank: row.rank,
-    birthDate: row.birth_date,
+    birthDate: normalizeBirthDate(row.birth_date),
     photoDataUrl: row.photo_url,
     createdAt: row.created_at,
     history: [],
@@ -466,13 +457,14 @@ function mapApiCoachToState(row) {
 
 function mapApiTournamentToState(row) {
   const payload = row && typeof row.payload === "object" && row.payload ? row.payload : {};
+  const normalizedEventDate = normalizeBirthDate(row.event_date || payload.eventDate || "");
   return {
     id: row.id,
     name: row.name || payload.name || "Турнір",
     format: row.format === "round_robin" ? "round_robin" : "swiss",
     isMicromatch: Boolean(payload.isMicromatch),
     scoreCalculationType: payload.scoreCalculationType === "small_points" ? "small_points" : "big_points",
-    eventDate: row.event_date || payload.eventDate || "",
+    eventDate: normalizedEventDate,
     timeControl: row.time_control || payload.timeControl || "",
     chiefJudge: row.chief_judge || payload.chiefJudge || "",
     tieBreakOrder: Array.isArray(row.tie_break_order) ? row.tie_break_order : payload.tieBreakOrder,

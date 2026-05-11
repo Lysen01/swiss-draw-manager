@@ -87,7 +87,7 @@ router.put('/:id', requireRoles(['super_admin', 'admin']), async (req, res, next
            club_id = $6,
            coach_id = $7,
            rank = $8,
-           birth_date = $9,
+           birth_date = COALESCE($9, birth_date),
            photo_url = $10,
            updated_at = NOW()
        WHERE id = $1

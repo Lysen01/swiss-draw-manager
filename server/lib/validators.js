@@ -32,10 +32,32 @@ function asDateOrNull(value) {
   if (!v) {
     return null;
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-    return null;
+
+  // ISO date.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    return v;
   }
-  return v;
+
+  // ISO datetime.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(v)) {
+    return v.slice(0, 10);
+  }
+
+  // UI date format: DD.MM.YYYY
+  const dotMatch = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (dotMatch) {
+    const day = Number(dotMatch[1]);
+    const month = Number(dotMatch[2]);
+    const year = Number(dotMatch[3]);
+    if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const yyyy = String(year).padStart(4, '0');
+      const mm = String(month).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  return null;
 }
 
 module.exports = {
