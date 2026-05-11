@@ -8095,6 +8095,10 @@ function createNewTournamentFlow() {
   state.activeTab = "tournament";
   state.tournamentView = "setup";
   state.archivePreviewTournamentId = null;
+  selectedBasePlayerIds.clear();
+  if (els.dbPlayerSelect) {
+    els.dbPlayerSelect.value = "";
+  }
   if (els.tournamentClubFilter) {
     els.tournamentClubFilter.value = "all";
   }
