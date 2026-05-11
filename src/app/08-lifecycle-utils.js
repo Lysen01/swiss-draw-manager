@@ -760,13 +760,13 @@ function scheduleRemoteSync(_reason = "state-change") {
 
 function flushRemoteSyncNow(_reason = "manual-sync") {
   if (persistenceInfo.mode !== "remote") {
-    return;
+    return Promise.resolve();
   }
   if (remoteSyncTimerId) {
     window.clearTimeout(remoteSyncTimerId);
     remoteSyncTimerId = null;
   }
-  void flushRemoteSync();
+  return flushRemoteSync();
 }
 
 async function flushRemoteSync() {

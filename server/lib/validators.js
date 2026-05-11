@@ -43,18 +43,27 @@ function asDateOrNull(value) {
     return v.slice(0, 10);
   }
 
-  // UI date format: DD.MM.YYYY
-  const dotMatch = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  // UI date format: DD.MM.YYYY or D.M.YYYY
+  const dotMatch = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (dotMatch) {
     const day = Number(dotMatch[1]);
     const month = Number(dotMatch[2]);
     const year = Number(dotMatch[3]);
-    if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      const yyyy = String(year).padStart(4, '0');
-      const mm = String(month).padStart(2, '0');
-      const dd = String(day).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
+    if (year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+      return null;
     }
+    const yyyy = String(year).padStart(4, '0');
+    const mm = String(month).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    const iso = `${yyyy}-${mm}-${dd}`;
+    const probe = new Date(`${iso}T00:00:00Z`);
+    if (Number.isNaN(probe.getTime())) {
+      return null;
+    }
+    if (probe.getUTCFullYear() !== year || probe.getUTCMonth() + 1 !== month || probe.getUTCDate() !== day) {
+      return null;
+    }
+    return iso;
   }
 
   return null;

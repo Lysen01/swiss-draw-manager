@@ -177,6 +177,7 @@ async function submitBasePlayerForm() {
 
   resetBasePlayerForm({ keepOpen: true });
   saveAndRender();
+  await flushRemoteSyncNow("base-player-save");
 }
 
 function deleteBasePlayer(playerId) {
@@ -663,6 +664,7 @@ async function submitQuickClubPlayerForm(form) {
   selectedClubPlayerProfileId = player.id;
   form.reset();
   saveAndRender();
+  await flushRemoteSyncNow("club-player-save");
 }
 
 async function submitCoachForm() {
