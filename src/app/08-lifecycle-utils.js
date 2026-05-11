@@ -766,7 +766,27 @@ function flushRemoteSyncNow(_reason = "manual-sync") {
     window.clearTimeout(remoteSyncTimerId);
     remoteSyncTimerId = null;
   }
-  return flushRemoteSync();
+  return flushRemoteSync().then(() => waitForRemoteSyncIdle());
+}
+
+function waitForRemoteSyncIdle(timeoutMs = 20000) {
+  if (persistenceInfo.mode !== "remote") {
+    return Promise.resolve();
+  }
+
+  const startedAt = Date.now();
+  return new Promise((resolve) => {
+    const tick = () => {
+      const timedOut = Date.now() - startedAt >= timeoutMs;
+      const idle = !remoteSyncInFlight && !remoteSyncQueued && !remoteSyncTimerId;
+      if (idle || timedOut) {
+        resolve();
+        return;
+      }
+      window.setTimeout(tick, 120);
+    };
+    tick();
+  });
 }
 
 async function flushRemoteSync() {
@@ -1011,7 +1031,16 @@ async function finishCurrentTournament() {
   }
 
   if (!validateManualPlacesForTiedScores(t)) {
-    return;
+    const shouldAutoResolve = confirm(
+      "Для гравців з однаковими очками не вистачає підсумкових місць.\n\nЗастосувати авто-місця системи та завершити турнір?"
+    );
+    if (!shouldAutoResolve) {
+      return;
+    }
+    applyAutoPlacesForTiedScores(t);
+    if (!validateManualPlacesForTiedScores(t)) {
+      return;
+    }
   }
 
   archiveCurrentTournament({ notify: false });
