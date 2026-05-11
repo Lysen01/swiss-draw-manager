@@ -1,86 +1,130 @@
-# CODEMAP
+# CODEMAP (швидка навігація по коду)
 
-Цей документ потрібен для швидкої точкової роботи без перегляду всього проєкту.
+Мета: правити точково, без перегляду всього проєкту.
 
-## Головний принцип
-- `app.js` не редагуємо вручну (це зібраний файл).
-- Працюємо тільки у `src/app/*.js`.
-- Після змін запускаємо `npm run build:app`.
+## 1. Загальне правило
 
-## Де що лежить
+- `app.js` — зібраний файл, **не редагувати вручну**.
+- Працюємо у `src/app/*` та `server/*`.
+- Після frontend-змін: `npm run build:app`.
+
+---
+
+## 2. Frontend модулі (по відповідальності)
+
+### A. Каркас і стан
 - `/Users/admin/Documents/New project 3/src/app/00-constants.js`
-  Константи, ліміти, дефолти.
+  Константи, значення за замовчуванням, перелік критеріїв.
 - `/Users/admin/Documents/New project 3/src/app/01-globals.js`
-  DOM-елементи, глобальні змінні стану UI.
+  DOM-посилання, глобальні UI-флаги, runtime-стан.
+
+### B. Події / дії
 - `/Users/admin/Documents/New project 3/src/app/02-events.js`
-  Всі обробники кліків/інпутів.
-- `/Users/admin/Documents/New project 3/src/app/03-state-normalization.js`
-  Нормалізація стану, фабрики сутностей, дефолтний турнір.
-- `/Users/admin/Documents/New project 3/src/app/04-render.js`
-  Візуальний рендер усіх вкладок і таблиць.
-- `/Users/admin/Documents/New project 3/src/app/features/10-render-active-tab.js`
-  Роутинг рендера по активній вкладці.
-- `/Users/admin/Documents/New project 3/src/app/features/11-render-tournament-tab.js`
-  Entry-point рендера вкладки турніру.
-- `/Users/admin/Documents/New project 3/src/app/features/12-render-players-tab.js`
-  Entry-point рендера вкладки бази гравців.
-- `/Users/admin/Documents/New project 3/src/app/features/13-render-clubs-tab.js`
-  Entry-point рендера вкладки клубів.
-- `/Users/admin/Documents/New project 3/src/app/features/14-render-archive-tab.js`
-  Entry-point рендера вкладки турнірів (архів/активні).
+  Центральний event-layer (кліки, input, select, submit).
 - `/Users/admin/Documents/New project 3/src/app/05-actions.js`
-  CRUD дії для гравців/клубів/тренерів/турніру.
+  CRUD-доменно-логічні дії (гравці, клуби, тренери, турніри).
+
+### C. Нормалізація даних і обчислення
+- `/Users/admin/Documents/New project 3/src/app/03-state-normalization.js`
+  Нормалізація вхідних структур, дефолти, backward compatibility.
 - `/Users/admin/Documents/New project 3/src/app/06-pairing.js`
-  Генерація пар, BYE, результати турів.
+  Логіка парування/турів/BYE.
 - `/Users/admin/Documents/New project 3/src/app/07-standings.js`
-  Підрахунок таблиці, tie-break, місця.
+  Таблиця, місця, tie-break, сортування.
 - `/Users/admin/Documents/New project 3/src/app/08-lifecycle-utils.js`
-  Збереження, синхронізація, архівація, завершення турніру.
+  Збереження, синхронізація, архівування, завершення турніру.
+
+### D. Рендеринг
+- `/Users/admin/Documents/New project 3/src/app/04-render.js`
+  Спільні render-блоки (секціоновано коментарями).
+- `/Users/admin/Documents/New project 3/src/app/features/10-render-active-tab.js`
+  Єдиний entry-point маршрутизації по вкладках.
+- `/Users/admin/Documents/New project 3/src/app/features/11-render-tournament-tab.js`
+  Рендер вкладки "Турнір".
+- `/Users/admin/Documents/New project 3/src/app/features/12-render-players-tab.js`
+  Рендер вкладки "База гравців".
+- `/Users/admin/Documents/New project 3/src/app/features/13-render-clubs-tab.js`
+  Рендер вкладки "Клуби".
+- `/Users/admin/Documents/New project 3/src/app/features/14-render-archive-tab.js`
+  Рендер вкладки "Турніри" (активні + завершені).
+
+### E. Bootstrap
 - `/Users/admin/Documents/New project 3/src/app/09-init.js`
   Ініціалізація застосунку.
 
-## Маршрут змін по задачах
+---
 
-### 1) Налаштування турніру / формат / тури
-- `src/app/features/11-render-tournament-tab.js`
-- `02-events.js` (валідація форми, зміни полів)
-- `03-state-normalization.js` (`getMaxRoundsByFormat`, дефолти)
-- `04-render.js` (блок налаштувань)
+## 3. Логічні блоки всередині `04-render.js`
 
-### 2) Раунди / пари / результати
-- `06-pairing.js` (логіка пар і результатів)
-- `04-render.js` (UI раундів)
-- `02-events.js` (кнопки раундів)
+1. `CORE SHELL RENDER`
+  Головний `render()`, футер, tab-state.
+2. `TOURNAMENT SETTINGS DRAFT`
+  Draft налаштувань турніру, tie-break selectors, превʼю.
+3. `TOURNAMENT PARTICIPANTS & ROUNDS UI`
+  Списки учасників, раунди, ручний тур, W/D/L, мікроматчі.
+4. `STANDINGS & TIEBREAK TABLE`
+  Таблиця результатів та швидкі дії.
+5. `CLUBS / COACHES / CLUB PROFILE`
+  Внутрішні вкладки клубу, привʼязки, таблиці.
+6. `PLAYER PROFILE DATA HELPERS`
+  Профіль гравця, історія, опоненти, sparkline.
+7. `TOURNAMENTS (ARCHIVE + ONGOING) PREVIEW HELPERS`
+  Картки у вкладці турнірів.
 
-### 3) Таблиця / місця / tie-break
-- `07-standings.js` (правила сортування)
-- `04-render.js` (`buildStandingsTableHtml`, відображення місця)
-- `08-lifecycle-utils.js` (перевірки перед завершенням)
+---
 
-### 4) База гравців
-- `src/app/features/12-render-players-tab.js`
-- `05-actions.js` (create/edit/delete)
-- `04-render.js` (`renderBasePlayersTab`)
-- `02-events.js` (фільтри/кнопки/сортування)
+## 4. Де правити конкретні задачі
 
-### 5) Клуби і тренери
-- `src/app/features/13-render-clubs-tab.js`
-- `05-actions.js` (клуби/тренери CRUD, привʼязки)
-- `04-render.js` (`renderClubsTab`, `renderClubProfile`)
-- `02-events.js` (вкладки профілю клубу, кнопки)
+### Задача: не зберігається дата турніру
+- `src/app/02-events.js` (submit/кнопки збереження)
+- `src/app/05-actions.js` (apply/update)
+- `src/app/08-lifecycle-utils.js` (persist + API sync)
+- `server/routes/tournaments.js` (PATCH/PUT поля)
 
-### 6) Турніри (активні + завершені), пошук і статуси
+### Задача: не зберігається дата народження гравця
+- `src/app/05-actions.js`
+- `src/app/02-events.js`
+- `server/routes/players.js`
+- `server/lib/validators.js`
+
+### Задача: не завершується турнір після reload
+- `src/app/08-lifecycle-utils.js` (persist finalized status)
+- `src/app/03-state-normalization.js` (correct restore status)
+- `server/routes/tournaments.js` (архів/статус/active pointer)
+
+### Задача: проблеми в картках вкладки "Турніри"
 - `src/app/features/14-render-archive-tab.js`
-- `04-render.js` (`renderArchiveTab`)
-- `02-events.js` (пошук, фільтри)
-- `08-lifecycle-utils.js` (архівація/відкриття)
+- `src/app/04-render.js` (archive preview helper)
+- `src/app/02-events.js` (фільтри та дії)
 
-### 7) Синхронізація з Render API/PostgreSQL
-- `08-lifecycle-utils.js`
-- `server/*` (API)
+---
 
-## Швидкий чек-лист після змін
+## 5. Build order (важливо для уникнення дублювань)
+
+Визначено у:
+- `/Users/admin/Documents/New project 3/scripts/build-app.js`
+
+Порядок:
+1) core (`00..04`)
+2) feature render entry-points (`features/10..14`)
+3) actions/pairing/standings/lifecycle/init (`05..09`)
+
+---
+
+## 6. Backend карта
+
+- `/Users/admin/Documents/New project 3/server/index.js` — старт API + middleware.
+- `/Users/admin/Documents/New project 3/server/lib/db.js` — підключення pg.
+- `/Users/admin/Documents/New project 3/server/lib/schema.js` — схема/міграційні ensure.
+- `/Users/admin/Documents/New project 3/server/lib/auth.js` — auth helpers.
+- `/Users/admin/Documents/New project 3/server/middleware/auth.js` — role-check.
+- `/Users/admin/Documents/New project 3/server/routes/*.js` — REST endpoints.
+
+---
+
+## 7. Мінімальний чек перед push
+
 1. `npm run build:app`
 2. `node --check app.js`
-3. Перевірити тільки затронуту вкладку UI.
-4. Потім пуш і деплой.
+3. smoke-test цільової вкладки
+4. `git status` (переконатись, що немає зайвих файлів)

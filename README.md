@@ -1,89 +1,130 @@
-# Swiss Draw Manager
+# Арбітр Шашкової Ліги (Swiss Draw Manager)
 
-Веб-застосунок для турнірів за спрощеною швейцарською системою.
+Веб-застосунок для проведення шашкових турнірів з ролями доступу, базою гравців/клубів/тренерів і збереженням у PostgreSQL.
 
-## Що є зараз
+## 1. Що це за проєкт
 
-- Поточний турнір з жеребкуванням по турах.
-- Вибір формату турніру: швейцарка або кругова система.
-- База гравців (окрема вкладка).
-- У базі гравців поля розділені на `Прізвище` та `Ім'я`.
-- У базі є додаткові поля: `Фото`, `Спортивне звання`, `Дата народження`.
-- Редагування гравців у базі та в активному турнірі (до старту).
-- Перегляд історії гравця: хто і коли з ним грав у турнірах.
-- Додавання учасників у турнір тільки з бази гравців.
-- Архів турнірів (окрема вкладка).
-- Історія виступів кожного гравця по збережених турнірах.
-- Автоматичний підрахунок статистики гравців: турніри, партії, W/D/L, сумарні очки.
-- Додаткові коефіцієнти в таблиці: Buchholz, Sonneborn-Berger.
+Проєкт складається з:
+- Frontend (односторінковий застосунок): `index.html`, `styles.css`, зібраний `app.js`.
+- Source-модулі frontend: `src/app/*.js`.
+- Backend API (Node + Express + PostgreSQL): `server/*`.
 
-## Вкладки
+Підтримуються:
+- кругова та швейцарська системи;
+- мікроматчі (2 партії);
+- критерії ранжування;
+- ролі (super-admin/admin/viewer);
+- архів завершених турнірів;
+- редагування архівного турніру для адміністратора.
 
-1. `Турнір`:
-- Налаштування активного турніру.
-- Генерація пар і внесення результатів.
-- Завершення турніру з автоматичним перенесенням в архів.
-- Створення нового турніру.
+## 2. Швидкий старт
 
-2. `База гравців`:
-- Додавання/видалення гравців бази.
-- Перегляд накопиченої статистики.
-- Швидке додавання в активний турнір.
-
-3. `Архів турнірів`:
-- Список збережених турнірів.
-- Окремий перегляд тільки підсумкової таблиці архівного турніру.
-- Видалення турніру з архіву.
-
-## Збереження даних
-
-Застосунок тепер підтримує 2 режими:
-
-- Автономний режим: дані зберігаються локально у `localStorage` браузера.
-- Render-режим: якщо доступний `/api/health`, фронтенд автоматично підключається до Render API і синхронізує дані з PostgreSQL.
-
-Стара схема (`swiss-manager-v1`) автоматично мігрується у нову (`swiss-manager-v2`).
-
-## Запуск
-
-- Швидкий локальний перегляд: відкрийте `index.html` у браузері.
-- Повний режим з БД: запустіть API (`npm run start:api`) і відкрийте Render URL або локальний сервер.
-- Якщо фронтенд відкритий окремо від API, можна передати адресу бекенду параметром `?api=https://your-service.onrender.com`.
-
-## Структура коду
-
-- `src/app/00-constants.js` - константи.
-- `src/app/01-globals.js` - глобальний стан і DOM-елементи.
-- `src/app/02-events.js` - обробники подій.
-- `src/app/03-state-normalization.js` - завантаження та нормалізація стану.
-- `src/app/04-render.js` - рендер вкладок, форм, таблиць.
-- `src/app/features/10-render-active-tab.js` - роутинг рендера по активній вкладці.
-- `src/app/features/11-render-tournament-tab.js` - рендер вкладки турніру (entry-point).
-- `src/app/features/12-render-players-tab.js` - рендер вкладки бази гравців (entry-point).
-- `src/app/features/13-render-clubs-tab.js` - рендер вкладки клубів (entry-point).
-- `src/app/features/14-render-archive-tab.js` - рендер вкладки турнірів/архіву (entry-point).
-- `src/app/05-actions.js` - дії з гравцями і формами.
-- `src/app/06-pairing.js` - генерація турів і пар.
-- `src/app/07-standings.js` - підрахунок коефіцієнтів і місць.
-- `src/app/08-lifecycle-utils.js` - архів, завершення турніру, збереження, утиліти.
-- `src/app/09-init.js` - ініціалізація застосунку.
-- `scripts/build-app.js` - збірка єдиного `app.js` із модулів.
-
-## Як вносити зміни
-
-1. Редагуйте тільки потрібний файл у `src/app/`.
-2. Після змін зберіть `app.js`:
+### 2.1 Локальна розробка
 
 ```bash
-node scripts/build-app.js
+npm install
+npm run build:app
+DATABASE_URL=postgresql://... npm run start:api
 ```
 
-3. Відкрийте `index.html` і перевірте результат.
+Після цього:
+- frontend: відкриваєш `index.html` (або URL з Render);
+- API: працює на порту `10000` (якщо `PORT` не задано).
 
-## Швидка точкова робота (без перегляду всього коду)
+### 2.2 Збірка frontend
 
-- Детальна карта модулів: [`docs/CODEMAP.md`](docs/CODEMAP.md)
-- Підбір файлів по зоні змін:
+`app.js` не редагуємо вручну.
+
+```bash
+npm run build:app
+```
+
+## 3. Архітектура frontend (оптимізована структура)
+
+Frontend розбитий на логічні зони:
+
+1. Константи та глобальний стан
+- `src/app/00-constants.js`
+- `src/app/01-globals.js`
+
+2. Події та зміни стану
+- `src/app/02-events.js`
+- `src/app/05-actions.js`
+
+3. Нормалізація/підготовка даних
+- `src/app/03-state-normalization.js`
+- `src/app/07-standings.js`
+- `src/app/08-lifecycle-utils.js`
+
+4. Рендер
+- Базові рендер-утиліти та спільні блоки: `src/app/04-render.js`
+- Entry-point по вкладках (feature-рівень):
+  - `src/app/features/10-render-active-tab.js`
+  - `src/app/features/11-render-tournament-tab.js`
+  - `src/app/features/12-render-players-tab.js`
+  - `src/app/features/13-render-clubs-tab.js`
+  - `src/app/features/14-render-archive-tab.js`
+
+5. Ініціалізація
+- `src/app/09-init.js`
+
+### Важливо
+- Дублювання entry-point рендера прибрано: `renderActiveTabPanel` тепер живе в `features/10-render-active-tab.js`.
+- У `src/app/04-render.js` додано секції-коментарі:
+  - CORE SHELL RENDER
+  - TOURNAMENT SETTINGS DRAFT
+  - TOURNAMENT PARTICIPANTS & ROUNDS UI
+  - STANDINGS & TIEBREAK TABLE
+  - CLUBS / COACHES / CLUB PROFILE
+  - PLAYER PROFILE DATA HELPERS
+  - TOURNAMENTS (ARCHIVE + ONGOING) PREVIEW HELPERS
+
+Це робить навігацію по коду швидшою і безпечнішою.
+
+## 4. Backend API
+
+Основні файли:
+- `server/index.js`
+- `server/lib/db.js`
+- `server/lib/schema.js`
+- `server/lib/auth.js`
+- `server/middleware/auth.js`
+- `server/routes/*.js`
+
+Базові env:
+- `DATABASE_URL` (обов'язково)
+- `NODE_ENV=production`
+- `CORS_ORIGIN` (якщо фронтенд на іншому домені)
+- `ADMIN_EMAIL` (опц.)
+- `ADMIN_PASSWORD` (опц.)
+
+## 5. Render deploy (основний сценарій)
+
+У Web Service:
+- Build Command: `npm install`
+- Start Command: `npm run start:api`
+- Root Directory: порожньо
+
+Environment Variables (мінімум):
+- `DATABASE_URL=postgresql://...`
+- `NODE_ENV=production`
+- `CORS_ORIGIN=https://...` (за потреби)
+
+Після змін у `src/app/*`:
+1. `npm run build:app`
+2. commit + push
+3. Render: `Manual Deploy -> Deploy latest commit`
+
+## 6. Як працювати без хаосу (рекомендований flow)
+
+1. Обираєш фічу.
+2. Через `docs/CODEMAP.md` дивишся тільки потрібні файли.
+3. Міняєш код у `src/app/*` або `server/*`.
+4. Збираєш `app.js`.
+5. Локальна перевірка.
+6. Деплой.
+
+Команда підбору файлів:
 
 ```bash
 npm run scope -- --list
@@ -91,57 +132,33 @@ npm run scope -- tournament
 npm run scope -- clubs
 ```
 
-Це дозволяє працювати тільки з потрібними файлами, не чіпаючи весь проєкт.
+## 7. Типові проблеми і рішення
 
-## Backend API (Render + PostgreSQL)
+### 7.1 Зміни не видно у браузері
+- Перевір, що був `npm run build:app` перед пушем.
+- Перевір, що deploy завершений (`Live` у Render).
+- Зроби hard refresh (`Cmd+Shift+R`).
 
-У репозиторій додано API сервер:
-- `server/index.js`
-- `server/routes/players.js`
-- `server/routes/tournaments.js`
-- `server/lib/db.js`
-- `server/lib/schema.js`
+### 7.2 Данні різні на різних пристроях
+- Перевір `DATABASE_URL` у поточному сервісі.
+- Перевір `GET /api/health`.
+- Переконайся, що працюєш в одному конкретному URL сервісу.
 
-### Локальний запуск API
+### 7.3 Немає прав редагування
+- Увійти під адміністратором у правому верхньому auth-блоці.
+- У viewer-режимі редагування/видалення приховані або неактивні.
 
-```bash
-npm install
-DATABASE_URL=postgresql://... npm run start:api
-```
+## 8. Документація для розробки
 
-### Deploy на Render
+- Код-мапа: `/Users/admin/Documents/New project 3/docs/CODEMAP.md`
+- Скрипт збірки: `/Users/admin/Documents/New project 3/scripts/build-app.js`
+- Скрипт “де правити”: `/Users/admin/Documents/New project 3/scripts/scope-files.js`
 
-1. `New -> Web Service`
-2. Repo: `Lysen01/swiss-draw-manager`
-3. Branch: `main`
-4. Build: `npm install`
-5. Start: `npm run start:api`
-6. Env vars:
-   - `DATABASE_URL` = Internal Database URL з твоєї БД `arbiter-db`
-   - `CORS_ORIGIN` = потрібен тільки якщо фронтенд живе на іншому домені
-   - `NODE_ENV` = `production`
+## 9. Правила редагування в цьому репо
 
-### Як тепер працює frontend + backend
-
-- Якщо фронтенд відкритий з того ж Render сервісу, API використовується автоматично.
-- Якщо API тимчасово недоступний, застосунок не падає і продовжує працювати через `localStorage`.
-- Гравці, активний турнір і архів синхронізуються з PostgreSQL.
-
-Після деплою перевірка:
-- `GET /api/health`
-
-## Авторизація та ролі (Phase 1)
-
-- `POST /api/auth/login` — вхід адміністратора.
-- `POST /api/auth/logout` — вихід.
-- `GET /api/auth/me` — поточний користувач.
-- `GET /api/cities` — список активних міст.
-
-Ролі:
-- `super_admin` — повний доступ.
-- `admin` — створення/редагування своїх турнірів + керування базами.
-- `viewer` (або гість без входу) — лише перегляд публічних даних.
-
-Сервер створює стартового `super_admin`, якщо таблиця `users` порожня:
-- `ADMIN_EMAIL` (за замовчуванням: `admin@arbiter.local`)
-- `ADMIN_PASSWORD` (за замовчуванням: `admin12345`)
+- Не редагуємо вручну `app.js` (лише через збірку).
+- Основні правки тільки у `src/app/*` або `server/*`.
+- Перед деплоєм завжди перевіряємо:
+  - збірка ок;
+  - синтаксис ок;
+  - цільова вкладка UI працює.

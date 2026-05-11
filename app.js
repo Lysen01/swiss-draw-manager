@@ -502,6 +502,7 @@ function bindEvents() {
 
     tournamentSettingsDraft = createTournamentSettingsDraft(t);
     saveAndRender();
+    await flushRemoteSyncNow("tournament-settings-save");
   });
 
   els.tournamentName.addEventListener("input", () => {
@@ -704,7 +705,7 @@ function bindEvents() {
       alert("Режим перегляду: завершення турніру доступне лише адміністратору.");
       return;
     }
-    finishCurrentTournament();
+    void finishCurrentTournament();
   });
 
   if (els.resetBtn) {
@@ -1122,7 +1123,7 @@ function bindEvents() {
     }
 
     if (btn.dataset.action === "finish-tournament-from-table") {
-      finishCurrentTournament();
+      void finishCurrentTournament();
       return;
     }
 
@@ -1857,35 +1858,14 @@ function isValidCoachPhotoFile(file) {
 }
 
 // ===== 04-render.js =====
+// -----------------------------
+// CORE SHELL RENDER
+// -----------------------------
 function render() {
   renderAuthPanel();
   renderTabs();
   renderActiveTabPanel();
   renderPersistenceFooter();
-}
-
-function renderActiveTabPanel() {
-  if (state.activeTab === "tournament") {
-    renderTournamentTab();
-    return;
-  }
-
-  if (state.activeTab === "players") {
-    renderBasePlayersTab();
-    return;
-  }
-
-  if (state.activeTab === "clubs") {
-    renderClubsTab();
-    return;
-  }
-
-  if (state.activeTab === "archive") {
-    renderArchiveTab();
-    return;
-  }
-
-  renderTournamentTab();
 }
 
 function renderPersistenceFooter() {
@@ -1920,83 +1900,9 @@ function renderTabs() {
   }
 }
 
-function renderTournamentTab() {
-  const t = state.currentTournament;
-  const archiveView = t.status === "archived_view";
-  const canManage = canManageAdminUi();
-  const readOnlyArchive = archiveView && !canManage;
-  ensureTournamentSettingsDraftForCurrentTournament();
-  const draft = tournamentSettingsDraft;
-  if (draft.format === "round_robin") {
-    draft.roundsCount = getMaxRoundsByFormat("round_robin", t.players.length);
-  }
-
-  els.tournamentName.value = draft.name;
-  els.roundsCount.value = draft.roundsCount;
-  els.tournamentFormat.value = draft.format;
-  if (els.tournamentIsMicromatch) {
-    els.tournamentIsMicromatch.checked = Boolean(draft.isMicromatch);
-  }
-  if (els.scoreCalculationType) {
-    els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
-  }
-  renderScoreCalculationControls();
-  els.roundsCount.disabled = draft.format === "round_robin" || readOnlyArchive;
-  renderRoundsRuleHint();
-  els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
-  els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
-  els.tournamentChiefJudge.value = normalizeChiefJudge(draft.chiefJudge);
-  renderTieBreakSelectors(draft.tieBreakOrder);
-  els.tournamentRemovePhoto.checked = draft.removePhoto;
-  els.tournamentPhoto.value = "";
-
-  const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "дата не вказана";
-  const timeControlText = t.timeControl || "не вказано";
-  const chiefJudgeText = t.chiefJudge || "не вказано";
-  const tournamentTitle = t.name || "Новий турнір";
-  const archiveHint = archiveView ? (readOnlyArchive ? " | Архів (read-only)" : " | Архів (редагування для адміністратора)") : "";
-  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveHint}`;
-
-  renderTournamentSettingsPreview();
-
-  renderBaseSelect();
-  els.generateRoundBtn.disabled = archiveView;
-  els.manualRoundBtn.disabled = archiveView;
-  els.manualRoundBtn.textContent = manualRoundBuilderOpen ? "Закрити ручний тур" : "Додати тур вручну";
-  els.printRoundBtn.disabled = archiveView || t.rounds.length === 0;
-  els.finishTournamentBtn.disabled = archiveView;
-  if (els.seedDemoBtn) {
-    els.seedDemoBtn.disabled = archiveView;
-  }
-  if (readOnlyArchive) {
-    els.dbPlayerSelect.disabled = true;
-    if (els.tournamentClubFilter) {
-      els.tournamentClubFilter.disabled = true;
-    }
-    els.selectAllBaseBtn.disabled = true;
-    els.addFromBaseBtn.disabled = true;
-    for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
-      checkbox.disabled = true;
-    }
-  } else {
-    els.dbPlayerSelect.disabled = false;
-    if (els.tournamentClubFilter) {
-      els.tournamentClubFilter.disabled = false;
-    }
-    els.selectAllBaseBtn.disabled = false;
-    els.addFromBaseBtn.disabled = selectedBasePlayerIds.size === 0;
-    for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
-      checkbox.disabled = false;
-    }
-  }
-
-  renderTournamentSubtabs();
-  renderTournamentPlayers();
-  renderManualPairingPanel();
-  renderRounds();
-  renderStandings();
-}
-
+// -----------------------------
+// TOURNAMENT SETTINGS DRAFT
+// -----------------------------
 function renderRoundsRuleHint() {
   ensureTournamentSettingsDraftForCurrentTournament();
   const draft = tournamentSettingsDraft;
@@ -2183,6 +2089,9 @@ function renderTournamentSubtabs() {
   }
 }
 
+// -----------------------------
+// TOURNAMENT PARTICIPANTS & ROUNDS UI
+// -----------------------------
 function renderBaseSelect() {
   const query = String(els.dbPlayerSelect.value || "").trim().toLowerCase();
   const selectedClubFilter = String(els.tournamentClubFilter?.value || "all");
@@ -2664,6 +2573,9 @@ function printCurrentRound() {
   }, 150);
 }
 
+// -----------------------------
+// STANDINGS & TIEBREAK TABLE
+// -----------------------------
 function renderStandings() {
   const t = state.currentTournament;
   const showRoundDetails = t.status !== "archived_view";
@@ -2911,91 +2823,6 @@ function getTournamentPlayerPhotoDataUrl(player) {
   return byName?.photoDataUrl || null;
 }
 
-function renderBasePlayersTab() {
-  const canManage = canManageAdminUi();
-  if (els.openBasePlayerFormBtn) {
-    els.openBasePlayerFormBtn.hidden = !canManage;
-  }
-  if (!canManage) {
-    showBasePlayerAddForm = false;
-    editingBasePlayerId = null;
-  }
-  syncBasePlayerFormVisibility();
-  renderBasePlayerOwnershipSelectors(editingBasePlayerId ? state.playerBase.find((p) => p.id === editingBasePlayerId) : null);
-  renderBasePlayersClubFilter();
-  const filteredPlayers = filterBasePlayers(state.playerBase);
-  const sortedPlayers = sortBasePlayers(filteredPlayers);
-  const totalPlayers = state.playerBase.length;
-  const filtersActive =
-    Boolean(String(els.basePlayersSearch.value || "").trim()) ||
-    els.basePlayersGenderFilter.value !== "all" ||
-    els.basePlayersRatingFrom.value !== "" ||
-    els.basePlayersRatingTo.value !== "" ||
-    els.basePlayersClubFilter.value !== "all";
-  els.basePlayersSummary.textContent = `Показано ${sortedPlayers.length} з ${totalPlayers} гравців${filtersActive ? " за фільтром" : ""}.`;
-  const rows = sortedPlayers
-    .map((p) => {
-      const actionsHtml = canManage
-        ? `
-            <button class="icon-btn" type="button" title="Редагувати" aria-label="Редагувати" data-action="edit-base-player" data-player-id="${p.id}">✎</button>
-            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
-            <button class="icon-btn danger" type="button" title="Видалити" aria-label="Видалити" data-action="delete-base-player" data-player-id="${p.id}">🗑</button>
-          `
-        : `
-            <button class="icon-btn" type="button" title="Профіль і статистика" aria-label="Профіль і статистика" data-action="view-base-profile" data-player-id="${p.id}">📊</button>
-          `;
-      return `
-      <tr>
-        <td>
-          <div class="row-actions">
-            ${actionsHtml}
-          </div>
-        </td>
-        <td>${p.photoDataUrl ? `<img class="avatar" src="${p.photoDataUrl}" alt="${escapeHtml(getBaseFullName(p))}" />` : '<span class="avatar-placeholder">Фото</span>'}</td>
-        <td class="player-name-cell">${escapeHtml(getBaseFullName(p))}</td>
-        <td>${formatGenderLabel(p.gender)}</td>
-        <td>${escapeHtml(getClubName(p.clubId) || "Без клубу")}</td>
-        <td>${escapeHtml(getCoachName(p.coachId) || "-")}</td>
-        <td>${p.rating}</td>
-        <td>${escapeHtml(p.rank || "б/р")}</td>
-        <td>${p.birthDate || "-"}</td>
-        <td>${p.stats.tournaments}</td>
-        <td>${p.stats.games}</td>
-        <td>${p.stats.wins}/${p.stats.draws}/${p.stats.losses}</td>
-        <td>${p.stats.totalScore.toFixed(1)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  const head = (label, key) => {
-    const active = basePlayersSort.key === key;
-    const arrow = active ? (basePlayersSort.dir === "asc" ? " ↑" : " ↓") : "";
-    return `<button class="th-sort-btn ${active ? "active" : ""}" type="button" data-action="sort-base-column" data-sort-key="${key}">${label}${arrow}</button>`;
-  };
-
-  els.basePlayersList.innerHTML = `
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Дії</th>
-          <th>${head("Фото", "photo")}</th>
-          <th>${head("Гравець", "name")}</th>
-          <th>${head("Стать", "gender")}</th>
-          <th>${head("Клуб", "club")}</th>
-          <th>${head("Тренер", "coach")}</th>
-          <th>${head("Рейт.", "rating")}</th>
-          <th>${head("Звання", "rank")}</th>
-          <th>${head("Дата нар.", "birthDate")}</th>
-          <th>${head("Турніри", "tournaments")}</th>
-          <th>${head("Партії", "games")}</th>
-          <th>${head("W/D/L", "wdl")}</th>
-          <th>${head("Очки", "score")}</th>
-        </tr>
-      </thead>
-      <tbody>${rows || '<tr><td colspan="13">База порожня.</td></tr>'}</tbody>
-    </table>`;
-}
-
 function renderBasePlayerOwnershipSelectors(basePlayer) {
   if (!els.basePlayerClub || !els.basePlayerCoach) {
     return;
@@ -3149,83 +2976,9 @@ function formatGenderLabel(value) {
   return "-";
 }
 
-function renderClubsTab() {
-  const canManage = canManageAdminUi();
-  renderCoachClubSelector();
-  if (!els.clubsList || !els.clubProfile) {
-    return;
-  }
-  if (els.openAddClubBtn) {
-    els.openAddClubBtn.hidden = !canManage;
-  }
-  if (!canManage && selectedClubsView === "manage") {
-    selectedClubsView = "directory";
-  }
-  renderClubsSubtabs();
-
-  const clubs = state.clubs.slice().sort((a, b) => a.name.localeCompare(b.name, "uk"));
-  if (!selectedClubProfileId && clubs.length) {
-    selectedClubProfileId = clubs[0].id;
-  }
-  if (selectedClubProfileId && !state.clubs.some((club) => club.id === selectedClubProfileId)) {
-    selectedClubProfileId = clubs[0]?.id || null;
-  }
-
-  if (!clubs.length) {
-    els.clubsList.innerHTML = `<div class="club-card">Клубів поки немає.${canManage ? ' Натисніть "Додати клуб".' : ""}</div>`;
-    els.clubProfile.innerHTML = renderIndependentPlayersBlock();
-    if (selectedClubsView === "profile") {
-      selectedClubsView = "directory";
-      renderClubsSubtabs();
-    }
-    return;
-  }
-
-  els.clubsList.innerHTML = clubs
-    .map((club) => {
-      const playersCount = state.playerBase.filter((player) => player.clubId === club.id).length;
-      const coachesCount = state.coaches.filter((coach) => coach.clubId === club.id).length;
-      const active = club.id === selectedClubProfileId ? " active" : "";
-      const logo = club.logoDataUrl
-        ? `<img class="club-card__logo" src="${club.logoDataUrl}" alt="${escapeHtml(club.name)}" />`
-        : '<span class="club-card__logo club-card__logo--empty">Лого</span>';
-      const description = String(club.description || "").trim();
-      const descriptionHtml = description
-        ? `<div class="club-card__desc">${escapeHtml(description)}</div>`
-        : '<div class="club-card__desc club-card__desc--empty">Опис клубу ще не додано.</div>';
-      return `
-        <article class="club-card${active}">
-          <div class="club-card__top">
-            ${logo}
-            <div>
-              <div class="club-card__title">${escapeHtml(club.name)}</div>
-              <div class="club-card__meta">${escapeHtml(club.city || "місто не вказано")}</div>
-            </div>
-          </div>
-          <div class="club-card__stats">${coachesCount} тренерів | ${playersCount} гравців</div>
-          ${descriptionHtml}
-          <div class="row-actions">
-            <button type="button" data-action="view-club" data-club-id="${club.id}">Відкрити</button>
-            ${
-              canManage
-                ? `
-            <button type="button" data-action="edit-club" data-club-id="${club.id}">Редагувати</button>
-            <button type="button" class="danger" data-action="delete-club" data-club-id="${club.id}">Видалити</button>`
-                : ""
-            }
-          </div>
-        </article>`;
-    })
-    .join("");
-
-  els.clubProfile.innerHTML = renderClubProfileSwitcher(clubs) + renderClubProfile(selectedClubProfileId) + renderIndependentPlayersBlock();
-  if (selectedClubDetailTab !== "players") {
-    for (const profileCard of els.clubProfile.querySelectorAll(".player-profile-shell")) {
-      profileCard.remove();
-    }
-  }
-}
-
+// -----------------------------
+// CLUBS / COACHES / CLUB PROFILE
+// -----------------------------
 function renderClubsSubtabs() {
   const activeView = ["manage", "directory", "profile"].includes(selectedClubsView) ? selectedClubsView : "directory";
   selectedClubsView = activeView;
@@ -3883,6 +3636,9 @@ function renderPlayerProfileMembershipsTab(model) {
     </div>`;
 }
 
+// -----------------------------
+// PLAYER PROFILE DATA HELPERS
+// -----------------------------
 function collectArchivedMatchesForPlayer(basePlayerId) {
   const list = [];
 
@@ -4047,132 +3803,6 @@ function renderTournamentJumpButton(tournamentId, title, className = "inline-lin
   return `<button type="button" class="${className}" data-action="open-player-tournament" data-tournament-id="${safeId}" title="Відкрити турнір">${safeTitle}</button>`;
 }
 
-function renderArchiveTab() {
-  const canManage = canManageAdminUi();
-  if (els.tournamentsSearch) {
-    els.tournamentsSearch.value = tournamentsSearchQuery;
-  }
-  if (els.tournamentsStatusFilter) {
-    const nextStatusFilter = ["all", "ongoing", "finished"].includes(tournamentsStatusFilter) ? tournamentsStatusFilter : "all";
-    tournamentsStatusFilter = nextStatusFilter;
-    els.tournamentsStatusFilter.value = nextStatusFilter;
-  }
-  if (els.tournamentsDateFrom) {
-    els.tournamentsDateFrom.value = tournamentsDateFrom;
-  }
-  if (els.tournamentsDateTo) {
-    els.tournamentsDateTo.value = tournamentsDateTo;
-  }
-
-  const records = [];
-  if (isCurrentTournamentMeaningful()) {
-    records.push({
-      kind: "ongoing",
-      tournament: state.currentTournament,
-      sortDate: new Date(state.currentTournament.updatedAt || state.currentTournament.createdAt || 0).getTime(),
-    });
-  }
-
-  for (const tournament of state.tournamentsArchive || []) {
-    records.push({
-      kind: "finished",
-      tournament,
-      sortDate: new Date(tournament.finishedAt || tournament.updatedAt || 0).getTime(),
-    });
-  }
-
-  if (records.length === 0) {
-    els.archiveList.innerHTML = '<div class="archive-card">Турнірів поки немає.</div>';
-    return;
-  }
-
-  const query = tournamentsSearchQuery.toLowerCase();
-  const filtered = records
-    .filter((entry) => {
-      if (tournamentsStatusFilter === "ongoing") {
-        return entry.kind === "ongoing";
-      }
-      if (tournamentsStatusFilter === "finished") {
-        return entry.kind === "finished";
-      }
-      return true;
-    })
-    .filter((entry) => {
-      if (!isTournamentInDateRange(entry, tournamentsDateFrom, tournamentsDateTo)) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
-      const t = entry.tournament;
-      const haystack = [
-        t.name,
-        t.chiefJudge,
-        t.timeControl,
-        t.eventDate ? formatDateOnly(t.eventDate) : "",
-        entry.kind === "ongoing" ? "триває" : "завершено",
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(query);
-    })
-    .sort((a, b) => b.sortDate - a.sortDate);
-
-  if (filtered.length === 0) {
-    els.archiveList.innerHTML = '<div class="archive-card">За фільтром нічого не знайдено.</div>';
-    return;
-  }
-
-  const blocks = filtered
-    .map((entry) => {
-      const t = entry.tournament;
-      const standings = getStandings(t).slice(0, 3);
-      const top = standings.map((p, i) => `${i + 1}. ${escapeHtml(p.name)} (${p.score.toFixed(1)})`).join(" | ");
-      const isFinished = entry.kind === "finished";
-      const isOpen = isFinished && state.archivePreviewTournamentId === t.id;
-      const statusHtml = isFinished
-        ? `Завершено: ${formatDate(t.finishedAt)}`
-        : `Триває: оновлено ${formatDate(t.updatedAt || t.createdAt || new Date().toISOString())}`;
-      const actionsHtml = isFinished
-        ? `
-            <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
-            <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
-            ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
-        : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
-
-      return `
-      <article class="archive-card${isOpen ? " archive-card--open" : ""}">
-        <div class="archive-head">
-          <strong>${escapeHtml(t.name)}</strong>
-          <div class="toolbar">
-            ${actionsHtml}
-          </div>
-        </div>
-        <div class="archive-meta">
-          <span class="status-chip ${isFinished ? "status-chip--finished" : "status-chip--ongoing"}">${isFinished ? "Завершений" : "Триває"}</span>
-          ${statusHtml} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}
-        </div>
-        <div class="archive-media">
-          ${
-            `<img class="archive-photo" src="${getTournamentDisplayPhotoUrl(t)}" alt="Фото ${escapeHtml(t.name)}" />`
-          }
-          <div>
-            <div class="archive-meta"><strong>Турнір:</strong> ${escapeHtml(t.name)}</div>
-            <div class="archive-meta"><strong>Дата:</strong> ${t.eventDate ? formatDateOnly(t.eventDate) : "не вказана"}</div>
-            <div class="archive-meta"><strong>Контроль:</strong> ${escapeHtml(t.timeControl || "не вказано")}</div>
-            <div class="archive-meta"><strong>Головний суддя:</strong> ${escapeHtml(t.chiefJudge || "не вказано")}</div>
-          </div>
-        </div>
-        <div class="archive-meta">Топ-3: ${top || "-"}</div>
-        ${isOpen ? buildArchivePreviewHtml(t) : ""}
-      </article>`;
-    })
-    .join("");
-
-  els.archiveList.innerHTML = blocks;
-}
-
 function isTournamentInDateRange(entry, fromDate, toDate) {
   const filterDate = getTournamentFilterDate(entry);
   if (!filterDate) {
@@ -4303,6 +3933,9 @@ function printArchivedTournament(tournamentId) {
   }, 150);
 }
 
+// -----------------------------
+// TOURNAMENTS (ARCHIVE + ONGOING) PREVIEW HELPERS
+// -----------------------------
 function buildArchivePreviewHtml(archived) {
   const standingsTable = buildStandingsTableHtml(archived, { showRoundDetails: true });
 
@@ -5001,6 +4634,7 @@ async function submitBasePlayerForm() {
 
   resetBasePlayerForm({ keepOpen: true });
   saveAndRender();
+  await flushRemoteSyncNow("base-player-save");
 }
 
 function deleteBasePlayer(playerId) {
@@ -5487,6 +5121,7 @@ async function submitQuickClubPlayerForm(form) {
   selectedClubPlayerProfileId = player.id;
   form.reset();
   saveAndRender();
+  await flushRemoteSyncNow("club-player-save");
 }
 
 async function submitCoachForm() {
@@ -7469,13 +7104,33 @@ function scheduleRemoteSync(_reason = "state-change") {
 
 function flushRemoteSyncNow(_reason = "manual-sync") {
   if (persistenceInfo.mode !== "remote") {
-    return;
+    return Promise.resolve();
   }
   if (remoteSyncTimerId) {
     window.clearTimeout(remoteSyncTimerId);
     remoteSyncTimerId = null;
   }
-  void flushRemoteSync();
+  return flushRemoteSync().then(() => waitForRemoteSyncIdle());
+}
+
+function waitForRemoteSyncIdle(timeoutMs = 20000) {
+  if (persistenceInfo.mode !== "remote") {
+    return Promise.resolve();
+  }
+
+  const startedAt = Date.now();
+  return new Promise((resolve) => {
+    const tick = () => {
+      const timedOut = Date.now() - startedAt >= timeoutMs;
+      const idle = !remoteSyncInFlight && !remoteSyncQueued && !remoteSyncTimerId;
+      if (idle || timedOut) {
+        resolve();
+        return;
+      }
+      window.setTimeout(tick, 120);
+    };
+    tick();
+  });
 }
 
 async function flushRemoteSync() {
@@ -7700,7 +7355,7 @@ function archiveCurrentTournament({ notify }) {
   return true;
 }
 
-function finishCurrentTournament() {
+async function finishCurrentTournament() {
   const t = state.currentTournament;
   if (t.players.length === 0) {
     alert("У турнірі немає учасників.");
@@ -7720,7 +7375,16 @@ function finishCurrentTournament() {
   }
 
   if (!validateManualPlacesForTiedScores(t)) {
-    return;
+    const shouldAutoResolve = confirm(
+      "Для гравців з однаковими очками не вистачає підсумкових місць.\n\nЗастосувати авто-місця системи та завершити турнір?"
+    );
+    if (!shouldAutoResolve) {
+      return;
+    }
+    applyAutoPlacesForTiedScores(t);
+    if (!validateManualPlacesForTiedScores(t)) {
+      return;
+    }
   }
 
   archiveCurrentTournament({ notify: false });
@@ -7730,7 +7394,7 @@ function finishCurrentTournament() {
   state.tournamentView = "setup";
   state.archivePreviewTournamentId = null;
   saveAndRender();
-  flushRemoteSyncNow("finish-tournament");
+  await flushRemoteSyncNow("finish-tournament");
   alert("Турнір завершено і перенесено в архів.");
 }
 
