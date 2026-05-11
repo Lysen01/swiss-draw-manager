@@ -248,6 +248,7 @@ function bindEvents() {
 
     tournamentSettingsDraft = createTournamentSettingsDraft(t);
     saveAndRender();
+    await flushRemoteSyncNow("tournament-settings-save");
   });
 
   els.tournamentName.addEventListener("input", () => {
