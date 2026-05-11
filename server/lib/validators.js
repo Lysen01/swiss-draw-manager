@@ -2,7 +2,7 @@ function asSafeString(value, max = 255) {
   return String(value || '').trim().slice(0, max);
 }
 
-function asLongString(value, max = 1800000) {
+function asLongString(value, max = 11000000) {
   return String(value || '').trim().slice(0, max);
 }
 

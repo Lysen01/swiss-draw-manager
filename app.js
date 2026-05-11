@@ -382,10 +382,7 @@ function bindEvents() {
     const t = state.currentTournament;
     ensureTournamentSettingsDraftForCurrentTournament();
     const draft = tournamentSettingsDraft;
-    if (t.status === "archived_view") {
-      alert("У режимі перегляду архіву редагування вимкнене.");
-      return;
-    }
+    const isArchivePreview = t.status === "archived_view";
     const nextFormat = draft.format;
     const manualRounds = Number(draft.roundsCount);
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
@@ -445,6 +442,13 @@ function bindEvents() {
       }
     }
 
+    const wasConfiguredBefore =
+      Boolean(String(t.name || "").trim()) &&
+      Boolean(normalizeBirthDate(t.eventDate)) &&
+      Boolean(normalizeTimeControl(t.timeControl)) &&
+      Boolean(normalizeChiefJudge(t.chiefJudge)) &&
+      Number(t.players?.length || 0) > 0;
+
     t.name = draft.name || "Турнір";
     t.roundsCount = nextRounds;
     t.format = nextFormat;
@@ -453,6 +457,7 @@ function bindEvents() {
     t.eventDate = nextEventDate;
     t.timeControl = nextTimeControl;
     t.chiefJudge = nextChiefJudge;
+    t.setupNotified = Boolean(t.setupNotified);
     t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder, { fillDefaults: false });
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
@@ -472,6 +477,29 @@ function bindEvents() {
 
     normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
+
+    if (isArchivePreview) {
+      const archivedIdx = state.tournamentsArchive.findIndex((item) => item.id === t.id);
+      if (archivedIdx >= 0) {
+        const archivedSnapshot = cloneTournament(t);
+        archivedSnapshot.status = "archived";
+        archivedSnapshot.finishedAt =
+          state.tournamentsArchive[archivedIdx].finishedAt || archivedSnapshot.finishedAt || archivedSnapshot.updatedAt;
+        state.tournamentsArchive[archivedIdx] = normalizeArchivedTournament(archivedSnapshot);
+      }
+    }
+
+    const configuredNow =
+      Boolean(String(t.name || "").trim()) &&
+      Boolean(t.eventDate) &&
+      Boolean(t.timeControl) &&
+      Boolean(t.chiefJudge) &&
+      Number(t.players?.length || 0) > 0;
+    if (!isArchivePreview && !wasConfiguredBefore && configuredNow && !t.setupNotified) {
+      t.setupNotified = true;
+      alert("Турнір створено. Перейдіть у вкладку «Раунди» та проведіть його.");
+    }
+
     tournamentSettingsDraft = createTournamentSettingsDraft(t);
     saveAndRender();
   });
@@ -1367,6 +1395,7 @@ function createDefaultTournament() {
     ownerAdminId: null,
     cityId: null,
     isPublic: true,
+    setupNotified: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ratingDeltas: [],
@@ -1396,6 +1425,7 @@ function normalizeTournament(tournament) {
     ownerAdminId: normalizeEntityId(tournament.ownerAdminId),
     cityId: normalizeEntityId(tournament.cityId),
     isPublic: tournament.isPublic !== false,
+    setupNotified: Boolean(tournament.setupNotified),
     createdAt: tournament.createdAt || new Date().toISOString(),
     updatedAt: tournament.updatedAt || new Date().toISOString(),
     ratingDeltas: normalizeTournamentRatingDeltas(tournament.ratingDeltas),
@@ -1887,6 +1917,8 @@ function renderTabs() {
 function renderTournamentTab() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
+  const canManage = canManageAdminUi();
+  const readOnlyArchive = archiveView && !canManage;
   ensureTournamentSettingsDraftForCurrentTournament();
   const draft = tournamentSettingsDraft;
   if (draft.format === "round_robin") {
@@ -1903,7 +1935,7 @@ function renderTournamentTab() {
     els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
   }
   renderScoreCalculationControls();
-  els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
+  els.roundsCount.disabled = draft.format === "round_robin" || readOnlyArchive;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
@@ -1916,7 +1948,8 @@ function renderTournamentTab() {
   const timeControlText = t.timeControl || "не вказано";
   const chiefJudgeText = t.chiefJudge || "не вказано";
   const tournamentTitle = t.name || "Новий турнір";
-  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveView ? " | Архів (read-only)" : ""}`;
+  const archiveHint = archiveView ? (readOnlyArchive ? " | Архів (read-only)" : " | Архів (редагування для адміністратора)") : "";
+  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveHint}`;
 
   renderTournamentSettingsPreview();
 
@@ -1929,7 +1962,7 @@ function renderTournamentTab() {
   if (els.seedDemoBtn) {
     els.seedDemoBtn.disabled = archiveView;
   }
-  if (archiveView) {
+  if (readOnlyArchive) {
     els.dbPlayerSelect.disabled = true;
     if (els.tournamentClubFilter) {
       els.tournamentClubFilter.disabled = true;
@@ -1938,6 +1971,16 @@ function renderTournamentTab() {
     els.addFromBaseBtn.disabled = true;
     for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
       checkbox.disabled = true;
+    }
+  } else {
+    els.dbPlayerSelect.disabled = false;
+    if (els.tournamentClubFilter) {
+      els.tournamentClubFilter.disabled = false;
+    }
+    els.selectAllBaseBtn.disabled = false;
+    els.addFromBaseBtn.disabled = selectedBasePlayerIds.size === 0;
+    for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
+      checkbox.disabled = false;
     }
   }
 
@@ -4307,6 +4350,8 @@ function renderActiveTabPanel() {
 function renderTournamentTab() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
+  const canManage = canManageAdminUi();
+  const readOnlyArchive = archiveView && !canManage;
   ensureTournamentSettingsDraftForCurrentTournament();
   const draft = tournamentSettingsDraft;
   if (draft.format === "round_robin") {
@@ -4323,7 +4368,7 @@ function renderTournamentTab() {
     els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
   }
   renderScoreCalculationControls();
-  els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
+  els.roundsCount.disabled = draft.format === "round_robin" || readOnlyArchive;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
@@ -4336,7 +4381,8 @@ function renderTournamentTab() {
   const timeControlText = t.timeControl || "не вказано";
   const chiefJudgeText = t.chiefJudge || "не вказано";
   const tournamentTitle = t.name || "Новий турнір";
-  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveView ? " | Архів (read-only)" : ""}`;
+  const archiveHint = archiveView ? (readOnlyArchive ? " | Архів (read-only)" : " | Архів (редагування для адміністратора)") : "";
+  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveHint}`;
 
   renderTournamentSettingsPreview();
 
@@ -4349,7 +4395,7 @@ function renderTournamentTab() {
   if (els.seedDemoBtn) {
     els.seedDemoBtn.disabled = archiveView;
   }
-  if (archiveView) {
+  if (readOnlyArchive) {
     els.dbPlayerSelect.disabled = true;
     if (els.tournamentClubFilter) {
       els.tournamentClubFilter.disabled = true;
@@ -4358,6 +4404,16 @@ function renderTournamentTab() {
     els.addFromBaseBtn.disabled = true;
     for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
       checkbox.disabled = true;
+    }
+  } else {
+    els.dbPlayerSelect.disabled = false;
+    if (els.tournamentClubFilter) {
+      els.tournamentClubFilter.disabled = false;
+    }
+    els.selectAllBaseBtn.disabled = false;
+    els.addFromBaseBtn.disabled = selectedBasePlayerIds.size === 0;
+    for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
+      checkbox.disabled = false;
     }
   }
 
@@ -5066,28 +5122,40 @@ function optimizeImageDataUrl(dataUrl, options) {
     img.onload = () => {
       const maxSide = options.maxSide || 1280;
       const ratio = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-      const width = Math.max(1, Math.round(img.naturalWidth * ratio));
-      const height = Math.max(1, Math.round(img.naturalHeight * ratio));
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve(dataUrl);
-        return;
-      }
-
-      ctx.drawImage(img, 0, 0, width, height);
-
-      let quality = options.qualityStart || 0.86;
-      const qualityMin = options.qualityMin || 0.52;
       const targetBytes = options.targetBytes || MAX_TOURNAMENT_PHOTO_STORE_BYTES;
-      let output = canvas.toDataURL("image/jpeg", quality);
+      const qualityStart = options.qualityStart || 0.86;
+      const qualityMin = options.qualityMin || 0.52;
 
-      while (estimateDataUrlBytes(output) > targetBytes && quality > qualityMin) {
-        quality = Math.max(qualityMin, quality - 0.08);
+      let width = Math.max(1, Math.round(img.naturalWidth * ratio));
+      let height = Math.max(1, Math.round(img.naturalHeight * ratio));
+      let output = dataUrl;
+
+      for (let scaleAttempt = 0; scaleAttempt < 6; scaleAttempt += 1) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        let quality = qualityStart;
         output = canvas.toDataURL("image/jpeg", quality);
+        while (estimateDataUrlBytes(output) > targetBytes && quality > qualityMin) {
+          quality = Math.max(qualityMin, quality - 0.08);
+          output = canvas.toDataURL("image/jpeg", quality);
+        }
+
+        if (estimateDataUrlBytes(output) <= targetBytes) {
+          resolve(output);
+          return;
+        }
+
+        width = Math.max(1, Math.round(width * 0.85));
+        height = Math.max(1, Math.round(height * 0.85));
       }
 
       resolve(output);
@@ -7117,6 +7185,7 @@ function mapApiTournamentToState(row) {
     ownerAdminId: row.owner_admin_id || payload.ownerAdminId || null,
     cityId: row.city_id || payload.cityId || null,
     isPublic: row.is_public !== false && payload.isPublic !== false,
+    setupNotified: Boolean(payload.setupNotified),
     createdAt: row.created_at || payload.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || payload.updatedAt || new Date().toISOString(),
     finishedAt: row.archived_at || payload.finishedAt || row.updated_at || new Date().toISOString(),
@@ -7285,6 +7354,18 @@ function buildCoachApiPayload(coach) {
   };
 }
 
+function buildTournamentPlayersPayload(players) {
+  if (!Array.isArray(players)) {
+    return [];
+  }
+
+  return players.map((player) => ({
+    ...player,
+    // Keep tournament payload compact: player photos are synced in /api/players.
+    photoDataUrl: null,
+  }));
+}
+
 function buildTournamentApiPayload(tournament, status) {
   const tieBreakOrder = normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false });
   const archivedAt = status === "archived" ? tournament.finishedAt || tournament.updatedAt || new Date().toISOString() : null;
@@ -7306,7 +7387,7 @@ function buildTournamentApiPayload(tournament, status) {
     tie_break_order: tieBreakOrder,
     archived_at: archivedAt,
     payload: {
-      players: Array.isArray(tournament.players) ? tournament.players : [],
+      players: buildTournamentPlayersPayload(tournament.players),
       rounds: Array.isArray(tournament.rounds) ? tournament.rounds : [],
       createdAt: tournament.createdAt || new Date().toISOString(),
       updatedAt: tournament.updatedAt || new Date().toISOString(),
@@ -7317,6 +7398,7 @@ function buildTournamentApiPayload(tournament, status) {
       ownerAdminId: tournament.ownerAdminId || null,
       cityId: tournament.cityId || null,
       isPublic: tournament.isPublic !== false,
+      setupNotified: Boolean(tournament.setupNotified),
       photoDataUrl: tournament.photoDataUrl || null,
       eventDate: normalizeBirthDate(tournament.eventDate) || "",
       timeControl: normalizeTimeControl(tournament.timeControl),
@@ -7430,7 +7512,7 @@ async function flushRemoteSync() {
     setPersistenceInfo({
       mode: "remote",
       status: "error",
-      message: "Помилка синхронізації з Render API. Локальна копія в браузері збережена.",
+      message: `Помилка синхронізації з Render API: ${String(error?.message || "невідома помилка")}. Локальна копія в браузері збережена.`,
     });
   } finally {
     remoteSyncInFlight = false;
@@ -7452,13 +7534,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/clubs/${clubPayload.id}`, {
         method: "PUT",
         body: clubPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
     } else {
       await apiRequest("/api/clubs", {
         method: "POST",
         body: clubPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
       remoteKnownClubIds.add(clubPayload.id);
     }
@@ -7472,13 +7554,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/coaches/${coachPayload.id}`, {
         method: "PUT",
         body: coachPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
     } else {
       await apiRequest("/api/coaches", {
         method: "POST",
         body: coachPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
       remoteKnownCoachIds.add(coachPayload.id);
     }
@@ -7492,13 +7574,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/players/${playerPayload.id}`, {
         method: "PUT",
         body: playerPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
     } else {
       await apiRequest("/api/players", {
         method: "POST",
         body: playerPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
       remoteKnownPlayerIds.add(playerPayload.id);
     }
@@ -7508,7 +7590,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredPlayerIds.has(playerId)) {
       continue;
     }
-    await apiRequest(`/api/players/${playerId}`, { method: "DELETE", timeoutMs: 6000 });
+    await apiRequest(`/api/players/${playerId}`, { method: "DELETE", timeoutMs: 12000 });
     remoteKnownPlayerIds.delete(playerId);
   }
 
@@ -7516,7 +7598,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredCoachIds.has(coachId)) {
       continue;
     }
-    await apiRequest(`/api/coaches/${coachId}`, { method: "DELETE", timeoutMs: 6000 });
+    await apiRequest(`/api/coaches/${coachId}`, { method: "DELETE", timeoutMs: 12000 });
     remoteKnownCoachIds.delete(coachId);
   }
 
@@ -7524,7 +7606,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredClubIds.has(clubId)) {
       continue;
     }
-    await apiRequest(`/api/clubs/${clubId}`, { method: "DELETE", timeoutMs: 6000 });
+    await apiRequest(`/api/clubs/${clubId}`, { method: "DELETE", timeoutMs: 12000 });
     remoteKnownClubIds.delete(clubId);
   }
 
@@ -7536,13 +7618,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/tournaments/${tournamentPayload.id}`, {
         method: "PUT",
         body: tournamentPayload,
-        timeoutMs: 8000,
+        timeoutMs: 14000,
       });
     } else {
       await apiRequest("/api/tournaments", {
         method: "POST",
         body: tournamentPayload,
-        timeoutMs: 8000,
+        timeoutMs: 14000,
       });
       remoteKnownTournamentIds.add(tournamentPayload.id);
     }
@@ -7552,7 +7634,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredTournamentIds.has(tournamentId)) {
       continue;
     }
-    await apiRequest(`/api/tournaments/${tournamentId}`, { method: "DELETE", timeoutMs: 8000 });
+    await apiRequest(`/api/tournaments/${tournamentId}`, { method: "DELETE", timeoutMs: 14000 });
     remoteKnownTournamentIds.delete(tournamentId);
   }
 }

@@ -305,28 +305,40 @@ function optimizeImageDataUrl(dataUrl, options) {
     img.onload = () => {
       const maxSide = options.maxSide || 1280;
       const ratio = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-      const width = Math.max(1, Math.round(img.naturalWidth * ratio));
-      const height = Math.max(1, Math.round(img.naturalHeight * ratio));
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve(dataUrl);
-        return;
-      }
-
-      ctx.drawImage(img, 0, 0, width, height);
-
-      let quality = options.qualityStart || 0.86;
-      const qualityMin = options.qualityMin || 0.52;
       const targetBytes = options.targetBytes || MAX_TOURNAMENT_PHOTO_STORE_BYTES;
-      let output = canvas.toDataURL("image/jpeg", quality);
+      const qualityStart = options.qualityStart || 0.86;
+      const qualityMin = options.qualityMin || 0.52;
 
-      while (estimateDataUrlBytes(output) > targetBytes && quality > qualityMin) {
-        quality = Math.max(qualityMin, quality - 0.08);
+      let width = Math.max(1, Math.round(img.naturalWidth * ratio));
+      let height = Math.max(1, Math.round(img.naturalHeight * ratio));
+      let output = dataUrl;
+
+      for (let scaleAttempt = 0; scaleAttempt < 6; scaleAttempt += 1) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        let quality = qualityStart;
         output = canvas.toDataURL("image/jpeg", quality);
+        while (estimateDataUrlBytes(output) > targetBytes && quality > qualityMin) {
+          quality = Math.max(qualityMin, quality - 0.08);
+          output = canvas.toDataURL("image/jpeg", quality);
+        }
+
+        if (estimateDataUrlBytes(output) <= targetBytes) {
+          resolve(output);
+          return;
+        }
+
+        width = Math.max(1, Math.round(width * 0.85));
+        height = Math.max(1, Math.round(height * 0.85));
       }
 
       resolve(output);

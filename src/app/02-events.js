@@ -128,10 +128,7 @@ function bindEvents() {
     const t = state.currentTournament;
     ensureTournamentSettingsDraftForCurrentTournament();
     const draft = tournamentSettingsDraft;
-    if (t.status === "archived_view") {
-      alert("У режимі перегляду архіву редагування вимкнене.");
-      return;
-    }
+    const isArchivePreview = t.status === "archived_view";
     const nextFormat = draft.format;
     const manualRounds = Number(draft.roundsCount);
     const requiredRoundRobinRounds = getMaxRoundsByFormat("round_robin", t.players.length);
@@ -191,6 +188,13 @@ function bindEvents() {
       }
     }
 
+    const wasConfiguredBefore =
+      Boolean(String(t.name || "").trim()) &&
+      Boolean(normalizeBirthDate(t.eventDate)) &&
+      Boolean(normalizeTimeControl(t.timeControl)) &&
+      Boolean(normalizeChiefJudge(t.chiefJudge)) &&
+      Number(t.players?.length || 0) > 0;
+
     t.name = draft.name || "Турнір";
     t.roundsCount = nextRounds;
     t.format = nextFormat;
@@ -199,6 +203,7 @@ function bindEvents() {
     t.eventDate = nextEventDate;
     t.timeControl = nextTimeControl;
     t.chiefJudge = nextChiefJudge;
+    t.setupNotified = Boolean(t.setupNotified);
     t.tieBreakOrder = normalizeTieBreakOrder(draft.tieBreakOrder, { fillDefaults: false });
 
     let nextPhotoDataUrl = draft.pendingPhotoDataUrl;
@@ -218,6 +223,29 @@ function bindEvents() {
 
     normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
+
+    if (isArchivePreview) {
+      const archivedIdx = state.tournamentsArchive.findIndex((item) => item.id === t.id);
+      if (archivedIdx >= 0) {
+        const archivedSnapshot = cloneTournament(t);
+        archivedSnapshot.status = "archived";
+        archivedSnapshot.finishedAt =
+          state.tournamentsArchive[archivedIdx].finishedAt || archivedSnapshot.finishedAt || archivedSnapshot.updatedAt;
+        state.tournamentsArchive[archivedIdx] = normalizeArchivedTournament(archivedSnapshot);
+      }
+    }
+
+    const configuredNow =
+      Boolean(String(t.name || "").trim()) &&
+      Boolean(t.eventDate) &&
+      Boolean(t.timeControl) &&
+      Boolean(t.chiefJudge) &&
+      Number(t.players?.length || 0) > 0;
+    if (!isArchivePreview && !wasConfiguredBefore && configuredNow && !t.setupNotified) {
+      t.setupNotified = true;
+      alert("Турнір створено. Перейдіть у вкладку «Раунди» та проведіть його.");
+    }
+
     tournamentSettingsDraft = createTournamentSettingsDraft(t);
     saveAndRender();
   });

@@ -64,6 +64,8 @@ function renderTabs() {
 function renderTournamentTab() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
+  const canManage = canManageAdminUi();
+  const readOnlyArchive = archiveView && !canManage;
   ensureTournamentSettingsDraftForCurrentTournament();
   const draft = tournamentSettingsDraft;
   if (draft.format === "round_robin") {
@@ -80,7 +82,7 @@ function renderTournamentTab() {
     els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
   }
   renderScoreCalculationControls();
-  els.roundsCount.disabled = draft.format === "round_robin" || archiveView;
+  els.roundsCount.disabled = draft.format === "round_robin" || readOnlyArchive;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
@@ -93,7 +95,8 @@ function renderTournamentTab() {
   const timeControlText = t.timeControl || "не вказано";
   const chiefJudgeText = t.chiefJudge || "не вказано";
   const tournamentTitle = t.name || "Новий турнір";
-  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveView ? " | Архів (read-only)" : ""}`;
+  const archiveHint = archiveView ? (readOnlyArchive ? " | Архів (read-only)" : " | Архів (редагування для адміністратора)") : "";
+  els.roundMeta.textContent = `${tournamentTitle} | ${formatLabel(t.format)} | Тур ${t.currentRound} з ${t.roundsCount} | Дата: ${eventDateText} | Контроль: ${timeControlText} | Суддя: ${chiefJudgeText}${archiveHint}`;
 
   renderTournamentSettingsPreview();
 
@@ -106,7 +109,7 @@ function renderTournamentTab() {
   if (els.seedDemoBtn) {
     els.seedDemoBtn.disabled = archiveView;
   }
-  if (archiveView) {
+  if (readOnlyArchive) {
     els.dbPlayerSelect.disabled = true;
     if (els.tournamentClubFilter) {
       els.tournamentClubFilter.disabled = true;
@@ -115,6 +118,16 @@ function renderTournamentTab() {
     els.addFromBaseBtn.disabled = true;
     for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
       checkbox.disabled = true;
+    }
+  } else {
+    els.dbPlayerSelect.disabled = false;
+    if (els.tournamentClubFilter) {
+      els.tournamentClubFilter.disabled = false;
+    }
+    els.selectAllBaseBtn.disabled = false;
+    els.addFromBaseBtn.disabled = selectedBasePlayerIds.size === 0;
+    for (const checkbox of els.dbPlayerChecklist.querySelectorAll("input[type='checkbox']")) {
+      checkbox.disabled = false;
     }
   }
 

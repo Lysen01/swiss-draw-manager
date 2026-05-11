@@ -483,6 +483,7 @@ function mapApiTournamentToState(row) {
     ownerAdminId: row.owner_admin_id || payload.ownerAdminId || null,
     cityId: row.city_id || payload.cityId || null,
     isPublic: row.is_public !== false && payload.isPublic !== false,
+    setupNotified: Boolean(payload.setupNotified),
     createdAt: row.created_at || payload.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || payload.updatedAt || new Date().toISOString(),
     finishedAt: row.archived_at || payload.finishedAt || row.updated_at || new Date().toISOString(),
@@ -651,6 +652,18 @@ function buildCoachApiPayload(coach) {
   };
 }
 
+function buildTournamentPlayersPayload(players) {
+  if (!Array.isArray(players)) {
+    return [];
+  }
+
+  return players.map((player) => ({
+    ...player,
+    // Keep tournament payload compact: player photos are synced in /api/players.
+    photoDataUrl: null,
+  }));
+}
+
 function buildTournamentApiPayload(tournament, status) {
   const tieBreakOrder = normalizeTieBreakOrder(tournament.tieBreakOrder, { fillDefaults: false });
   const archivedAt = status === "archived" ? tournament.finishedAt || tournament.updatedAt || new Date().toISOString() : null;
@@ -672,7 +685,7 @@ function buildTournamentApiPayload(tournament, status) {
     tie_break_order: tieBreakOrder,
     archived_at: archivedAt,
     payload: {
-      players: Array.isArray(tournament.players) ? tournament.players : [],
+      players: buildTournamentPlayersPayload(tournament.players),
       rounds: Array.isArray(tournament.rounds) ? tournament.rounds : [],
       createdAt: tournament.createdAt || new Date().toISOString(),
       updatedAt: tournament.updatedAt || new Date().toISOString(),
@@ -683,6 +696,7 @@ function buildTournamentApiPayload(tournament, status) {
       ownerAdminId: tournament.ownerAdminId || null,
       cityId: tournament.cityId || null,
       isPublic: tournament.isPublic !== false,
+      setupNotified: Boolean(tournament.setupNotified),
       photoDataUrl: tournament.photoDataUrl || null,
       eventDate: normalizeBirthDate(tournament.eventDate) || "",
       timeControl: normalizeTimeControl(tournament.timeControl),
@@ -796,7 +810,7 @@ async function flushRemoteSync() {
     setPersistenceInfo({
       mode: "remote",
       status: "error",
-      message: "Помилка синхронізації з Render API. Локальна копія в браузері збережена.",
+      message: `Помилка синхронізації з Render API: ${String(error?.message || "невідома помилка")}. Локальна копія в браузері збережена.`,
     });
   } finally {
     remoteSyncInFlight = false;
@@ -818,13 +832,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/clubs/${clubPayload.id}`, {
         method: "PUT",
         body: clubPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
     } else {
       await apiRequest("/api/clubs", {
         method: "POST",
         body: clubPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
       remoteKnownClubIds.add(clubPayload.id);
     }
@@ -838,13 +852,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/coaches/${coachPayload.id}`, {
         method: "PUT",
         body: coachPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
     } else {
       await apiRequest("/api/coaches", {
         method: "POST",
         body: coachPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
       remoteKnownCoachIds.add(coachPayload.id);
     }
@@ -858,13 +872,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/players/${playerPayload.id}`, {
         method: "PUT",
         body: playerPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
     } else {
       await apiRequest("/api/players", {
         method: "POST",
         body: playerPayload,
-        timeoutMs: 6000,
+        timeoutMs: 12000,
       });
       remoteKnownPlayerIds.add(playerPayload.id);
     }
@@ -874,7 +888,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredPlayerIds.has(playerId)) {
       continue;
     }
-    await apiRequest(`/api/players/${playerId}`, { method: "DELETE", timeoutMs: 6000 });
+    await apiRequest(`/api/players/${playerId}`, { method: "DELETE", timeoutMs: 12000 });
     remoteKnownPlayerIds.delete(playerId);
   }
 
@@ -882,7 +896,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredCoachIds.has(coachId)) {
       continue;
     }
-    await apiRequest(`/api/coaches/${coachId}`, { method: "DELETE", timeoutMs: 6000 });
+    await apiRequest(`/api/coaches/${coachId}`, { method: "DELETE", timeoutMs: 12000 });
     remoteKnownCoachIds.delete(coachId);
   }
 
@@ -890,7 +904,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredClubIds.has(clubId)) {
       continue;
     }
-    await apiRequest(`/api/clubs/${clubId}`, { method: "DELETE", timeoutMs: 6000 });
+    await apiRequest(`/api/clubs/${clubId}`, { method: "DELETE", timeoutMs: 12000 });
     remoteKnownClubIds.delete(clubId);
   }
 
@@ -902,13 +916,13 @@ async function syncRemoteSnapshot(appState) {
       await apiRequest(`/api/tournaments/${tournamentPayload.id}`, {
         method: "PUT",
         body: tournamentPayload,
-        timeoutMs: 8000,
+        timeoutMs: 14000,
       });
     } else {
       await apiRequest("/api/tournaments", {
         method: "POST",
         body: tournamentPayload,
-        timeoutMs: 8000,
+        timeoutMs: 14000,
       });
       remoteKnownTournamentIds.add(tournamentPayload.id);
     }
@@ -918,7 +932,7 @@ async function syncRemoteSnapshot(appState) {
     if (desiredTournamentIds.has(tournamentId)) {
       continue;
     }
-    await apiRequest(`/api/tournaments/${tournamentId}`, { method: "DELETE", timeoutMs: 8000 });
+    await apiRequest(`/api/tournaments/${tournamentId}`, { method: "DELETE", timeoutMs: 14000 });
     remoteKnownTournamentIds.delete(tournamentId);
   }
 }
