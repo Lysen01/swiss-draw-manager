@@ -991,7 +991,7 @@ function archiveCurrentTournament({ notify }) {
   return true;
 }
 
-function finishCurrentTournament() {
+async function finishCurrentTournament() {
   const t = state.currentTournament;
   if (t.players.length === 0) {
     alert("У турнірі немає учасників.");
@@ -1021,7 +1021,7 @@ function finishCurrentTournament() {
   state.tournamentView = "setup";
   state.archivePreviewTournamentId = null;
   saveAndRender();
-  flushRemoteSyncNow("finish-tournament");
+  await flushRemoteSyncNow("finish-tournament");
   alert("Турнір завершено і перенесено в архів.");
 }
 

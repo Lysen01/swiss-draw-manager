@@ -451,7 +451,7 @@ function bindEvents() {
       alert("Режим перегляду: завершення турніру доступне лише адміністратору.");
       return;
     }
-    finishCurrentTournament();
+    void finishCurrentTournament();
   });
 
   if (els.resetBtn) {
@@ -869,7 +869,7 @@ function bindEvents() {
     }
 
     if (btn.dataset.action === "finish-tournament-from-table") {
-      finishCurrentTournament();
+      void finishCurrentTournament();
       return;
     }
 
