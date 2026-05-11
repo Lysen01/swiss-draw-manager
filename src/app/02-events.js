@@ -915,6 +915,12 @@ function bindEvents() {
       openArchivePreview(tournamentId);
     }
 
+    if (action === "edit-archive") {
+      loadTournamentFromArchive(tournamentId);
+      state.tournamentView = "setup";
+      saveAndRender();
+    }
+
     if (action === "open-ongoing") {
       openOngoingTournament(tournamentId);
     }

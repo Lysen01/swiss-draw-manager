@@ -88,6 +88,7 @@ function renderArchiveTab() {
       const actionsHtml = isFinished
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
+            ${canManage ? `<button type="button" data-action="edit-archive" data-tournament-id="${t.id}">Редагувати</button>` : ""}
             <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
             ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
