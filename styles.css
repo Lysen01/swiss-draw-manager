@@ -2090,3 +2090,47 @@ button:active {
     padding: 8px 14px;
   }
 }
+
+/* ==========================================================================
+   Compact Hero + Always-Sticky Main Buttons (2026-05-12)
+   ========================================================================== */
+
+.hero {
+  padding-top: 4px;
+  padding-bottom: 0;
+}
+
+.hero__head {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  min-height: 0;
+}
+
+.hero__brand,
+.hero h1,
+.hero__description {
+  display: none !important;
+}
+
+.hero__banner {
+  margin-top: 6px;
+}
+
+.hero__banner img {
+  max-height: 190px;
+  object-position: center 40%;
+}
+
+.tabs--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 300;
+  box-shadow: 0 8px 18px rgba(22, 46, 86, 0.1);
+}
+
+@media (max-width: 900px) {
+  .hero__banner img {
+    max-height: 150px;
+  }
+}
