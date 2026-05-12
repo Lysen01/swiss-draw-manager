@@ -1204,7 +1204,11 @@ function bindEvents() {
     }
 
     if (action === "open-archive") {
-      openArchivePreview(tournamentId);
+      if (canManageAdminUi()) {
+        loadTournamentFromArchive(tournamentId);
+      } else {
+        openArchivePreview(tournamentId);
+      }
     }
 
     if (action === "open-ongoing") {
