@@ -492,8 +492,11 @@ function applyPendingMetadata(tournament, pairings) {
 
 function updateResult(roundIdx, board, value) {
   const t = state.currentTournament;
+  if (!canManageAdminUi() || !t || t.status !== "active") {
+    return;
+  }
   const round = t.rounds[roundIdx];
-  if (!round || round.round < t.currentRound) {
+  if (!round) {
     return;
   }
 
@@ -535,8 +538,11 @@ function updateResult(roundIdx, board, value) {
 
 function updateMicromatchGameResult(roundIdx, board, gameIndex, value) {
   const t = state.currentTournament;
+  if (!canManageAdminUi() || !t || t.status !== "active") {
+    return;
+  }
   const round = t.rounds[roundIdx];
-  if (!round || round.round < t.currentRound) {
+  if (!round) {
     return;
   }
 

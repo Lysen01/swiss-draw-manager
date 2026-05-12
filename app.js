@@ -2246,6 +2246,8 @@ function renderTournamentPlayers() {
 function renderRounds() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
+  const canManage = canManageAdminUi();
+  const resultsEditable = canManage && t.status === "active" && !archiveView;
 
   if (archiveView) {
     els.pairings.innerHTML = '<div class="pair-card">Для архівного перегляду доступна тільки підсумкова таблиця.</div>';
@@ -2263,7 +2265,7 @@ function renderRounds() {
 
   const blocks = roundsWithIndex
     .map(({ round, index }) => {
-      const roundLocked = round.round < t.currentRound;
+      const roundLocked = !resultsEditable;
       const pairs = round.pairings
         .map((pair) => {
           const white = t.players.find((p) => p.id === pair.whiteId);
@@ -5937,8 +5939,11 @@ function applyPendingMetadata(tournament, pairings) {
 
 function updateResult(roundIdx, board, value) {
   const t = state.currentTournament;
+  if (!canManageAdminUi() || !t || t.status !== "active") {
+    return;
+  }
   const round = t.rounds[roundIdx];
-  if (!round || round.round < t.currentRound) {
+  if (!round) {
     return;
   }
 
@@ -5980,8 +5985,11 @@ function updateResult(roundIdx, board, value) {
 
 function updateMicromatchGameResult(roundIdx, board, gameIndex, value) {
   const t = state.currentTournament;
+  if (!canManageAdminUi() || !t || t.status !== "active") {
+    return;
+  }
   const round = t.rounds[roundIdx];
-  if (!round || round.round < t.currentRound) {
+  if (!round) {
     return;
   }
 
