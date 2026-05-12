@@ -436,6 +436,8 @@ function bindEvents() {
       }
 
       tournamentSettingsDraft = createTournamentSettingsDraft(t);
+      state.activeTab = "archive";
+      state.archivePreviewTournamentId = null;
       saveAndRender();
       await flushRemoteSyncNow("archive-tournament-settings-save");
       return;
@@ -533,7 +535,9 @@ function bindEvents() {
         state.currentTournament.status = "archived_view";
       }
       tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
-      render();
+      state.activeTab = "archive";
+      state.archivePreviewTournamentId = null;
+      saveAndRender();
     });
   }
 
