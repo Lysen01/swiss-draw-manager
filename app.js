@@ -269,6 +269,7 @@ function bindEvents() {
     "edit-base-player",
     "remove-tour-player",
     "edit-tour-player",
+    "edit-archive",
     "delete-archive",
     "confirm-auto-places",
     "finish-tournament-from-table",
@@ -1208,11 +1209,11 @@ function bindEvents() {
     }
 
     if (action === "open-archive") {
-      if (canManageAdminUi()) {
-        loadTournamentFromArchive(tournamentId);
-      } else {
-        openArchivePreview(tournamentId);
-      }
+      openArchivePreview(tournamentId);
+    }
+
+    if (action === "edit-archive") {
+      loadTournamentFromArchive(tournamentId);
     }
 
     if (action === "open-ongoing") {
@@ -4563,6 +4564,7 @@ function renderArchiveTab() {
       const actionsHtml = isFinished
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
+            ${canManage ? `<button type="button" data-action="edit-archive" data-tournament-id="${t.id}">Змінити</button>` : ""}
             <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
             ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;

@@ -13,6 +13,7 @@ function bindEvents() {
     "edit-base-player",
     "remove-tour-player",
     "edit-tour-player",
+    "edit-archive",
     "delete-archive",
     "confirm-auto-places",
     "finish-tournament-from-table",
@@ -952,11 +953,11 @@ function bindEvents() {
     }
 
     if (action === "open-archive") {
-      if (canManageAdminUi()) {
-        loadTournamentFromArchive(tournamentId);
-      } else {
-        openArchivePreview(tournamentId);
-      }
+      openArchivePreview(tournamentId);
+    }
+
+    if (action === "edit-archive") {
+      loadTournamentFromArchive(tournamentId);
     }
 
     if (action === "open-ongoing") {
