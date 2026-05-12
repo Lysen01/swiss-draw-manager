@@ -1621,18 +1621,19 @@ label.base-pick-item {
 }
 
 #basePlayersList .table th {
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
 #basePlayersList .table td {
-  font-size: 12.5px;
+  font-size: 13.2px;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 #basePlayersList {
