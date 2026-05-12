@@ -2101,10 +2101,7 @@ button:active {
 }
 
 .hero__head {
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  min-height: 0;
+  display: none !important;
 }
 
 .hero__brand,
@@ -2127,6 +2124,57 @@ button:active {
   top: 0;
   z-index: 300;
   box-shadow: 0 8px 18px rgba(22, 46, 86, 0.1);
+}
+
+.tabs {
+  align-items: center;
+}
+
+.auth-menu {
+  margin-left: auto;
+  position: relative;
+}
+
+.auth-menu summary {
+  list-style: none;
+}
+
+.auth-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.auth-menu__toggle::after {
+  content: "▾";
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+.auth-menu[open] .auth-menu__toggle::after {
+  content: "▴";
+}
+
+.auth-panel--menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(480px, calc(100vw - 32px));
+  z-index: 320;
+}
+
+@media (max-width: 900px) {
+  .auth-menu {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .auth-menu__toggle {
+    width: 100%;
+  }
+
+  .auth-panel--menu {
+    left: 0;
+    right: auto;
+  }
 }
 
 @media (max-width: 900px) {
