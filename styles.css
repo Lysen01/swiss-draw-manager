@@ -1567,9 +1567,9 @@ label.base-pick-item {
 }
 
 #basePlayersList .table {
-  min-width: 1260px;
-  width: max-content;
-  table-layout: fixed;
+  width: 100%;
+  min-width: 1220px;
+  table-layout: auto;
 }
 
 #basePlayersList .table th {
@@ -1595,6 +1595,7 @@ label.base-pick-item {
 #basePlayersList .table th:nth-child(1),
 #basePlayersList .table td:nth-child(1) {
   width: 132px;
+  min-width: 132px;
   position: sticky;
   left: 0;
   background: #fff;
@@ -1604,41 +1605,46 @@ label.base-pick-item {
 #basePlayersList .table th:nth-child(2),
 #basePlayersList .table td:nth-child(2) {
   width: 58px;
+  min-width: 58px;
 }
 
 #basePlayersList .table th:nth-child(3),
 #basePlayersList .table td:nth-child(3) {
-  width: 190px;
+  min-width: 190px;
 }
 
 #basePlayersList .table th:nth-child(4),
 #basePlayersList .table td:nth-child(4) {
   width: 60px;
+  min-width: 60px;
 }
 
 #basePlayersList .table th:nth-child(5),
 #basePlayersList .table td:nth-child(5) {
-  width: 150px;
+  min-width: 130px;
 }
 
 #basePlayersList .table th:nth-child(6),
 #basePlayersList .table td:nth-child(6) {
-  width: 140px;
+  min-width: 130px;
 }
 
 #basePlayersList .table th:nth-child(7),
 #basePlayersList .table td:nth-child(7) {
   width: 78px;
+  min-width: 78px;
 }
 
 #basePlayersList .table th:nth-child(8),
 #basePlayersList .table td:nth-child(8) {
   width: 90px;
+  min-width: 90px;
 }
 
 #basePlayersList .table th:nth-child(9),
 #basePlayersList .table td:nth-child(9) {
   width: 102px;
+  min-width: 102px;
 }
 
 #basePlayersList .table th:nth-child(10),
@@ -1650,6 +1656,7 @@ label.base-pick-item {
 #basePlayersList .table th:nth-child(13),
 #basePlayersList .table td:nth-child(13) {
   width: 82px;
+  min-width: 82px;
 }
 
 .row-actions {
@@ -2133,6 +2140,10 @@ button:active {
 .auth-menu {
   margin-left: auto;
   position: relative;
+}
+
+.auth-menu:not([open]) .auth-panel--menu {
+  display: none;
 }
 
 .auth-menu summary {
