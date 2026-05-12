@@ -191,6 +191,20 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.tournament-settings-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+#archiveSettingsCancelBtn {
+  background: #dfe8f7;
+  color: #203658;
+  border: 1px solid #c7d5ed;
+}
+
 .grid-form label,
 .inline-form input {
   font-size: 14px;

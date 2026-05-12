@@ -135,7 +135,10 @@
               <input id="tournamentRemovePhoto" type="checkbox" />
               Видалити фото турніру
             </label>
-            <button type="submit">Створити турнір</button>
+            <div class="tournament-settings-actions">
+              <button id="settingsSubmitBtn" type="submit">Створити турнір</button>
+              <button id="archiveSettingsCancelBtn" type="button" hidden>Скасувати</button>
+            </div>
           </form>
           <div id="tournamentSettingsPreview" class="tournament-settings-preview" hidden>
             <img id="tournamentSettingsPhoto" alt="Фото турніру" hidden />

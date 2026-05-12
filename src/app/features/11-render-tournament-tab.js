@@ -2,6 +2,7 @@ function renderTournamentTab() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
   const canManage = canManageAdminUi();
+  const archiveAdminEditMode = archiveView && canManage;
   const readOnlyArchive = archiveView && !canManage;
   ensureTournamentSettingsDraftForCurrentTournament();
   const draft = tournamentSettingsDraft;
@@ -19,7 +20,7 @@ function renderTournamentTab() {
     els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
   }
   renderScoreCalculationControls();
-  els.roundsCount.disabled = draft.format === "round_robin" || readOnlyArchive;
+  els.roundsCount.disabled = draft.format === "round_robin" || archiveView || readOnlyArchive;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
@@ -27,6 +28,36 @@ function renderTournamentTab() {
   renderTieBreakSelectors(draft.tieBreakOrder);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
+
+  els.tournamentName.disabled = readOnlyArchive;
+  els.tournamentDate.disabled = readOnlyArchive;
+  els.tournamentTimeControl.disabled = readOnlyArchive;
+  els.tournamentChiefJudge.disabled = readOnlyArchive;
+  els.tournamentFormat.disabled = archiveView || readOnlyArchive;
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.disabled = archiveView || readOnlyArchive;
+  }
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.disabled = archiveView || readOnlyArchive;
+  }
+  if (els.tournamentPhoto) {
+    els.tournamentPhoto.disabled = archiveView || readOnlyArchive;
+  }
+  if (els.tournamentRemovePhoto) {
+    els.tournamentRemovePhoto.disabled = archiveView || readOnlyArchive;
+  }
+  for (const select of [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5]) {
+    if (select) {
+      select.disabled = archiveView || readOnlyArchive;
+    }
+  }
+  if (els.settingsSubmitBtn) {
+    els.settingsSubmitBtn.hidden = readOnlyArchive;
+    els.settingsSubmitBtn.textContent = archiveAdminEditMode ? "Підтвердити зміни" : "Створити турнір";
+  }
+  if (els.archiveSettingsCancelBtn) {
+    els.archiveSettingsCancelBtn.hidden = !archiveAdminEditMode;
+  }
 
   const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "дата не вказана";
   const timeControlText = t.timeControl || "не вказано";
@@ -46,7 +77,7 @@ function renderTournamentTab() {
   if (els.seedDemoBtn) {
     els.seedDemoBtn.disabled = archiveView;
   }
-  if (readOnlyArchive) {
+  if (archiveView || readOnlyArchive) {
     els.dbPlayerSelect.disabled = true;
     if (els.tournamentClubFilter) {
       els.tournamentClubFilter.disabled = true;

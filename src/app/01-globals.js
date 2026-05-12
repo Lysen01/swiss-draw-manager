@@ -81,6 +81,8 @@ const els = {
   tournamentSettingsDate: document.getElementById("tournamentSettingsDate"),
   tournamentSettingsControl: document.getElementById("tournamentSettingsControl"),
   tournamentSettingsChiefJudge: document.getElementById("tournamentSettingsChiefJudge"),
+  settingsSubmitBtn: document.getElementById("settingsSubmitBtn"),
+  archiveSettingsCancelBtn: document.getElementById("archiveSettingsCancelBtn"),
   tieBreak1: document.getElementById("tieBreak1"),
   tieBreak2: document.getElementById("tieBreak2"),
   tieBreak3: document.getElementById("tieBreak3"),

@@ -171,6 +171,8 @@ const els = {
   tournamentSettingsDate: document.getElementById("tournamentSettingsDate"),
   tournamentSettingsControl: document.getElementById("tournamentSettingsControl"),
   tournamentSettingsChiefJudge: document.getElementById("tournamentSettingsChiefJudge"),
+  settingsSubmitBtn: document.getElementById("settingsSubmitBtn"),
+  archiveSettingsCancelBtn: document.getElementById("archiveSettingsCancelBtn"),
   tieBreak1: document.getElementById("tieBreak1"),
   tieBreak2: document.getElementById("tieBreak2"),
   tieBreak3: document.getElementById("tieBreak3"),
@@ -415,6 +417,30 @@ function bindEvents() {
       return;
     }
 
+    if (isArchivePreview) {
+      t.name = draft.name || "Турнір";
+      t.eventDate = nextEventDate;
+      t.timeControl = nextTimeControl;
+      t.chiefJudge = nextChiefJudge;
+      t.updatedAt = new Date().toISOString();
+
+      const archivedIdx = state.tournamentsArchive.findIndex((item) => item.id === t.id);
+      if (archivedIdx >= 0) {
+        const archivedSnapshot = cloneTournament(state.tournamentsArchive[archivedIdx]);
+        archivedSnapshot.name = t.name;
+        archivedSnapshot.eventDate = t.eventDate;
+        archivedSnapshot.timeControl = t.timeControl;
+        archivedSnapshot.chiefJudge = t.chiefJudge;
+        archivedSnapshot.updatedAt = t.updatedAt;
+        state.tournamentsArchive[archivedIdx] = normalizeArchivedTournament(archivedSnapshot);
+      }
+
+      tournamentSettingsDraft = createTournamentSettingsDraft(t);
+      saveAndRender();
+      await flushRemoteSyncNow("archive-tournament-settings-save");
+      return;
+    }
+
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
       return;
@@ -478,17 +504,6 @@ function bindEvents() {
     normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
 
-    if (isArchivePreview) {
-      const archivedIdx = state.tournamentsArchive.findIndex((item) => item.id === t.id);
-      if (archivedIdx >= 0) {
-        const archivedSnapshot = cloneTournament(t);
-        archivedSnapshot.status = "archived";
-        archivedSnapshot.finishedAt =
-          state.tournamentsArchive[archivedIdx].finishedAt || archivedSnapshot.finishedAt || archivedSnapshot.updatedAt;
-        state.tournamentsArchive[archivedIdx] = normalizeArchivedTournament(archivedSnapshot);
-      }
-    }
-
     const configuredNow =
       Boolean(String(t.name || "").trim()) &&
       Boolean(t.eventDate) &&
@@ -505,6 +520,23 @@ function bindEvents() {
     await flushRemoteSyncNow("tournament-settings-save");
   });
 
+  if (els.archiveSettingsCancelBtn) {
+    els.archiveSettingsCancelBtn.addEventListener("click", () => {
+      const t = state.currentTournament;
+      if (!t || t.status !== "archived_view" || !canManageAdminUi()) {
+        return;
+      }
+
+      const archived = state.tournamentsArchive.find((item) => item.id === t.id);
+      if (archived) {
+        state.currentTournament = cloneTournament(archived);
+        state.currentTournament.status = "archived_view";
+      }
+      tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+      render();
+    });
+  }
+
   els.tournamentName.addEventListener("input", () => {
     ensureTournamentSettingsDraftForCurrentTournament();
     tournamentSettingsDraft.name = els.tournamentName.value.trim();
@@ -519,7 +551,7 @@ function bindEvents() {
     ensureTournamentSettingsDraftForCurrentTournament();
     const raw = String(els.tournamentDate.value || "").trim();
     tournamentSettingsDraft.eventDate = normalizeBirthDate(raw);
-    if (tournamentSettingsDraft.eventDate) {
+    if (tournamentSettingsDraft.eventDate && state.currentTournament?.status !== "archived_view") {
       state.currentTournament.eventDate = tournamentSettingsDraft.eventDate;
     }
   };
@@ -4031,6 +4063,7 @@ function renderTournamentTab() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
   const canManage = canManageAdminUi();
+  const archiveAdminEditMode = archiveView && canManage;
   const readOnlyArchive = archiveView && !canManage;
   ensureTournamentSettingsDraftForCurrentTournament();
   const draft = tournamentSettingsDraft;
@@ -4048,7 +4081,7 @@ function renderTournamentTab() {
     els.scoreCalculationType.value = draft.scoreCalculationType === "small_points" ? "small_points" : "big_points";
   }
   renderScoreCalculationControls();
-  els.roundsCount.disabled = draft.format === "round_robin" || readOnlyArchive;
+  els.roundsCount.disabled = draft.format === "round_robin" || archiveView || readOnlyArchive;
   renderRoundsRuleHint();
   els.tournamentDate.value = formatDateForInput(draft.eventDate || t.eventDate);
   els.tournamentTimeControl.value = normalizeTimeControl(draft.timeControl);
@@ -4056,6 +4089,36 @@ function renderTournamentTab() {
   renderTieBreakSelectors(draft.tieBreakOrder);
   els.tournamentRemovePhoto.checked = draft.removePhoto;
   els.tournamentPhoto.value = "";
+
+  els.tournamentName.disabled = readOnlyArchive;
+  els.tournamentDate.disabled = readOnlyArchive;
+  els.tournamentTimeControl.disabled = readOnlyArchive;
+  els.tournamentChiefJudge.disabled = readOnlyArchive;
+  els.tournamentFormat.disabled = archiveView || readOnlyArchive;
+  if (els.tournamentIsMicromatch) {
+    els.tournamentIsMicromatch.disabled = archiveView || readOnlyArchive;
+  }
+  if (els.scoreCalculationType) {
+    els.scoreCalculationType.disabled = archiveView || readOnlyArchive;
+  }
+  if (els.tournamentPhoto) {
+    els.tournamentPhoto.disabled = archiveView || readOnlyArchive;
+  }
+  if (els.tournamentRemovePhoto) {
+    els.tournamentRemovePhoto.disabled = archiveView || readOnlyArchive;
+  }
+  for (const select of [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5]) {
+    if (select) {
+      select.disabled = archiveView || readOnlyArchive;
+    }
+  }
+  if (els.settingsSubmitBtn) {
+    els.settingsSubmitBtn.hidden = readOnlyArchive;
+    els.settingsSubmitBtn.textContent = archiveAdminEditMode ? "Підтвердити зміни" : "Створити турнір";
+  }
+  if (els.archiveSettingsCancelBtn) {
+    els.archiveSettingsCancelBtn.hidden = !archiveAdminEditMode;
+  }
 
   const eventDateText = t.eventDate ? formatDateOnly(t.eventDate) : "дата не вказана";
   const timeControlText = t.timeControl || "не вказано";
@@ -4075,7 +4138,7 @@ function renderTournamentTab() {
   if (els.seedDemoBtn) {
     els.seedDemoBtn.disabled = archiveView;
   }
-  if (readOnlyArchive) {
+  if (archiveView || readOnlyArchive) {
     els.dbPlayerSelect.disabled = true;
     if (els.tournamentClubFilter) {
       els.tournamentClubFilter.disabled = true;

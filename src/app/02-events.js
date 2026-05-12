@@ -161,6 +161,30 @@ function bindEvents() {
       return;
     }
 
+    if (isArchivePreview) {
+      t.name = draft.name || "Турнір";
+      t.eventDate = nextEventDate;
+      t.timeControl = nextTimeControl;
+      t.chiefJudge = nextChiefJudge;
+      t.updatedAt = new Date().toISOString();
+
+      const archivedIdx = state.tournamentsArchive.findIndex((item) => item.id === t.id);
+      if (archivedIdx >= 0) {
+        const archivedSnapshot = cloneTournament(state.tournamentsArchive[archivedIdx]);
+        archivedSnapshot.name = t.name;
+        archivedSnapshot.eventDate = t.eventDate;
+        archivedSnapshot.timeControl = t.timeControl;
+        archivedSnapshot.chiefJudge = t.chiefJudge;
+        archivedSnapshot.updatedAt = t.updatedAt;
+        state.tournamentsArchive[archivedIdx] = normalizeArchivedTournament(archivedSnapshot);
+      }
+
+      tournamentSettingsDraft = createTournamentSettingsDraft(t);
+      saveAndRender();
+      await flushRemoteSyncNow("archive-tournament-settings-save");
+      return;
+    }
+
     if (nextRounds < t.currentRound) {
       alert(`Не можна встановити менше турів, ніж уже зіграно (${t.currentRound}).`);
       return;
@@ -224,17 +248,6 @@ function bindEvents() {
     normalizeRoundsCountForCurrentFormat(t);
     t.updatedAt = new Date().toISOString();
 
-    if (isArchivePreview) {
-      const archivedIdx = state.tournamentsArchive.findIndex((item) => item.id === t.id);
-      if (archivedIdx >= 0) {
-        const archivedSnapshot = cloneTournament(t);
-        archivedSnapshot.status = "archived";
-        archivedSnapshot.finishedAt =
-          state.tournamentsArchive[archivedIdx].finishedAt || archivedSnapshot.finishedAt || archivedSnapshot.updatedAt;
-        state.tournamentsArchive[archivedIdx] = normalizeArchivedTournament(archivedSnapshot);
-      }
-    }
-
     const configuredNow =
       Boolean(String(t.name || "").trim()) &&
       Boolean(t.eventDate) &&
@@ -251,6 +264,23 @@ function bindEvents() {
     await flushRemoteSyncNow("tournament-settings-save");
   });
 
+  if (els.archiveSettingsCancelBtn) {
+    els.archiveSettingsCancelBtn.addEventListener("click", () => {
+      const t = state.currentTournament;
+      if (!t || t.status !== "archived_view" || !canManageAdminUi()) {
+        return;
+      }
+
+      const archived = state.tournamentsArchive.find((item) => item.id === t.id);
+      if (archived) {
+        state.currentTournament = cloneTournament(archived);
+        state.currentTournament.status = "archived_view";
+      }
+      tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+      render();
+    });
+  }
+
   els.tournamentName.addEventListener("input", () => {
     ensureTournamentSettingsDraftForCurrentTournament();
     tournamentSettingsDraft.name = els.tournamentName.value.trim();
@@ -265,7 +295,7 @@ function bindEvents() {
     ensureTournamentSettingsDraftForCurrentTournament();
     const raw = String(els.tournamentDate.value || "").trim();
     tournamentSettingsDraft.eventDate = normalizeBirthDate(raw);
-    if (tournamentSettingsDraft.eventDate) {
+    if (tournamentSettingsDraft.eventDate && state.currentTournament?.status !== "archived_view") {
       state.currentTournament.eventDate = tournamentSettingsDraft.eventDate;
     }
   };
