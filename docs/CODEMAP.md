@@ -76,12 +76,14 @@
 ## 4. Де правити конкретні задачі
 
 ### Задача: не зберігається дата турніру
+- `src/app/03-state-normalization.js` (`normalizeBirthDate` також нормалізує дату турніру; важливо перевіряти дату через UTC, бо PostgreSQL може повернути `YYYY-MM-DDT00:00:00.000Z`)
 - `src/app/02-events.js` (submit/кнопки збереження)
 - `src/app/05-actions.js` (apply/update)
 - `src/app/08-lifecycle-utils.js` (persist + API sync)
 - `server/routes/tournaments.js` (PATCH/PUT поля)
 
 ### Задача: не зберігається дата народження гравця
+- `src/app/03-state-normalization.js` (`normalizeBirthDate`; спільна нормалізація для дат народження і дат турніру)
 - `src/app/05-actions.js`
 - `src/app/02-events.js`
 - `server/routes/players.js`

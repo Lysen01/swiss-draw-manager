@@ -528,7 +528,7 @@ function normalizeBirthDate(value) {
   }
 
   const iso = `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-  const check = new Date(`${iso}T00:00:00`);
+  const check = new Date(Date.UTC(year, month - 1, day));
   if (Number.isNaN(check.getTime())) {
     return "";
   }
