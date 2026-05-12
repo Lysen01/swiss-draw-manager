@@ -82,9 +82,9 @@ function renderArchiveTab() {
       const top = standings.map((p, i) => `${i + 1}. ${escapeHtml(p.name)} (${p.score.toFixed(1)})`).join(" | ");
       const isFinished = entry.kind === "finished";
       const isOpen = isFinished && state.archivePreviewTournamentId === t.id;
-      const statusHtml = isFinished
-        ? `Завершено: ${formatDate(t.finishedAt)}`
-        : `Триває: оновлено ${formatDate(t.updatedAt || t.createdAt || new Date().toISOString())}`;
+      const statusMeta = isFinished
+        ? `Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}`
+        : `Триває: оновлено ${formatDate(t.updatedAt || t.createdAt || new Date().toISOString())} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}`;
       const actionsHtml = isFinished
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
@@ -102,7 +102,7 @@ function renderArchiveTab() {
         </div>
         <div class="archive-meta">
           <span class="status-chip ${isFinished ? "status-chip--finished" : "status-chip--ongoing"}">${isFinished ? "Завершений" : "Триває"}</span>
-          ${statusHtml} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}
+          ${statusMeta}
         </div>
         <div class="archive-media">
           <img class="archive-photo" src="${getTournamentDisplayPhotoUrl(t)}" alt="Фото ${escapeHtml(t.name)}" />
