@@ -1661,24 +1661,71 @@ label.base-pick-item {
 
 .row-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
   justify-content: flex-start;
 }
 
 .icon-btn {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: 10px;
+  font-size: 0;
   font-weight: 800;
-  line-height: 1;
+  line-height: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  box-shadow: none;
+  border: 1px solid #c6d6ef;
+  color: #2453a3;
+  background: linear-gradient(165deg, #ffffff 0%, #edf4ff 100%);
+  box-shadow: 0 5px 12px rgba(17, 43, 86, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, filter 0.16s ease;
+}
+
+.icon-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 15px rgba(17, 43, 86, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  filter: none;
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid #8fb5f6;
+  outline-offset: 2px;
+}
+
+.icon-btn__glyph {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn[data-action="edit-base-player"] {
+  color: #1f56b3;
+  border-color: #b7cdf2;
+  background: linear-gradient(165deg, #ffffff 0%, #e9f1ff 100%);
+}
+
+.icon-btn[data-action="view-base-profile"] {
+  color: #0d7d75;
+  border-color: #afe0d8;
+  background: linear-gradient(165deg, #ffffff 0%, #e7fbf6 100%);
+}
+
+.icon-btn.danger {
+  color: #fff;
+  border-color: #d35159;
+  background: linear-gradient(165deg, #ed6a73 0%, #cb2d37 100%);
+  box-shadow: 0 7px 14px rgba(184, 42, 57, 0.28);
+}
+
+.icon-btn.danger:hover {
+  background: linear-gradient(165deg, #f17b83 0%, #d63f49 100%);
 }
 
 .player-name-cell {
