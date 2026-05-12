@@ -44,6 +44,7 @@ let persistenceInfo = {
 };
 
 const els = {
+  authMenu: document.querySelector(".auth-menu"),
   authForm: document.getElementById("authForm"),
   authEmail: document.getElementById("authEmail"),
   authPassword: document.getElementById("authPassword"),

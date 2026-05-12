@@ -134,6 +134,7 @@ let persistenceInfo = {
 };
 
 const els = {
+  authMenu: document.querySelector(".auth-menu"),
   authForm: document.getElementById("authForm"),
   authEmail: document.getElementById("authEmail"),
   authPassword: document.getElementById("authPassword"),
@@ -255,6 +256,14 @@ const els = {
 
 // ===== 02-events.js =====
 function bindEvents() {
+  const closeAuthMenu = () => {
+    if (!els.authMenu || !els.authMenu.open) {
+      return;
+    }
+    els.authMenu.open = false;
+    els.authMenu.querySelector("summary")?.blur();
+  };
+
   const exitArchiveEditModeToArchiveTab = () => {
     state.currentTournament = createDefaultTournament();
     tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
@@ -323,6 +332,7 @@ function bindEvents() {
         remoteBootstrapStarted = false;
         await bootstrapPersistence();
         saveAndRender();
+        closeAuthMenu();
       } catch (error) {
         alert(`Помилка входу: ${String(error.message || error)}`);
       } finally {
@@ -339,6 +349,7 @@ function bindEvents() {
       remoteBootstrapStarted = false;
       await bootstrapPersistence();
       saveAndRender();
+      closeAuthMenu();
     });
   }
 
