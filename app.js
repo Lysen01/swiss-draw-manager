@@ -3373,7 +3373,7 @@ function renderClubPlayerProfileCard(playerId) {
   ];
   const activeTab = tabs.some((tab) => tab.key === selectedClubPlayerProfileTab) ? selectedClubPlayerProfileTab : "info";
   const stats = player.stats || emptyStats();
-  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt)) : [];
+  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => getPlayerHistorySortTimestamp(b) - getPlayerHistorySortTimestamp(a)) : [];
   const matches = collectArchivedMatchesForPlayer(player.id);
   const opponents = buildOpponentStatsFromMatches(matches);
   const ratingSeries = buildPlayerRatingSeries(history, player.rating);
@@ -3462,6 +3462,46 @@ function renderPlayerProfileTabContent(tab, model) {
   return renderPlayerProfileInfoTab(model);
 }
 
+function resolvePlayerHistoryEventDate(item) {
+  const direct = normalizeBirthDate(item?.eventDate);
+  if (direct) {
+    return direct;
+  }
+
+  if (item?.tournamentId) {
+    const archived = (state.tournamentsArchive || []).find((t) => t.id === item.tournamentId);
+    const archivedEventDate = normalizeBirthDate(archived?.eventDate);
+    if (archivedEventDate) {
+      return archivedEventDate;
+    }
+  }
+
+  return "";
+}
+
+function getPlayerHistorySortTimestamp(item) {
+  const eventDate = resolvePlayerHistoryEventDate(item);
+  if (eventDate) {
+    const value = new Date(`${eventDate}T00:00:00`).getTime();
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+  const fallback = new Date(item?.finishedAt || 0).getTime();
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
+function formatPlayerHistoryDate(item) {
+  const eventDate = resolvePlayerHistoryEventDate(item);
+  if (eventDate) {
+    return formatDateOnly(eventDate);
+  }
+  if (item?.finishedAt) {
+    return formatDate(item.finishedAt);
+  }
+  return "-";
+}
+
 function renderPlayerProfileInfoTab(model) {
   const { player, stats, bestRating, worstRating, avgDelta, winRate, ratingSeries } = model;
   const recentSeries = ratingSeries.slice(-16);
@@ -3492,7 +3532,7 @@ function renderPlayerProfileSkillTab(model) {
     .map((item) => {
       const delta = Number(item.ratingDelta);
       const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
-      return `<tr><td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td><td>${formatDate(item.finishedAt)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
+      return `<tr><td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td><td>${formatPlayerHistoryDate(item)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
     })
     .join("");
   return `
@@ -3520,7 +3560,7 @@ function renderPlayerProfileRankingTab(model) {
       const delta = Number(item.ratingDelta);
       const deltaText = Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta}` : "-";
       return `<tr>
-        <td>${formatDate(item.finishedAt)}</td>
+        <td>${formatPlayerHistoryDate(item)}</td>
         <td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td>
         <td>${item.place ?? "-"}</td>
         <td>${Number(item.score || 0).toFixed(1)}</td>
@@ -3601,7 +3641,7 @@ function renderPlayerProfileEventsTab(model) {
         <td>${item.place ?? "-"}</td>
         <td>${Number(item.score || 0).toFixed(1)}</td>
         <td>${item.wins}/${item.draws}/${item.losses}</td>
-        <td>${formatDate(item.finishedAt)}</td>
+        <td>${formatPlayerHistoryDate(item)}</td>
       </tr>`
     )
     .join("");
@@ -4211,7 +4251,7 @@ function renderBasePlayerProfileCard(playerId) {
   ];
   const activeTab = tabs.some((tab) => tab.key === selectedBasePlayerProfileTab) ? selectedBasePlayerProfileTab : "ranking";
   const stats = player.stats || emptyStats();
-  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt)) : [];
+  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => getPlayerHistorySortTimestamp(b) - getPlayerHistorySortTimestamp(a)) : [];
   const matches = collectArchivedMatchesForPlayer(player.id);
   const opponents = buildOpponentStatsFromMatches(matches);
   const ratingSeries = buildPlayerRatingSeries(history, player.rating);
@@ -4855,14 +4895,14 @@ function viewBasePlayerHistory(playerId) {
     return;
   }
 
-  const ordered = base.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+  const ordered = base.history.slice().sort((a, b) => getPlayerHistorySortTimestamp(b) - getPlayerHistorySortTimestamp(a));
   const lines = ordered.map((h) => {
     const opponents = (h.opponents || []).length ? h.opponents.join(", ") : "без суперників";
     const ratingDelta = Number.isFinite(Number(h.ratingDelta))
       ? `${Number(h.ratingDelta) > 0 ? "+" : ""}${Number(h.ratingDelta)}`
       : "-";
     const ratingAfter = Number.isFinite(Number(h.ratingAfter)) ? Math.round(Number(h.ratingAfter)) : "-";
-    return `• ${h.tournamentName} | ${formatDate(h.finishedAt)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | Δрейтинг ${ratingDelta} | новий ${ratingAfter} | суперники: ${opponents}`;
+    return `• ${h.tournamentName} | ${formatPlayerHistoryDate(h)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | Δрейтинг ${ratingDelta} | новий ${ratingAfter} | суперники: ${opponents}`;
   });
 
   alert(`${fullName}\n\n${lines.join("\n")}`);
@@ -6907,6 +6947,7 @@ function mergeTournamentResultsIntoPlayerBase(basePlayers, tournamentSnapshot) {
     const entry = {
       tournamentId: tournamentSnapshot.id,
       tournamentName: tournamentSnapshot.name,
+      eventDate: normalizeBirthDate(tournamentSnapshot.eventDate),
       finishedAt: tournamentSnapshot.finishedAt,
       place: placeById[tp.id] || null,
       score: Number(tp.score) || 0,

@@ -146,7 +146,7 @@ function renderBasePlayerProfileCard(playerId) {
   ];
   const activeTab = tabs.some((tab) => tab.key === selectedBasePlayerProfileTab) ? selectedBasePlayerProfileTab : "ranking";
   const stats = player.stats || emptyStats();
-  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt)) : [];
+  const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => getPlayerHistorySortTimestamp(b) - getPlayerHistorySortTimestamp(a)) : [];
   const matches = collectArchivedMatchesForPlayer(player.id);
   const opponents = buildOpponentStatsFromMatches(matches);
   const ratingSeries = buildPlayerRatingSeries(history, player.rating);

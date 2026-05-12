@@ -533,6 +533,7 @@ function mergeTournamentResultsIntoPlayerBase(basePlayers, tournamentSnapshot) {
     const entry = {
       tournamentId: tournamentSnapshot.id,
       tournamentName: tournamentSnapshot.name,
+      eventDate: normalizeBirthDate(tournamentSnapshot.eventDate),
       finishedAt: tournamentSnapshot.finishedAt,
       place: placeById[tp.id] || null,
       score: Number(tp.score) || 0,

@@ -368,14 +368,14 @@ function viewBasePlayerHistory(playerId) {
     return;
   }
 
-  const ordered = base.history.slice().sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+  const ordered = base.history.slice().sort((a, b) => getPlayerHistorySortTimestamp(b) - getPlayerHistorySortTimestamp(a));
   const lines = ordered.map((h) => {
     const opponents = (h.opponents || []).length ? h.opponents.join(", ") : "без суперників";
     const ratingDelta = Number.isFinite(Number(h.ratingDelta))
       ? `${Number(h.ratingDelta) > 0 ? "+" : ""}${Number(h.ratingDelta)}`
       : "-";
     const ratingAfter = Number.isFinite(Number(h.ratingAfter)) ? Math.round(Number(h.ratingAfter)) : "-";
-    return `• ${h.tournamentName} | ${formatDate(h.finishedAt)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | Δрейтинг ${ratingDelta} | новий ${ratingAfter} | суперники: ${opponents}`;
+    return `• ${h.tournamentName} | ${formatPlayerHistoryDate(h)} | місце ${h.place ?? "-"} | очки ${Number(h.score).toFixed(1)} | Δрейтинг ${ratingDelta} | новий ${ratingAfter} | суперники: ${opponents}`;
   });
 
   alert(`${fullName}\n\n${lines.join("\n")}`);
