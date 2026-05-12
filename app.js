@@ -255,6 +255,22 @@ const els = {
 
 // ===== 02-events.js =====
 function bindEvents() {
+  const exitArchiveEditModeToArchiveTab = () => {
+    state.currentTournament = createDefaultTournament();
+    tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
+    state.tournamentView = "setup";
+    state.activeTab = "archive";
+    state.archivePreviewTournamentId = null;
+    manualRoundBuilderOpen = false;
+    selectedBasePlayerIds.clear();
+    if (els.dbPlayerSelect) {
+      els.dbPlayerSelect.value = "";
+    }
+    if (els.tournamentClubFilter) {
+      els.tournamentClubFilter.value = "all";
+    }
+  };
+
   const adminOnlyActions = new Set([
     "edit-club",
     "delete-club",
@@ -436,9 +452,7 @@ function bindEvents() {
         state.tournamentsArchive[archivedIdx] = normalizeArchivedTournament(archivedSnapshot);
       }
 
-      tournamentSettingsDraft = createTournamentSettingsDraft(t);
-      state.activeTab = "archive";
-      state.archivePreviewTournamentId = null;
+      exitArchiveEditModeToArchiveTab();
       saveAndRender();
       await flushRemoteSyncNow("archive-tournament-settings-save");
       return;
@@ -530,14 +544,7 @@ function bindEvents() {
         return;
       }
 
-      const archived = state.tournamentsArchive.find((item) => item.id === t.id);
-      if (archived) {
-        state.currentTournament = cloneTournament(archived);
-        state.currentTournament.status = "archived_view";
-      }
-      tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
-      state.activeTab = "archive";
-      state.archivePreviewTournamentId = null;
+      exitArchiveEditModeToArchiveTab();
       saveAndRender();
     });
   }
