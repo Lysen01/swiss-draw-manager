@@ -3674,14 +3674,17 @@ function renderPlayerProfileOpponentsTab(model) {
   const { opponents } = model;
   const cards = opponents
     .slice(0, 16)
-    .map(
-      (item) => `
-      <article class="opponent-mini-card">
+    .map((item) => {
+      const winRate = Number(item.winRateRounded) || 0;
+      const tone = winRate <= 35 ? "low" : winRate <= 65 ? "mid" : "high";
+      return `
+      <article class="opponent-mini-card opponent-mini-card--${tone}">
         <div class="opponent-mini-card__name">${escapeHtml(item.name)}</div>
         <div class="meta">${item.games} партій</div>
         <div class="meta">W/D/L: ${item.wins}/${item.draws}/${item.losses}</div>
-      </article>`
-    )
+        <div class="opponent-mini-card__rate opponent-mini-card__rate--${tone}">Вінрейт: <strong>${winRate}%</strong></div>
+      </article>`;
+    })
     .join("");
   return `
     <div class="player-profile-content">
@@ -3837,7 +3840,18 @@ function buildOpponentStatsFromMatches(matches) {
     }
   }
 
-  return [...map.values()].sort((a, b) => b.games - a.games || a.name.localeCompare(b.name, "uk"));
+  return [...map.values()]
+    .map((item) => {
+      const games = Number(item.games) || 0;
+      const wins = Number(item.wins) || 0;
+      const winRate = games > 0 ? (wins / games) * 100 : 0;
+      return {
+        ...item,
+        winRate,
+        winRateRounded: Math.round(winRate),
+      };
+    })
+    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name, "uk"));
 }
 
 function buildPlayerRatingSeries(history, currentRating) {
