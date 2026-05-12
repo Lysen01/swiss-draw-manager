@@ -863,18 +863,23 @@ function bindEvents() {
       return;
     }
 
-    if (btn.dataset.action === "confirm-auto-places") {
+    const action = btn.dataset.action;
+    if (blockIfViewerAction(action)) {
+      return;
+    }
+
+    if (action === "confirm-auto-places") {
       applyAutoPlacesForTiedScores(state.currentTournament);
       return;
     }
 
-    if (btn.dataset.action === "finish-tournament-from-table") {
+    if (action === "finish-tournament-from-table") {
       void finishCurrentTournament();
       return;
     }
 
-    if (btn.dataset.action === "emergency-finish-tournament") {
-      emergencyFinishCurrentTournament();
+    if (action === "emergency-finish-tournament") {
+      void emergencyFinishCurrentTournament();
     }
   });
 
@@ -914,12 +919,6 @@ function bindEvents() {
 
     if (action === "open-archive") {
       openArchivePreview(tournamentId);
-    }
-
-    if (action === "edit-archive") {
-      loadTournamentFromArchive(tournamentId);
-      state.tournamentView = "setup";
-      saveAndRender();
     }
 
     if (action === "open-ongoing") {

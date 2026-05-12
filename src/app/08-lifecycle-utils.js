@@ -743,6 +743,47 @@ function buildTournamentsForSync(appState) {
   return payloads;
 }
 
+async function upsertTournamentPayload(tournamentPayload) {
+  if (remoteKnownTournamentIds.has(tournamentPayload.id)) {
+    try {
+      await apiRequest(`/api/tournaments/${tournamentPayload.id}`, {
+        method: "PUT",
+        body: tournamentPayload,
+        timeoutMs: 14000,
+      });
+    } catch (error) {
+      if (!String(error instanceof Error ? error.message : error).includes("404")) {
+        throw error;
+      }
+      await apiRequest("/api/tournaments", {
+        method: "POST",
+        body: tournamentPayload,
+        timeoutMs: 14000,
+      });
+    }
+    return;
+  }
+
+  try {
+    await apiRequest("/api/tournaments", {
+      method: "POST",
+      body: tournamentPayload,
+      timeoutMs: 14000,
+    });
+  } catch (error) {
+    await apiRequest(`/api/tournaments/${tournamentPayload.id}`, {
+      method: "PUT",
+      body: tournamentPayload,
+      timeoutMs: 14000,
+    });
+  }
+  remoteKnownTournamentIds.add(tournamentPayload.id);
+}
+
+async function syncTournamentToApi(tournament, status) {
+  await upsertTournamentPayload(buildTournamentApiPayload(tournament, status));
+}
+
 function scheduleRemoteSync(_reason = "state-change") {
   if (persistenceInfo.mode !== "remote") {
     return;
@@ -924,20 +965,7 @@ async function syncRemoteSnapshot(appState) {
   const desiredTournamentIds = new Set(desiredTournaments.map((item) => item.id));
 
   for (const tournamentPayload of desiredTournaments) {
-    if (remoteKnownTournamentIds.has(tournamentPayload.id)) {
-      await apiRequest(`/api/tournaments/${tournamentPayload.id}`, {
-        method: "PUT",
-        body: tournamentPayload,
-        timeoutMs: 14000,
-      });
-    } else {
-      await apiRequest("/api/tournaments", {
-        method: "POST",
-        body: tournamentPayload,
-        timeoutMs: 14000,
-      });
-      remoteKnownTournamentIds.add(tournamentPayload.id);
-    }
+    await upsertTournamentPayload(tournamentPayload);
   }
 
   for (const tournamentId of [...remoteKnownTournamentIds]) {
@@ -984,8 +1012,10 @@ function archiveCurrentTournament({ notify }) {
   }
 
   const snapshot = cloneTournament(t);
+  const finishedAt = new Date().toISOString();
   snapshot.status = "archived";
-  snapshot.finishedAt = new Date().toISOString();
+  snapshot.finishedAt = finishedAt;
+  snapshot.updatedAt = finishedAt;
   snapshot.ratingDeltas = [];
 
   const idx = state.tournamentsArchive.findIndex((x) => x.id === snapshot.id);
@@ -1008,7 +1038,7 @@ function archiveCurrentTournament({ notify }) {
   }
 
   saveAndRender();
-  return true;
+  return snapshot;
 }
 
 async function finishCurrentTournament() {
@@ -1043,7 +1073,29 @@ async function finishCurrentTournament() {
     }
   }
 
-  archiveCurrentTournament({ notify: false });
+  const archivedSnapshot = archiveCurrentTournament({ notify: false });
+  if (!archivedSnapshot) {
+    return;
+  }
+
+  if (persistenceInfo.mode === "remote") {
+    try {
+      await syncTournamentToApi(archivedSnapshot, "archived");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[finishCurrentTournament]", error);
+      setPersistenceInfo({
+        mode: "remote",
+        status: "error",
+        message: `Не вдалося записати завершення турніру в PostgreSQL: ${message}`,
+        lastSyncAt: new Date().toISOString(),
+      });
+      render();
+      alert(`Не вдалося записати завершення турніру в PostgreSQL.\n\n${message}\n\nСпробуйте натиснути "Завершити турнір" ще раз.`);
+      return;
+    }
+  }
+
   state.currentTournament = createDefaultTournament();
   tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
   state.activeTab = "tournament";
@@ -1054,7 +1106,7 @@ async function finishCurrentTournament() {
   alert("Турнір завершено і перенесено в архів.");
 }
 
-function emergencyFinishCurrentTournament() {
+async function emergencyFinishCurrentTournament() {
   const t = state.currentTournament;
   if (!t || t.status === "archived_view") {
     return;
@@ -1075,6 +1127,7 @@ function emergencyFinishCurrentTournament() {
   state.archivePreviewTournamentId = null;
   manualRoundBuilderOpen = false;
   saveAndRender();
+  await flushRemoteSyncNow("emergency-finish-tournament");
   alert("Турнір екстрено завершено без архівування.");
 }
 

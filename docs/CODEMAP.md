@@ -92,6 +92,8 @@
 - `src/app/03-state-normalization.js` (correct restore status)
 - `server/routes/tournaments.js` (архів/статус/active pointer)
 
+Поточна логіка: звичайне завершення спочатку робить direct upsert турніру в API зі статусом `archived`, а вже після успішного запису скидає `currentTournament`. Це захищає від ситуації, коли UI очистився, але PostgreSQL після reload повернув старий active-турнір.
+
 ### Задача: проблеми в картках вкладки "Турніри"
 - `src/app/features/14-render-archive-tab.js`
 - `src/app/04-render.js` (archive preview helper)
