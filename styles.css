@@ -151,6 +151,40 @@ body {
   margin-top: 0;
 }
 
+.players-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.players-head h2 {
+  margin: 0;
+}
+
+.players-head__actions {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.players-head__actions button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 12px;
+}
+
+@media (max-width: 720px) {
+  .players-head {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .players-head__actions {
+    width: 100%;
+  }
+}
+
 .grid-form {
   display: grid;
   gap: 12px;
