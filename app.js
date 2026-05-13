@@ -3902,10 +3902,46 @@ function formatSkillHistoryTickDate(value) {
     return "-";
   }
   try {
-    return new Intl.DateTimeFormat("uk-UA", { month: "short", year: "2-digit" }).format(new Date(stamp));
+    return new Intl.DateTimeFormat("uk-UA", { month: "short", year: "numeric" }).format(new Date(stamp));
   } catch {
     return String(value || "-");
   }
+}
+
+function buildSkillHistoryMonthTicks(minStamp, maxStamp, resolveX, maxTicks = 8) {
+  const startDate = new Date(minStamp);
+  const endDate = new Date(maxStamp);
+  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime())) {
+    return [];
+  }
+
+  const months = [];
+  const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+
+  while (cursor.getTime() <= endMonth.getTime()) {
+    months.push(cursor.getTime());
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  if (!months.length) {
+    return [];
+  }
+
+  const step = Math.max(1, Math.ceil(months.length / Math.max(1, maxTicks)));
+  const selected = [];
+  for (let index = 0; index < months.length; index += step) {
+    selected.push(months[index]);
+  }
+  const last = months[months.length - 1];
+  if (selected[selected.length - 1] !== last) {
+    selected.push(last);
+  }
+
+  return selected.map((stamp) => ({
+    x: resolveX(stamp),
+    label: formatSkillHistoryTickDate(stamp),
+  }));
 }
 
 function buildSkillHistoryChart(points) {
@@ -3967,20 +4003,7 @@ function buildSkillHistoryChart(points) {
     };
   });
 
-  const tickCount = Math.min(6, plotted.length);
-  const xTickIndexes = [];
-  for (let i = 0; i < tickCount; i += 1) {
-    const ratio = tickCount === 1 ? 0 : i / (tickCount - 1);
-    const idx = Math.round((plotted.length - 1) * ratio);
-    if (xTickIndexes[xTickIndexes.length - 1] !== idx) {
-      xTickIndexes.push(idx);
-    }
-  }
-
-  const xTicks = xTickIndexes.map((idx) => ({
-    x: plotted[idx].x,
-    label: formatSkillHistoryTickDate(plotted[idx].date),
-  }));
+  const xTicks = buildSkillHistoryMonthTicks(minStamp, maxStamp, resolveX, 8);
 
   const gradientId = `skillHistoryGradient-${Math.abs(Math.round(Number(plotted[0]?.stamp || Date.now())))}`;
   const circles = plotted
