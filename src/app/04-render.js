@@ -1944,7 +1944,7 @@ function buildPlayerRatingSeries(history, currentRating) {
     .slice()
     .reverse()
     .map((item) => ({
-      date: item.finishedAt,
+      date: resolvePlayerHistoryEventDate(item) || item.finishedAt || new Date().toISOString(),
       rating: Math.round(Number(item.ratingAfter) || 0),
     }));
 
