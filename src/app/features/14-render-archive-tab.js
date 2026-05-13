@@ -1,3 +1,10 @@
+function normalizeArchiveSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function renderArchiveTab() {
   const canManage = canManageAdminUi();
   if (els.tournamentsSearch) {
@@ -37,7 +44,7 @@ function renderArchiveTab() {
     return;
   }
 
-  const query = tournamentsSearchQuery.toLowerCase();
+  const query = normalizeArchiveSearchText(tournamentsSearchQuery);
   const filtered = records
     .filter((entry) => {
       if (tournamentsStatusFilter === "ongoing") {
@@ -57,15 +64,15 @@ function renderArchiveTab() {
         return true;
       }
       const t = entry.tournament;
-      const haystack = [
+      const haystack = normalizeArchiveSearchText(
+        [
         t.name,
         t.chiefJudge,
         t.timeControl,
         t.eventDate ? formatDateOnly(t.eventDate) : "",
         entry.kind === "ongoing" ? "триває" : "завершено",
-      ]
-        .join(" ")
-        .toLowerCase();
+      ].join(" ")
+      );
       return haystack.includes(query);
     })
     .sort((a, b) => b.sortDate - a.sortDate);

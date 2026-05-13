@@ -3587,7 +3587,7 @@ function renderPlayerProfileInfoTab(model) {
 }
 
 function renderPlayerProfileSkillTab(model) {
-  const { history, bestRating, worstRating, avgDelta } = model;
+  const { history, bestRating, worstRating, avgDelta, ratingSeries } = model;
   const last = history.slice(0, 12);
   const rows = last
     .map((item) => {
@@ -3596,6 +3596,7 @@ function renderPlayerProfileSkillTab(model) {
       return `<tr><td>${renderTournamentJumpButton(item.tournamentId, item.tournamentName || "-")}</td><td>${formatPlayerHistoryDate(item)}</td><td>${deltaText}</td><td>${Number(item.ratingAfter) || "-"}</td></tr>`;
     })
     .join("");
+  const historyChart = buildSkillHistoryChart(ratingSeries);
   return `
     <div class="player-profile-content">
       <section class="player-stat-grid">
@@ -3603,6 +3604,7 @@ function renderPlayerProfileSkillTab(model) {
         <article class="player-stat-card"><div class="meta">Найнижчий рейтинг</div><strong>${worstRating}</strong></article>
         <article class="player-stat-card"><div class="meta">Середня зміна за турнір</div><strong>${Number.isFinite(avgDelta) ? `${avgDelta > 0 ? "+" : ""}${avgDelta.toFixed(1)}` : "-"}</strong></article>
       </section>
+      ${historyChart}
       <section class="player-table-card">
         <h4>Останні зміни рейтингу</h4>
         ${
@@ -3892,6 +3894,129 @@ function buildSimpleSparklinePath(points) {
       return `${idx === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(" ");
+}
+
+function formatSkillHistoryTickDate(value) {
+  const stamp = new Date(value || "").getTime();
+  if (!Number.isFinite(stamp)) {
+    return "-";
+  }
+  try {
+    return new Intl.DateTimeFormat("uk-UA", { month: "short", year: "2-digit" }).format(new Date(stamp));
+  } catch {
+    return String(value || "-");
+  }
+}
+
+function buildSkillHistoryChart(points) {
+  const source = Array.isArray(points) ? points.filter((item) => Number.isFinite(Number(item?.rating))) : [];
+  if (!source.length) {
+    return `<section class="player-chart-card"><h4>Skill History</h4><div class="club-empty">Ще немає даних для побудови графіка.</div></section>`;
+  }
+
+  const width = 920;
+  const height = 340;
+  const margin = { top: 16, right: 16, bottom: 40, left: 62 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+
+  const normalized = source.map((point, index) => {
+    const stamp = new Date(point.date || "").getTime();
+    return {
+      rating: Math.round(Number(point.rating) || 0),
+      stamp: Number.isFinite(stamp) ? stamp : index,
+      date: point.date || "",
+    };
+  });
+
+  let minStamp = Math.min(...normalized.map((item) => item.stamp));
+  let maxStamp = Math.max(...normalized.map((item) => item.stamp));
+  if (minStamp === maxStamp) {
+    minStamp -= 1;
+    maxStamp += 1;
+  }
+
+  const minRatingRaw = Math.min(...normalized.map((item) => item.rating));
+  const maxRatingRaw = Math.max(...normalized.map((item) => item.rating));
+  const ratingPadding = Math.max(3, Math.round((maxRatingRaw - minRatingRaw || 1) * 0.12));
+  const stepBase = maxRatingRaw - minRatingRaw > 70 ? 10 : maxRatingRaw - minRatingRaw > 25 ? 5 : 1;
+  const minRating = Math.max(0, Math.floor((minRatingRaw - ratingPadding) / stepBase) * stepBase);
+  const maxRating = Math.max(minRating + stepBase, Math.ceil((maxRatingRaw + ratingPadding) / stepBase) * stepBase);
+  const ratingSpan = Math.max(1, maxRating - minRating);
+
+  const resolveX = (stamp) => margin.left + ((stamp - minStamp) / (maxStamp - minStamp)) * chartWidth;
+  const resolveY = (rating) => margin.top + (1 - (rating - minRating) / ratingSpan) * chartHeight;
+
+  const plotted = normalized.map((item) => ({
+    ...item,
+    x: resolveX(item.stamp),
+    y: resolveY(item.rating),
+  }));
+
+  const linePath = plotted
+    .map((item, index) => `${index === 0 ? "M" : "L"}${item.x.toFixed(2)} ${item.y.toFixed(2)}`)
+    .join(" ");
+  const areaPath = `${linePath} L${plotted[plotted.length - 1].x.toFixed(2)} ${(margin.top + chartHeight).toFixed(2)} L${plotted[0].x.toFixed(2)} ${(margin.top + chartHeight).toFixed(2)} Z`;
+
+  const yTicks = Array.from({ length: 6 }, (_, index) => {
+    const value = minRating + (ratingSpan * index) / 5;
+    const y = resolveY(value);
+    return {
+      y,
+      label: Math.round(value),
+    };
+  });
+
+  const tickCount = Math.min(6, plotted.length);
+  const xTickIndexes = [];
+  for (let i = 0; i < tickCount; i += 1) {
+    const ratio = tickCount === 1 ? 0 : i / (tickCount - 1);
+    const idx = Math.round((plotted.length - 1) * ratio);
+    if (xTickIndexes[xTickIndexes.length - 1] !== idx) {
+      xTickIndexes.push(idx);
+    }
+  }
+
+  const xTicks = xTickIndexes.map((idx) => ({
+    x: plotted[idx].x,
+    label: formatSkillHistoryTickDate(plotted[idx].date),
+  }));
+
+  const gradientId = `skillHistoryGradient-${Math.abs(Math.round(Number(plotted[0]?.stamp || Date.now())))}`;
+  const circles = plotted
+    .map((item) => `<circle class="player-history-chart__dot" cx="${item.x.toFixed(2)}" cy="${item.y.toFixed(2)}" r="2.4" />`)
+    .join("");
+
+  return `
+    <section class="player-chart-card player-history-chart">
+      <h4>Skill History</h4>
+      <div class="player-history-chart__scroller">
+        <svg viewBox="0 0 ${width} ${height}" class="player-history-chart__svg" role="img" aria-label="Історія рейтингу гравця">
+          <defs>
+            <linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#7fb0ff" stop-opacity="0.35"></stop>
+              <stop offset="100%" stop-color="#7fb0ff" stop-opacity="0.02"></stop>
+            </linearGradient>
+          </defs>
+          ${yTicks
+            .map(
+              (tick) => `
+            <line class="player-history-chart__grid" x1="${margin.left}" y1="${tick.y.toFixed(2)}" x2="${(margin.left + chartWidth).toFixed(2)}" y2="${tick.y.toFixed(2)}"></line>
+            <text class="player-history-chart__y-label" x="${(margin.left - 10).toFixed(2)}" y="${(tick.y + 4).toFixed(2)}" text-anchor="end">${tick.label}</text>`
+            )
+            .join("")}
+          ${xTicks
+            .map(
+              (tick) => `
+            <text class="player-history-chart__x-label" x="${tick.x.toFixed(2)}" y="${(height - 12).toFixed(2)}" text-anchor="middle">${escapeHtml(tick.label)}</text>`
+            )
+            .join("")}
+          <path class="player-history-chart__area" d="${areaPath}" fill="url(#${gradientId})"></path>
+          <path class="player-history-chart__line" d="${linePath}"></path>
+          ${circles}
+        </svg>
+      </div>
+    </section>`;
 }
 
 function ratingDeltaToFormSymbol(deltaValue) {

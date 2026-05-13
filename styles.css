@@ -1458,6 +1458,54 @@ label.base-pick-item {
   stroke-linecap: round;
 }
 
+.player-history-chart {
+  padding-top: 12px;
+}
+
+.player-history-chart h4 {
+  text-align: center;
+}
+
+.player-history-chart__scroller {
+  overflow-x: auto;
+}
+
+.player-history-chart__svg {
+  display: block;
+  width: 100%;
+  min-width: 720px;
+  height: 320px;
+  border: 1px solid #dbe6f7;
+  border-radius: 12px;
+  background: #fcfdff;
+}
+
+.player-history-chart__grid {
+  stroke: #e4ebf8;
+  stroke-width: 1;
+}
+
+.player-history-chart__line {
+  fill: none;
+  stroke: #4a8fed;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.player-history-chart__dot {
+  fill: #4a8fed;
+  stroke: #fff;
+  stroke-width: 1.4;
+}
+
+.player-history-chart__x-label,
+.player-history-chart__y-label {
+  fill: #49608c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .matches-mini-grid,
 .opponents-mini-grid {
   display: grid;

@@ -997,7 +997,7 @@ function bindEvents() {
 
   if (els.tournamentsSearch) {
     els.tournamentsSearch.addEventListener("input", () => {
-      tournamentsSearchQuery = String(els.tournamentsSearch.value || "").trim();
+      tournamentsSearchQuery = String(els.tournamentsSearch.value || "");
       renderArchiveTab();
     });
   }
