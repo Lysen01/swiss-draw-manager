@@ -6946,9 +6946,22 @@ async function bootstrapPersistence() {
       // Render/PostgreSQL is the source of truth whenever it already has data.
       // This prevents stale browser localStorage from overwriting cross-device fields
       // such as tournament dates and player birth dates.
-      state = buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows);
+      const localSnapshot = state;
+      let nextState = buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows);
+      let didBackfillMedia = false;
+
+      if (hasStoredLocalState && canManageAdminUi() && hasMeaningfulAppState(localSnapshot)) {
+        const mergeResult = backfillMissingMediaFromLocal(nextState, localSnapshot);
+        nextState = mergeResult.state;
+        didBackfillMedia = mergeResult.changed;
+      }
+
+      state = nextState;
       tournamentSettingsDraft = createTournamentSettingsDraft(state.currentTournament);
       persistLocalState({ notifyOnError: false });
+      if (didBackfillMedia) {
+        scheduleRemoteSync("bootstrap-media-backfill");
+      }
     }
   } catch (error) {
     console.error("[bootstrapPersistence]", error);
@@ -7043,6 +7056,110 @@ function buildStateFromApi(clubRows, coachRows, playersRows, tournamentRows) {
   rebuildPlayerBaseHistoryForState(nextState);
 
   return nextState;
+}
+
+function normalizeLookupKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function makePlayerNameKey(player) {
+  return `${normalizeLookupKey(player?.lastName)}|${normalizeLookupKey(player?.firstName)}`;
+}
+
+function makeCoachNameKey(coach) {
+  return `${normalizeLookupKey(coach?.lastName)}|${normalizeLookupKey(coach?.firstName)}`;
+}
+
+function backfillMissingMediaFromLocal(remoteState, localState) {
+  if (!remoteState || !localState) {
+    return { state: remoteState, changed: false };
+  }
+
+  const mergedState = cloneAppState(remoteState);
+  let changed = false;
+
+  const localPlayersById = new Map();
+  const localPlayersByName = new Map();
+  for (const player of localState.playerBase || []) {
+    const idKey = normalizeEntityId(player?.id);
+    if (idKey) {
+      localPlayersById.set(idKey, player);
+    }
+    const nameKey = makePlayerNameKey(player);
+    if (nameKey !== "|") {
+      localPlayersByName.set(nameKey, player);
+    }
+  }
+
+  for (const player of mergedState.playerBase || []) {
+    if (normalizeImageDataUrl(player?.photoDataUrl)) {
+      continue;
+    }
+    const idKey = normalizeEntityId(player?.id);
+    const localMatch = (idKey ? localPlayersById.get(idKey) : null) || localPlayersByName.get(makePlayerNameKey(player)) || null;
+    const localPhoto = normalizeImageDataUrl(localMatch?.photoDataUrl);
+    if (!localPhoto) {
+      continue;
+    }
+    player.photoDataUrl = localPhoto;
+    changed = true;
+  }
+
+  const localCoachesById = new Map();
+  const localCoachesByName = new Map();
+  for (const coach of localState.coaches || []) {
+    const idKey = normalizeEntityId(coach?.id);
+    if (idKey) {
+      localCoachesById.set(idKey, coach);
+    }
+    const nameKey = makeCoachNameKey(coach);
+    if (nameKey !== "|") {
+      localCoachesByName.set(nameKey, coach);
+    }
+  }
+
+  for (const coach of mergedState.coaches || []) {
+    if (normalizeImageDataUrl(coach?.photoDataUrl)) {
+      continue;
+    }
+    const idKey = normalizeEntityId(coach?.id);
+    const localMatch = (idKey ? localCoachesById.get(idKey) : null) || localCoachesByName.get(makeCoachNameKey(coach)) || null;
+    const localPhoto = normalizeImageDataUrl(localMatch?.photoDataUrl);
+    if (!localPhoto) {
+      continue;
+    }
+    coach.photoDataUrl = localPhoto;
+    changed = true;
+  }
+
+  const localClubsById = new Map();
+  const localClubsByName = new Map();
+  for (const club of localState.clubs || []) {
+    const idKey = normalizeEntityId(club?.id);
+    if (idKey) {
+      localClubsById.set(idKey, club);
+    }
+    const nameKey = normalizeLookupKey(club?.name);
+    if (nameKey) {
+      localClubsByName.set(nameKey, club);
+    }
+  }
+
+  for (const club of mergedState.clubs || []) {
+    if (normalizeImageDataUrl(club?.logoDataUrl)) {
+      continue;
+    }
+    const idKey = normalizeEntityId(club?.id);
+    const localMatch = (idKey ? localClubsById.get(idKey) : null) || localClubsByName.get(normalizeLookupKey(club?.name)) || null;
+    const localLogo = normalizeImageDataUrl(localMatch?.logoDataUrl);
+    if (!localLogo) {
+      continue;
+    }
+    club.logoDataUrl = localLogo;
+    changed = true;
+  }
+
+  return { state: mergedState, changed };
 }
 
 function getTournamentStateFreshnessTimestamp(tournament) {
