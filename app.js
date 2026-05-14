@@ -1167,7 +1167,7 @@ function bindEvents() {
     saveAndRender();
   });
 
-  els.standings.addEventListener("click", (event) => {
+  const handleStandingsActionClick = (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) {
       return;
@@ -1191,7 +1191,12 @@ function bindEvents() {
     if (action === "emergency-finish-tournament") {
       void emergencyFinishCurrentTournament();
     }
-  });
+  };
+
+  els.standings.addEventListener("click", handleStandingsActionClick);
+  if (els.standingsTopActions) {
+    els.standingsTopActions.addEventListener("click", handleStandingsActionClick);
+  }
 
   els.playersList.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
