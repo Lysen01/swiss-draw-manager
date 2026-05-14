@@ -226,6 +226,7 @@ function resetBasePlayerForm(options = {}) {
   const keepOpen = Boolean(options.keepOpen);
   editingBasePlayerId = null;
   els.basePlayerForm.reset();
+  els.basePlayerRating.value = "";
   els.basePlayerGender.value = "";
   els.basePlayerRank.value = "б/р";
   renderBasePlayerOwnershipSelectors(null);

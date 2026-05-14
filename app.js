@@ -794,11 +794,9 @@ function bindEvents() {
         resetBasePlayerForm({ keepOpen: false });
         return;
       }
-      showBasePlayerAddForm = true;
-      syncBasePlayerFormVisibility();
-      if (!editingBasePlayerId) {
-        els.basePlayerLastName?.focus();
-      }
+      resetBasePlayerForm({ keepOpen: true });
+      els.basePlayerFormWrap?.scrollIntoView({ behavior: "smooth", block: "start" });
+      els.basePlayerLastName?.focus();
     });
   }
 
@@ -5022,6 +5020,7 @@ function resetBasePlayerForm(options = {}) {
   const keepOpen = Boolean(options.keepOpen);
   editingBasePlayerId = null;
   els.basePlayerForm.reset();
+  els.basePlayerRating.value = "";
   els.basePlayerGender.value = "";
   els.basePlayerRank.value = "б/р";
   renderBasePlayerOwnershipSelectors(null);

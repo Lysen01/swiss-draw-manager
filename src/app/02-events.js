@@ -536,11 +536,9 @@ function bindEvents() {
         resetBasePlayerForm({ keepOpen: false });
         return;
       }
-      showBasePlayerAddForm = true;
-      syncBasePlayerFormVisibility();
-      if (!editingBasePlayerId) {
-        els.basePlayerLastName?.focus();
-      }
+      resetBasePlayerForm({ keepOpen: true });
+      els.basePlayerFormWrap?.scrollIntoView({ behavior: "smooth", block: "start" });
+      els.basePlayerLastName?.focus();
     });
   }
 
