@@ -1,10 +1,29 @@
 function bindEvents() {
-  const closeAuthMenu = () => {
-    if (!els.authMenu || !els.authMenu.open) {
+  const closeAuthMenu = (lockMs = 220) => {
+    if (!els.authMenu) {
       return;
     }
+    const lockUntil = Date.now() + Math.max(0, Number(lockMs) || 0);
+    els.authMenu.dataset.forceClosedUntil = String(lockUntil);
     els.authMenu.open = false;
+    els.authMenu.removeAttribute("open");
     els.authMenu.querySelector("summary")?.blur();
+    window.setTimeout(() => {
+      if (!els.authMenu) {
+        return;
+      }
+      els.authMenu.open = false;
+      els.authMenu.removeAttribute("open");
+    }, 0);
+  };
+
+  const resetAuthCredentials = () => {
+    if (els.authEmail) {
+      els.authEmail.value = "";
+    }
+    if (els.authPassword) {
+      els.authPassword.value = "";
+    }
   };
 
   const exitArchiveEditModeToArchiveTab = () => {
@@ -56,6 +75,59 @@ function bindEvents() {
     return true;
   };
 
+  const authSummary = els.authMenu?.querySelector("summary");
+  if (els.authMenu && authSummary) {
+    authSummary.addEventListener("click", (event) => {
+      event.preventDefault();
+      const forceClosedUntil = Number(els.authMenu.dataset.forceClosedUntil || 0);
+      if (forceClosedUntil > Date.now()) {
+        closeAuthMenu(0);
+        return;
+      }
+      const shouldOpen = !els.authMenu.open;
+      if (!shouldOpen) {
+        closeAuthMenu(0);
+        return;
+      }
+      els.authMenu.open = true;
+      els.authMenu.setAttribute("open", "");
+      window.setTimeout(() => {
+        if (!els.authMenu?.open) {
+          return;
+        }
+        if (!authUser) {
+          els.authEmail?.focus();
+        } else {
+          els.authLogoutBtn?.focus();
+        }
+      }, 0);
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (!els.authMenu.open) {
+        return;
+      }
+      if (els.authMenu.contains(target)) {
+        return;
+      }
+      closeAuthMenu(0);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (!els.authMenu.open) {
+        return;
+      }
+      closeAuthMenu(0);
+    });
+  }
+
   if (els.authForm) {
     els.authForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -70,30 +142,34 @@ function bindEvents() {
           els.authLoginBtn.disabled = true;
         }
         await loginAsAdmin(email, password);
-        if (els.authPassword) {
-          els.authPassword.value = "";
-        }
+        resetAuthCredentials();
+        closeAuthMenu(320);
         remoteBootstrapStarted = false;
         await bootstrapPersistence();
         saveAndRender();
-        closeAuthMenu();
       } catch (error) {
         alert(`Помилка входу: ${String(error.message || error)}`);
       } finally {
         if (els.authLoginBtn) {
           els.authLoginBtn.disabled = false;
         }
+        closeAuthMenu(320);
       }
     });
   }
 
   if (els.authLogoutBtn) {
     els.authLogoutBtn.addEventListener("click", async () => {
-      await logoutAdmin();
-      remoteBootstrapStarted = false;
-      await bootstrapPersistence();
-      saveAndRender();
-      closeAuthMenu();
+      try {
+        await logoutAdmin();
+        resetAuthCredentials();
+        closeAuthMenu(320);
+        remoteBootstrapStarted = false;
+        await bootstrapPersistence();
+        saveAndRender();
+      } finally {
+        closeAuthMenu(320);
+      }
     });
   }
 

@@ -50,6 +50,25 @@ function renderAuthPanel() {
     return;
   }
   const isLoggedIn = Boolean(authUser);
+  const nextAuthState = isLoggedIn ? "logged-in" : "logged-out";
+  const prevAuthState = String(els.authMenu?.dataset.authState || "");
+  const authStateChanged = Boolean(prevAuthState) && prevAuthState !== nextAuthState;
+  if (els.authMenu) {
+    els.authMenu.dataset.authState = nextAuthState;
+  }
+  if (authStateChanged) {
+    if (els.authEmail) {
+      els.authEmail.value = "";
+    }
+    if (els.authPassword) {
+      els.authPassword.value = "";
+    }
+    if (els.authMenu) {
+      els.authMenu.open = false;
+      els.authMenu.removeAttribute("open");
+      els.authMenu.querySelector("summary")?.blur();
+    }
+  }
   if (els.authForm) {
     els.authForm.hidden = isLoggedIn;
   }
