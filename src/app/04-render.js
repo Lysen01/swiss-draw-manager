@@ -723,11 +723,15 @@ function renderStandings() {
   const showRoundDetails = t.status !== "archived_view";
   const tieGroups = getScoreTieGroupsForDisplay(t);
   const quickActions = buildStandingsQuickActions(t, tieGroups);
+  if (els.standingsTopActions) {
+    els.standingsTopActions.innerHTML = quickActions;
+    els.standingsTopActions.hidden = !quickActions;
+  }
   const manualHint =
     t.status === "active" && tieGroups.length > 0
       ? '<div class="manual-place-hint">Є гравці з однаковими очками. У колонці "Місце" оберіть підсумкові місця перед завершенням турніру.</div>'
       : "";
-  els.standings.innerHTML = `${quickActions}${manualHint}<div class="scroll standings-table-scroll">${buildStandingsTableHtml(t, { showRoundDetails })}</div>`;
+  els.standings.innerHTML = `${manualHint}<div class="scroll standings-table-scroll">${buildStandingsTableHtml(t, { showRoundDetails })}</div>`;
 }
 
 function buildStandingsQuickActions(tournament, tieGroups) {
@@ -737,13 +741,10 @@ function buildStandingsQuickActions(tournament, tieGroups) {
 
   const hasTies = tieGroups.length > 0;
   return `
-    <div class="standings-quick-actions" role="group" aria-label="Швидкі дії таблиці">
-      <div class="standings-quick-actions__title">Швидкі дії таблиці</div>
-      <div class="standings-quick-actions__body">
-        <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Погодитися з авто-місцями</button>
-        <button type="button" data-action="finish-tournament-from-table">Завершити турнір</button>
-        <button type="button" class="danger" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
-      </div>
+    <div class="standings-top-actions__buttons" role="group" aria-label="Швидкі дії таблиці">
+      <button type="button" data-action="confirm-auto-places"${hasTies ? "" : " disabled"}>Погодитися з авто-місцями</button>
+      <button type="button" data-action="finish-tournament-from-table">Завершити турнір</button>
+      <button type="button" class="danger" data-action="emergency-finish-tournament">Екстрено завершити без архіву</button>
     </div>`;
 }
 

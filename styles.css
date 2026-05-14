@@ -1937,37 +1937,32 @@ label.base-pick-item {
   font-weight: 600;
 }
 
-.standings-quick-actions {
-  margin: 0;
-  border: 1px solid #c9d5ea;
-  border-radius: 10px;
-  background: #f7faff;
-  padding: 8px 10px;
+.standings-head {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   gap: 10px;
+  margin-bottom: 10px;
 }
 
-.standings-quick-actions__title {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  font-size: 13px;
-  font-weight: 700;
-  color: #2a4677;
-  padding: 0 2px;
+.standings-head h2 {
+  margin: 0;
 }
 
-.standings-quick-actions__body {
+.standings-top-actions {
+  margin-left: auto;
+  min-height: 44px;
+}
+
+.standings-top-actions__buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: flex-end;
   align-items: center;
-  flex: 1;
+  justify-content: flex-end;
 }
 
-.standings-quick-actions__body button {
+.standings-top-actions__buttons button {
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 14px;
@@ -1975,39 +1970,40 @@ label.base-pick-item {
 }
 
 .standings-shell {
-  margin-top: 10px;
+  margin-top: 0;
   display: grid;
   gap: 10px;
 }
 
 .standings-table-scroll {
   margin-top: 0;
-  max-height: clamp(560px, 68vh, 760px);
+  max-height: clamp(720px, 74vh, 920px);
 }
 
 @media (max-width: 1200px) {
   .standings-table-scroll {
-    max-height: clamp(500px, 62vh, 680px);
+    max-height: clamp(640px, 72vh, 860px);
   }
 }
 
 @media (max-width: 900px) {
-  .standings-quick-actions {
+  .standings-head {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .standings-quick-actions__title {
-    white-space: normal;
+  .standings-top-actions {
+    margin-left: 0;
+    width: 100%;
   }
 
-  .standings-quick-actions__body {
+  .standings-top-actions__buttons {
     width: 100%;
     justify-content: flex-start;
   }
 
   .standings-table-scroll {
-    max-height: clamp(420px, 60vh, 560px);
+    max-height: clamp(500px, 66vh, 720px);
   }
 }
 

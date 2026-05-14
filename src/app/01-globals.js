@@ -101,6 +101,7 @@ const els = {
   printRoundBtn: document.getElementById("printRoundBtn"),
   roundMeta: document.getElementById("roundMeta"),
   pairings: document.getElementById("pairings"),
+  standingsTopActions: document.getElementById("standingsTopActions"),
   standings: document.getElementById("standings"),
   seedDemoBtn: document.getElementById("seedDemoBtn"),
   finishTournamentBtn: document.getElementById("finishTournamentBtn"),
