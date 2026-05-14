@@ -890,6 +890,11 @@ function bindEvents() {
     if (!select) {
       return;
     }
+    if (!canManageAdminUi()) {
+      select.value = "";
+      alert("Режим перегляду: змінювати місця може тільки адміністратор.");
+      return;
+    }
 
     const playerId = String(select.dataset.playerId || "").trim();
     if (!playerId) {

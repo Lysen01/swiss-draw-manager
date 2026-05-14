@@ -889,7 +889,7 @@ function getTieColumnByCriterion(criterion) {
 }
 
 function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tieRange) {
-  const manualEditable = showRoundDetails && tournament.status === "active" && tieRange && tieRange.size > 1;
+  const manualEditable = canManageAdminUi() && showRoundDetails && tournament.status === "active" && tieRange && tieRange.size > 1;
   if (!manualEditable) {
     return String(computedPlace);
   }

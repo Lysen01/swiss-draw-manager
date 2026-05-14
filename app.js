@@ -1148,6 +1148,11 @@ function bindEvents() {
     if (!select) {
       return;
     }
+    if (!canManageAdminUi()) {
+      select.value = "";
+      alert("Режим перегляду: змінювати місця може тільки адміністратор.");
+      return;
+    }
 
     const playerId = String(select.dataset.playerId || "").trim();
     if (!playerId) {
@@ -2812,7 +2817,7 @@ function getTieColumnByCriterion(criterion) {
 }
 
 function buildPlaceCell(tournament, player, computedPlace, showRoundDetails, tieRange) {
-  const manualEditable = showRoundDetails && tournament.status === "active" && tieRange && tieRange.size > 1;
+  const manualEditable = canManageAdminUi() && showRoundDetails && tournament.status === "active" && tieRange && tieRange.size > 1;
   if (!manualEditable) {
     return String(computedPlace);
   }
