@@ -1313,6 +1313,7 @@ label.base-pick-item {
   padding: 0;
   overflow: hidden;
   border-radius: 14px;
+  scroll-margin-top: 118px;
 }
 
 /* Safety guard: player profile card is allowed only in the "Гравці" detail tab. */
@@ -1962,6 +1963,7 @@ label.base-pick-item {
 
 #basePlayerProfile {
   margin-top: 12px;
+  scroll-margin-top: 118px;
 }
 
 .base-player-profile-shell .player-profile-tabbar {
