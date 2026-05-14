@@ -843,6 +843,19 @@ button.danger {
   justify-content: center;
 }
 
+.archive-standings-full {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  background: #fff;
+}
+
+.archive-standings-full .table {
+  margin-top: 0;
+}
+
 #dbPlayerSelect {
   min-width: 280px;
   background: #fff;

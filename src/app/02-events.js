@@ -39,6 +39,7 @@ function bindEvents() {
     "edit-tour-player",
     "edit-archive",
     "delete-archive",
+    "print-archive",
     "confirm-auto-places",
     "finish-tournament-from-table",
     "emergency-finish-tournament",

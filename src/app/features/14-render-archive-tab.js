@@ -88,7 +88,7 @@ function renderArchiveTab() {
       const standings = getStandings(t).slice(0, 3);
       const top = standings.map((p, i) => `${i + 1}. ${escapeHtml(p.name)} (${p.score.toFixed(1)})`).join(" | ");
       const isFinished = entry.kind === "finished";
-      const isOpen = isFinished && state.archivePreviewTournamentId === t.id;
+      const isOpen = state.archivePreviewTournamentId === t.id;
       const statusMeta = isFinished
         ? `Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}`
         : `Триває: оновлено ${formatDate(t.updatedAt || t.createdAt || new Date().toISOString())} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}`;
@@ -96,7 +96,7 @@ function renderArchiveTab() {
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
             ${canManage ? `<button type="button" data-action="edit-archive" data-tournament-id="${t.id}">Змінити</button>` : ""}
-            <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
+            ${canManage ? `<button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>` : ""}
             ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
@@ -122,7 +122,7 @@ function renderArchiveTab() {
           </div>
         </div>
         <div class="archive-meta">Топ-3: ${top || "-"}</div>
-        ${isOpen ? buildArchivePreviewHtml(t) : ""}
+        ${isOpen ? buildArchivePreviewHtml(t, { kind: entry.kind }) : ""}
       </article>`;
     })
     .join("");

@@ -2196,8 +2196,13 @@ function openOngoingTournament(tournamentId) {
   if (!state.currentTournament || state.currentTournament.id !== tournamentId) {
     return;
   }
-  state.activeTab = "tournament";
-  state.tournamentView = "setup";
+  if (canManageAdminUi()) {
+    state.activeTab = "tournament";
+    state.tournamentView = "setup";
+  } else {
+    state.archivePreviewTournamentId = tournamentId;
+    state.activeTab = "archive";
+  }
   saveAndRender();
 }
 
@@ -2281,13 +2286,19 @@ function printArchivedTournament(tournamentId) {
 // -----------------------------
 // TOURNAMENTS (ARCHIVE + ONGOING) PREVIEW HELPERS
 // -----------------------------
-function buildArchivePreviewHtml(archived) {
+function buildArchivePreviewHtml(archived, options = {}) {
+  const kind = options.kind === "ongoing" ? "ongoing" : "finished";
   const standingsTable = buildStandingsTableHtml(archived, { showRoundDetails: true });
+  const previewTitle = kind === "ongoing" ? "поточна таблиця" : "підсумкова таблиця";
+  const statusMeta =
+    kind === "ongoing"
+      ? `Оновлено: ${formatDate(archived.updatedAt || archived.createdAt || new Date().toISOString())} | Турів: ${archived.currentRound}/${archived.roundsCount}`
+      : `${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}`;
 
   return `
     <hr />
-    <h3>${escapeHtml(archived.name)} — підсумкова таблиця</h3>
-    <div class="archive-meta">${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}</div>
+    <h3>${escapeHtml(archived.name)} — ${previewTitle}</h3>
+    <div class="archive-meta">${statusMeta}</div>
     <div class="archive-media" style="margin-top:8px;">
       ${
         `<img class="archive-photo" src="${getTournamentDisplayPhotoUrl(archived)}" alt="Фото ${escapeHtml(archived.name)}" />`
@@ -2301,6 +2312,6 @@ function buildArchivePreviewHtml(archived) {
     <div class="toolbar" style="margin-top:8px;">
       <button type="button" data-action="close-archive-preview" data-tournament-id="${archived.id}">Закрити перегляд</button>
     </div>
-    <div class="scroll" style="margin-top:10px;">${standingsTable}</div>
+    <div class="archive-standings-full" style="margin-top:10px;">${standingsTable}</div>
   `;
 }

@@ -297,6 +297,7 @@ function bindEvents() {
     "edit-tour-player",
     "edit-archive",
     "delete-archive",
+    "print-archive",
     "confirm-auto-places",
     "finish-tournament-from-table",
     "emergency-finish-tournament",
@@ -4118,8 +4119,13 @@ function openOngoingTournament(tournamentId) {
   if (!state.currentTournament || state.currentTournament.id !== tournamentId) {
     return;
   }
-  state.activeTab = "tournament";
-  state.tournamentView = "setup";
+  if (canManageAdminUi()) {
+    state.activeTab = "tournament";
+    state.tournamentView = "setup";
+  } else {
+    state.archivePreviewTournamentId = tournamentId;
+    state.activeTab = "archive";
+  }
   saveAndRender();
 }
 
@@ -4203,13 +4209,19 @@ function printArchivedTournament(tournamentId) {
 // -----------------------------
 // TOURNAMENTS (ARCHIVE + ONGOING) PREVIEW HELPERS
 // -----------------------------
-function buildArchivePreviewHtml(archived) {
+function buildArchivePreviewHtml(archived, options = {}) {
+  const kind = options.kind === "ongoing" ? "ongoing" : "finished";
   const standingsTable = buildStandingsTableHtml(archived, { showRoundDetails: true });
+  const previewTitle = kind === "ongoing" ? "поточна таблиця" : "підсумкова таблиця";
+  const statusMeta =
+    kind === "ongoing"
+      ? `Оновлено: ${formatDate(archived.updatedAt || archived.createdAt || new Date().toISOString())} | Турів: ${archived.currentRound}/${archived.roundsCount}`
+      : `${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}`;
 
   return `
     <hr />
-    <h3>${escapeHtml(archived.name)} — підсумкова таблиця</h3>
-    <div class="archive-meta">${formatDate(archived.finishedAt)} | Турів: ${archived.currentRound}/${archived.roundsCount}</div>
+    <h3>${escapeHtml(archived.name)} — ${previewTitle}</h3>
+    <div class="archive-meta">${statusMeta}</div>
     <div class="archive-media" style="margin-top:8px;">
       ${
         `<img class="archive-photo" src="${getTournamentDisplayPhotoUrl(archived)}" alt="Фото ${escapeHtml(archived.name)}" />`
@@ -4223,7 +4235,7 @@ function buildArchivePreviewHtml(archived) {
     <div class="toolbar" style="margin-top:8px;">
       <button type="button" data-action="close-archive-preview" data-tournament-id="${archived.id}">Закрити перегляд</button>
     </div>
-    <div class="scroll" style="margin-top:10px;">${standingsTable}</div>
+    <div class="archive-standings-full" style="margin-top:10px;">${standingsTable}</div>
   `;
 }
 
@@ -4749,7 +4761,7 @@ function renderArchiveTab() {
       const standings = getStandings(t).slice(0, 3);
       const top = standings.map((p, i) => `${i + 1}. ${escapeHtml(p.name)} (${p.score.toFixed(1)})`).join(" | ");
       const isFinished = entry.kind === "finished";
-      const isOpen = isFinished && state.archivePreviewTournamentId === t.id;
+      const isOpen = state.archivePreviewTournamentId === t.id;
       const statusMeta = isFinished
         ? `Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}`
         : `Триває: оновлено ${formatDate(t.updatedAt || t.createdAt || new Date().toISOString())} | Турів: ${t.currentRound}/${t.roundsCount} | Учасників: ${t.players.length}`;
@@ -4757,7 +4769,7 @@ function renderArchiveTab() {
         ? `
             <button type="button" data-action="open-archive" data-tournament-id="${t.id}">Відкрити</button>
             ${canManage ? `<button type="button" data-action="edit-archive" data-tournament-id="${t.id}">Змінити</button>` : ""}
-            <button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>
+            ${canManage ? `<button type="button" data-action="print-archive" data-tournament-id="${t.id}">Друк</button>` : ""}
             ${canManage ? `<button type="button" data-action="delete-archive" data-tournament-id="${t.id}" class="danger">Видалити</button>` : ""}`
         : `<button type="button" data-action="open-ongoing" data-tournament-id="${t.id}">Відкрити</button>`;
 
@@ -4783,7 +4795,7 @@ function renderArchiveTab() {
           </div>
         </div>
         <div class="archive-meta">Топ-3: ${top || "-"}</div>
-        ${isOpen ? buildArchivePreviewHtml(t) : ""}
+        ${isOpen ? buildArchivePreviewHtml(t, { kind: entry.kind }) : ""}
       </article>`;
     })
     .join("");
