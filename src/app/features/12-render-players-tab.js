@@ -121,7 +121,7 @@ function renderBasePlayersTab() {
   const selectedPlayer = state.playerBase.find((player) => player.id === selectedBasePlayerProfileId) || null;
   if (!selectedPlayer) {
     selectedBasePlayerProfileId = null;
-    selectedBasePlayerProfileTab = "ranking";
+    selectedBasePlayerProfileTab = "info";
     els.basePlayerProfile.innerHTML = "";
     return;
   }
@@ -144,7 +144,7 @@ function renderBasePlayerProfileCard(playerId) {
     { key: "events", label: "Events" },
     { key: "memberships", label: "Memberships" },
   ];
-  const activeTab = tabs.some((tab) => tab.key === selectedBasePlayerProfileTab) ? selectedBasePlayerProfileTab : "ranking";
+  const activeTab = tabs.some((tab) => tab.key === selectedBasePlayerProfileTab) ? selectedBasePlayerProfileTab : "info";
   const stats = player.stats || emptyStats();
   const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => getPlayerHistorySortTimestamp(b) - getPlayerHistorySortTimestamp(a)) : [];
   const matches = collectArchivedMatchesForPlayer(player.id);

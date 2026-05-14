@@ -108,7 +108,7 @@ let selectedClubDetailTab = "profile";
 let showClubPlayerAddForms = false;
 let showClubCoachAddForm = false;
 let selectedBasePlayerProfileId = null;
-let selectedBasePlayerProfileTab = "ranking";
+let selectedBasePlayerProfileTab = "info";
 let showBasePlayerAddForm = false;
 let tournamentsSearchQuery = "";
 let tournamentsStatusFilter = "all";
@@ -382,7 +382,7 @@ function bindEvents() {
     }
     if (nextTab && nextTab !== "players") {
       selectedBasePlayerProfileId = null;
-      selectedBasePlayerProfileTab = "ranking";
+      selectedBasePlayerProfileTab = "info";
       showBasePlayerAddForm = false;
     }
     state.activeTab = nextTab || state.activeTab;
@@ -1065,7 +1065,7 @@ function bindEvents() {
 
     if (action === "view-base-profile") {
       selectedBasePlayerProfileId = playerId || null;
-      selectedBasePlayerProfileTab = "ranking";
+      selectedBasePlayerProfileTab = "info";
       renderBasePlayersTab();
       if (els.basePlayerProfile && selectedBasePlayerProfileId) {
         els.basePlayerProfile.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1106,7 +1106,7 @@ function bindEvents() {
 
       if (btn.dataset.action === "close-base-player-profile") {
         selectedBasePlayerProfileId = null;
-        selectedBasePlayerProfileTab = "ranking";
+        selectedBasePlayerProfileTab = "info";
         renderBasePlayersTab();
         return;
       }
@@ -4502,7 +4502,7 @@ function renderBasePlayersTab() {
   const selectedPlayer = state.playerBase.find((player) => player.id === selectedBasePlayerProfileId) || null;
   if (!selectedPlayer) {
     selectedBasePlayerProfileId = null;
-    selectedBasePlayerProfileTab = "ranking";
+    selectedBasePlayerProfileTab = "info";
     els.basePlayerProfile.innerHTML = "";
     return;
   }
@@ -4525,7 +4525,7 @@ function renderBasePlayerProfileCard(playerId) {
     { key: "events", label: "Events" },
     { key: "memberships", label: "Memberships" },
   ];
-  const activeTab = tabs.some((tab) => tab.key === selectedBasePlayerProfileTab) ? selectedBasePlayerProfileTab : "ranking";
+  const activeTab = tabs.some((tab) => tab.key === selectedBasePlayerProfileTab) ? selectedBasePlayerProfileTab : "info";
   const stats = player.stats || emptyStats();
   const history = Array.isArray(player.history) ? player.history.slice().sort((a, b) => getPlayerHistorySortTimestamp(b) - getPlayerHistorySortTimestamp(a)) : [];
   const matches = collectArchivedMatchesForPlayer(player.id);

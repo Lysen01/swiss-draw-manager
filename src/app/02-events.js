@@ -124,7 +124,7 @@ function bindEvents() {
     }
     if (nextTab && nextTab !== "players") {
       selectedBasePlayerProfileId = null;
-      selectedBasePlayerProfileTab = "ranking";
+      selectedBasePlayerProfileTab = "info";
       showBasePlayerAddForm = false;
     }
     state.activeTab = nextTab || state.activeTab;
@@ -807,7 +807,7 @@ function bindEvents() {
 
     if (action === "view-base-profile") {
       selectedBasePlayerProfileId = playerId || null;
-      selectedBasePlayerProfileTab = "ranking";
+      selectedBasePlayerProfileTab = "info";
       renderBasePlayersTab();
       if (els.basePlayerProfile && selectedBasePlayerProfileId) {
         els.basePlayerProfile.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -848,7 +848,7 @@ function bindEvents() {
 
       if (btn.dataset.action === "close-base-player-profile") {
         selectedBasePlayerProfileId = null;
-        selectedBasePlayerProfileTab = "ranking";
+        selectedBasePlayerProfileTab = "info";
         renderBasePlayersTab();
         return;
       }
