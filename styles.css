@@ -1927,7 +1927,7 @@ label.base-pick-item {
 }
 
 .manual-place-hint {
-  margin: 0 0 10px;
+  margin: 0;
   padding: 8px 10px;
   border: 1px dashed #b6c8ea;
   border-radius: 10px;
@@ -1938,40 +1938,77 @@ label.base-pick-item {
 }
 
 .standings-quick-actions {
-  margin: 0 0 10px;
+  margin: 0;
   border: 1px solid #c9d5ea;
   border-radius: 10px;
-  background: #f8fbff;
+  background: #f7faff;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.standings-quick-actions > summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 8px 10px;
+.standings-quick-actions__title {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
-  background: var(--brand);
-  border-radius: 8px;
-  margin: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.standings-quick-actions > summary::-webkit-details-marker {
-  display: none;
+  color: #2a4677;
+  padding: 0 2px;
 }
 
 .standings-quick-actions__body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 0 10px 10px;
+  justify-content: flex-end;
+  align-items: center;
+  flex: 1;
 }
 
-.standings-quick-actions[open] > summary {
-  background: #2f58c5;
+.standings-quick-actions__body button {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.standings-shell {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.standings-table-scroll {
+  margin-top: 0;
+  max-height: clamp(560px, 68vh, 760px);
+}
+
+@media (max-width: 1200px) {
+  .standings-table-scroll {
+    max-height: clamp(500px, 62vh, 680px);
+  }
+}
+
+@media (max-width: 900px) {
+  .standings-quick-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .standings-quick-actions__title {
+    white-space: normal;
+  }
+
+  .standings-quick-actions__body {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .standings-table-scroll {
+    max-height: clamp(420px, 60vh, 560px);
+  }
 }
 
 .place-edit select {
