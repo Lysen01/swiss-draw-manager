@@ -1050,6 +1050,10 @@ function bindEvents() {
       selectedClubDetailTab = "players";
       selectedClubsView = "profile";
       renderClubsTab();
+      const openedProfileCard = els.clubProfile?.querySelector(".player-profile-shell");
+      if (openedProfileCard) {
+        openedProfileCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
 
     if (btn.dataset.action === "set-player-profile-tab") {
