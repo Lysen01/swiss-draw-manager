@@ -2927,3 +2927,39 @@ body {
     padding-bottom: 4px;
   }
 }
+
+/* ==========================================================================
+   Full-Width Tables In Main Content (2026-05-15)
+   ========================================================================== */
+
+.main-content .card {
+  --table-bleed-inline: 14px;
+}
+
+.club-profile-card,
+.player-table-card,
+.club-action-panel {
+  --table-bleed-inline: 10px;
+}
+
+.main-content .scroll:has(> .table) {
+  margin-inline: calc(var(--table-bleed-inline, 0px) * -1);
+  width: calc(100% + (var(--table-bleed-inline, 0px) * 2));
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+}
+
+.main-content .scroll:has(> .table) > .table {
+  min-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .main-content .scroll:has(> .table) {
+    margin-inline: 0;
+    width: 100%;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-radius: 12px;
+  }
+}
