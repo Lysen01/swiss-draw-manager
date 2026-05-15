@@ -173,6 +173,12 @@ function bindEvents() {
     });
   }
 
+  if (els.sidebarToggleBtn) {
+    els.sidebarToggleBtn.addEventListener("click", () => {
+      toggleSidebarCollapsed();
+    });
+  }
+
   const tieBreakSelects = [els.tieBreak1, els.tieBreak2, els.tieBreak3, els.tieBreak4, els.tieBreak5];
   for (const select of tieBreakSelects) {
     select.addEventListener("change", () => {

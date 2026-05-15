@@ -36,6 +36,7 @@ let remoteBootstrapStarted = false;
 let remoteBootstrapRevision = 0;
 let authToken = "";
 let authUser = null;
+let isSidebarCollapsed = false;
 let persistenceInfo = {
   mode: "local",
   status: "idle",
@@ -44,6 +45,8 @@ let persistenceInfo = {
 };
 
 const els = {
+  appLayout: document.querySelector(".app-layout"),
+  sidebarToggleBtn: document.getElementById("sidebarToggleBtn"),
   authMenu: document.querySelector(".auth-menu"),
   authForm: document.getElementById("authForm"),
   authEmail: document.getElementById("authEmail"),

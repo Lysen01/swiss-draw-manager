@@ -26,6 +26,47 @@ function storeAuthToken(token) {
   }
 }
 
+function loadSidebarCollapsedState() {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function applySidebarCollapsedState() {
+  if (!els.appLayout) {
+    return;
+  }
+
+  els.appLayout.classList.toggle("sidebar-collapsed", Boolean(isSidebarCollapsed));
+
+  if (els.sidebarToggleBtn) {
+    els.sidebarToggleBtn.setAttribute("aria-expanded", String(!isSidebarCollapsed));
+    els.sidebarToggleBtn.setAttribute("aria-label", isSidebarCollapsed ? "Розгорнути бічну панель" : "Згорнути бічну панель");
+    els.sidebarToggleBtn.setAttribute("title", isSidebarCollapsed ? "Розгорнути меню" : "Згорнути меню");
+  }
+
+  if (isSidebarCollapsed && els.authMenu) {
+    els.authMenu.open = false;
+    els.authMenu.removeAttribute("open");
+  }
+}
+
+function setSidebarCollapsed(next) {
+  isSidebarCollapsed = Boolean(next);
+  applySidebarCollapsedState();
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, isSidebarCollapsed ? "1" : "0");
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function toggleSidebarCollapsed() {
+  setSidebarCollapsed(!isSidebarCollapsed);
+}
+
 function getRoleLabel(role) {
   if (role === "super_admin") {
     return "Супер-адміністратор";

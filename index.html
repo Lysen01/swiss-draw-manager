@@ -7,11 +7,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260515-sidebar-layout" />
+    <link rel="stylesheet" href="styles.css?v=20260515-sidebar-collapse" />
   </head>
   <body>
     <div class="app-layout">
       <aside class="sidebar">
+        <button
+          id="sidebarToggleBtn"
+          class="sidebar-toggle"
+          type="button"
+          aria-label="Згорнути бічну панель"
+          aria-expanded="true"
+          title="Згорнути/розгорнути меню"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
         <div class="sidebar__brand" aria-label="Логотип Арбітр">
           <span class="sidebar__brand-mark">АР</span>
           <div class="sidebar__brand-text">
@@ -21,14 +34,51 @@
         </div>
 
         <nav class="sidebar-nav tabs" id="tabsNav" aria-label="Основна навігація">
-          <button id="nav-tournament" class="tab-btn sidebar-nav__btn active" data-tab="tournament" type="button">Турнір</button>
-          <button id="nav-players" class="tab-btn sidebar-nav__btn" data-tab="players" type="button">База гравців</button>
-          <button id="nav-clubs" class="tab-btn sidebar-nav__btn" data-tab="clubs" type="button">Клуби</button>
-          <button id="nav-archive" class="tab-btn sidebar-nav__btn" data-tab="archive" type="button">Архів</button>
+          <button id="nav-tournament" class="tab-btn sidebar-nav__btn active" data-tab="tournament" type="button" title="Турнір">
+            <span class="sidebar-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M7 4h10v2a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4V4Zm1 6h8v3a4 4 0 0 1-4 4 4 4 0 0 1-4-4v-3Zm3 7h2v3h-2v-3ZM8 20h8" />
+                <path d="M7 6H4a2 2 0 0 0 2 2h1M17 6h3a2 2 0 0 1-2 2h-1" />
+              </svg>
+            </span>
+            <span class="sidebar-nav__label">Турнір</span>
+          </button>
+          <button id="nav-players" class="tab-btn sidebar-nav__btn" data-tab="players" type="button" title="База гравців">
+            <span class="sidebar-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                <path d="M5 20a7 7 0 0 1 14 0M4 10a3 3 0 1 0 0-6M20 10a3 3 0 1 0 0-6M2 20a5 5 0 0 1 4-4.9M22 20a5 5 0 0 0-4-4.9" />
+              </svg>
+            </span>
+            <span class="sidebar-nav__label">База гравців</span>
+          </button>
+          <button id="nav-clubs" class="tab-btn sidebar-nav__btn" data-tab="clubs" type="button" title="Клуби">
+            <span class="sidebar-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M3 21h18M5 21V9l7-4 7 4v12M9 13h2M9 17h2M13 13h2M13 17h2" />
+              </svg>
+            </span>
+            <span class="sidebar-nav__label">Клуби</span>
+          </button>
+          <button id="nav-archive" class="tab-btn sidebar-nav__btn" data-tab="archive" type="button" title="Архів">
+            <span class="sidebar-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M3 7h18v4H3V7Zm2 4h14v9H5v-9Zm4 4h6" />
+              </svg>
+            </span>
+            <span class="sidebar-nav__label">Архів</span>
+          </button>
         </nav>
 
         <details class="auth-menu sidebar-auth">
-          <summary class="tab-btn auth-menu__toggle sidebar-auth__toggle">Профіль</summary>
+          <summary class="tab-btn auth-menu__toggle sidebar-auth__toggle" title="Профіль">
+            <span class="sidebar-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM5 20a7 7 0 0 1 14 0" />
+              </svg>
+            </span>
+            <span class="sidebar-nav__label">Профіль</span>
+          </summary>
           <section id="authPanel" class="auth-panel auth-panel--menu">
             <form id="authForm" class="auth-panel__form">
               <input id="authEmail" type="email" placeholder="Email адміністратора" autocomplete="username" />
