@@ -2550,17 +2550,14 @@ body {
 }
 
 .sidebar__brand-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #dbeafe;
-  color: #1e3a8a;
-  font-weight: 800;
-  font-size: 14px;
-  letter-spacing: 0.04em;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid #d6e1f1;
+  background: #e8eef9;
 }
 
 .sidebar__brand-text {
@@ -2696,8 +2693,8 @@ body {
 }
 
 .app-layout.sidebar-collapsed .sidebar__brand-mark {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
 }
 
 .app-layout.sidebar-collapsed .sidebar__brand-text,
