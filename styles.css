@@ -2960,3 +2960,18 @@ body {
     border-radius: 12px;
   }
 }
+
+@media (min-width: 901px) {
+  #tab-clubs .card.full[data-club-view="profile"] .club-profile-card:has(.subtabs--nested .subtab-btn[data-tab="players"].active) {
+    min-height: calc(100vh - 260px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #tab-clubs .card.full[data-club-view="profile"] .club-profile-card:has(.subtabs--nested .subtab-btn[data-tab="players"].active)
+    .scroll:has(> .table) {
+    flex: 1;
+    max-height: none;
+    min-height: 0;
+  }
+}
