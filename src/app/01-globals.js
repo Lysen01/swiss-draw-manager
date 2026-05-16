@@ -10,6 +10,7 @@ let filteredTournamentBaseLookup = [];
 let selectedBasePlayerIds = new Set();
 let basePlayersSort = { key: "rating", dir: "desc" };
 let manualRoundBuilderOpen = false;
+let selectedTournamentRoundView = null;
 let selectedClubProfileId = null;
 let selectedClubPlayerProfileId = null;
 let selectedClubPlayerProfileTab = "info";
@@ -99,6 +100,7 @@ const els = {
   addFromBaseBtn: document.getElementById("addFromBaseBtn"),
   playersList: document.getElementById("playersList"),
   generateRoundBtn: document.getElementById("generateRoundBtn"),
+  generateAllRoundsBtn: document.getElementById("generateAllRoundsBtn"),
   manualRoundBtn: document.getElementById("manualRoundBtn"),
   manualPairingPanel: document.getElementById("manualPairingPanel"),
   printRoundBtn: document.getElementById("printRoundBtn"),

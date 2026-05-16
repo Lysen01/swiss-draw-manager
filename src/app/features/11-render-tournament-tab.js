@@ -70,6 +70,12 @@ function renderTournamentTab() {
 
   renderBaseSelect();
   els.generateRoundBtn.disabled = archiveView;
+  if (els.generateAllRoundsBtn) {
+    const canGenerateAllRoundRobin =
+      t.format === "round_robin" && t.status === "active" && !archiveView && t.players.length >= 2 && t.rounds.length === 0;
+    els.generateAllRoundsBtn.hidden = t.format !== "round_robin";
+    els.generateAllRoundsBtn.disabled = !canGenerateAllRoundRobin;
+  }
   els.manualRoundBtn.disabled = archiveView;
   els.manualRoundBtn.textContent = manualRoundBuilderOpen ? "Закрити ручний тур" : "Додати тур вручну";
   els.printRoundBtn.disabled = archiveView || t.rounds.length === 0;

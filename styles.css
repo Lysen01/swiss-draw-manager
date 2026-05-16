@@ -495,6 +495,19 @@ button.danger {
   max-height: 72vh;
 }
 
+.rounds-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dbe3ef;
+}
+
+.rounds-pane__title {
+  margin: 0 0 10px;
+}
+
 .pair-card--row {
   display: flex;
   align-items: center;
@@ -644,6 +657,17 @@ button.danger {
 
   .grid-form {
     grid-template-columns: 1fr;
+  }
+
+  .rounds-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rounds-tabs .subtab-btn {
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 }
 

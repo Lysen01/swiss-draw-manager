@@ -384,6 +384,24 @@ function renderTournamentPlayers() {
     </table>`;
 }
 
+function getSelectedRoundNumberForView(tournament) {
+  const roundNumbers = (tournament?.rounds || [])
+    .map((round) => Number(round?.round))
+    .filter((round) => Number.isInteger(round) && round > 0)
+    .sort((a, b) => a - b);
+
+  if (roundNumbers.length === 0) {
+    selectedTournamentRoundView = null;
+    return null;
+  }
+
+  if (!roundNumbers.includes(selectedTournamentRoundView)) {
+    selectedTournamentRoundView = roundNumbers[roundNumbers.length - 1];
+  }
+
+  return selectedTournamentRoundView;
+}
+
 function renderRounds() {
   const t = state.currentTournament;
   const archiveView = t.status === "archived_view";
@@ -391,100 +409,129 @@ function renderRounds() {
   const resultsEditable = canManage && t.status === "active" && !archiveView;
 
   if (archiveView) {
+    selectedTournamentRoundView = null;
     els.pairings.innerHTML = '<div class="pair-card">Для архівного перегляду доступна тільки підсумкова таблиця.</div>';
     return;
   }
 
   if (t.rounds.length === 0) {
+    selectedTournamentRoundView = null;
     els.pairings.innerHTML = '<div class="pair-card">Ще немає згенерованих турів.</div>';
     return;
   }
 
-  const roundsWithIndex = t.rounds
-    .map((round, index) => ({ round, index }))
-    .sort((a, b) => b.round.round - a.round.round);
+  const selectedRoundNumber = getSelectedRoundNumberForView(t);
+  if (!selectedRoundNumber) {
+    els.pairings.innerHTML = '<div class="pair-card">Ще немає згенерованих турів.</div>';
+    return;
+  }
 
-  const blocks = roundsWithIndex
-    .map(({ round, index }) => {
-      const roundLocked = !resultsEditable;
-      const pairs = round.pairings
-        .map((pair) => {
-          const white = t.players.find((p) => p.id === pair.whiteId);
-          const black = pair.blackId ? t.players.find((p) => p.id === pair.blackId) : null;
-          const whiteName = white ? white.name : `ID:${String(pair.whiteId || "-").slice(0, 8)}`;
-          const blackName = black ? black.name : pair.blackId ? `ID:${String(pair.blackId).slice(0, 8)}` : null;
+  const roundsWithIndex = t.rounds.map((round, index) => ({ round, index }));
+  const currentRoundEntry =
+    roundsWithIndex.find(({ round }) => Number(round.round) === selectedRoundNumber) || roundsWithIndex[roundsWithIndex.length - 1];
+  if (!currentRoundEntry) {
+    els.pairings.innerHTML = '<div class="pair-card">Ще немає згенерованих турів.</div>';
+    return;
+  }
 
-          if (!black) {
-            const byeBig = getTournamentByeBigPoints(t);
-            return `
-              <div class="pair-card pair-card--row">
-                <div class="pair-main">
-                  <span class="pair-board">Дошка ${pair.board}</span>
-                  <span class="pair-vs">${escapeHtml(whiteName)} - BYE</span>
-                </div>
-                <div class="pair-bye-note">${byeBig.toFixed(1)} очк.</div>
-              </div>`;
-          }
+  const roundLocked = !resultsEditable;
+  const { round, index } = currentRoundEntry;
+  const pairs = (round.pairings || [])
+    .map((pair) => {
+      const white = t.players.find((p) => p.id === pair.whiteId);
+      const black = pair.blackId ? t.players.find((p) => p.id === pair.blackId) : null;
+      const whiteName = white ? white.name : `ID:${String(pair.whiteId || "-").slice(0, 8)}`;
+      const blackName = black ? black.name : pair.blackId ? `ID:${String(pair.blackId).slice(0, 8)}` : null;
 
-          if (pair.isMicromatch) {
-            const games = Array.isArray(pair.gameResults) && pair.gameResults.length === 2 ? pair.gameResults : ["pending", "pending"];
-            const done = games.every((x) => x === "1-0" || x === "0-1" || x === "0.5-0.5");
-            const whiteSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, true), 0) : 0;
-            const blackSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, false), 0) : 0;
-            const pairResultClass = done ? resolvePairResultClass(resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall)) : "";
+      if (!black) {
+        const byeBig = getTournamentByeBigPoints(t);
+        return `
+          <div class="pair-card pair-card--row">
+            <div class="pair-main">
+              <span class="pair-board">Дошка ${pair.board}</span>
+              <span class="pair-vs">${escapeHtml(whiteName)} - BYE</span>
+            </div>
+            <div class="pair-bye-note">${byeBig.toFixed(1)} очк.</div>
+          </div>`;
+      }
 
-            return `
-              <div class="pair-card pair-card--row pair-card--micromatch">
-                <div class="pair-main">
-                  <span class="pair-board">Дошка ${pair.board}</span>
-                  <span class="pair-vs">${escapeHtml(whiteName)} - ${escapeHtml(blackName)}</span>
-                  ${roundLocked ? '<span class="pair-lock">зафіксовано</span>' : ""}
-                </div>
-                <div class="pair-actions pair-actions--micromatch">
-                  <div class="micromatch-row">
-                    <span class="micromatch-row__label">Партія 1</span>
-                    <div class="result-toggle" role="group" aria-label="Результат партії 1">
-                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "1-0", "W", "Білі перемогли", roundLocked)}
-                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0.5-0.5", "D", "Нічия", roundLocked)}
-                      ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0-1", "L", "Чорні перемогли", roundLocked)}
-                    </div>
-                  </div>
-                  <div class="micromatch-row">
-                    <span class="micromatch-row__label">Партія 2</span>
-                    <div class="result-toggle" role="group" aria-label="Результат партії 2">
-                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "1-0", "W", "Білі перемогли", roundLocked)}
-                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0.5-0.5", "D", "Нічия", roundLocked)}
-                      ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0-1", "L", "Чорні перемогли", roundLocked)}
-                    </div>
-                  </div>
-                  <div class="micromatch-summary ${pairResultClass}">Малі очки: ( ${whiteSmall} : ${blackSmall} )</div>
-                </div>
-              </div>`;
-          }
+      if (pair.isMicromatch) {
+        const games = Array.isArray(pair.gameResults) && pair.gameResults.length === 2 ? pair.gameResults : ["pending", "pending"];
+        const done = games.every((x) => x === "1-0" || x === "0-1" || x === "0.5-0.5");
+        const whiteSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, true), 0) : 0;
+        const blackSmall = done ? games.reduce((sum, x) => sum + getMicromatchGameSmallPoints(x, false), 0) : 0;
+        const pairResultClass = done ? resolvePairResultClass(resolveMicromatchBigResultBySmallScore(whiteSmall, blackSmall)) : "";
 
-          return `
-            <div class="pair-card pair-card--row">
-              <div class="pair-main">
-                <span class="pair-board">Дошка ${pair.board}</span>
-                <span class="pair-vs">${escapeHtml(whiteName)} - ${escapeHtml(blackName)}</span>
-                ${roundLocked ? '<span class="pair-lock">зафіксовано</span>' : ""}
-              </div>
-              <div class="pair-actions">
-                <div class="result-toggle" role="group" aria-label="Результат партії">
-                  ${buildPairResultButton(index, pair.board, pair.result, "1-0", "W", "Білі перемогли", roundLocked)}
-                  ${buildPairResultButton(index, pair.board, pair.result, "0.5-0.5", "D", "Нічия", roundLocked)}
-                  ${buildPairResultButton(index, pair.board, pair.result, "0-1", "L", "Чорні перемогли", roundLocked)}
+        return `
+          <div class="pair-card pair-card--row pair-card--micromatch">
+            <div class="pair-main">
+              <span class="pair-board">Дошка ${pair.board}</span>
+              <span class="pair-vs">${escapeHtml(whiteName)} - ${escapeHtml(blackName)}</span>
+              ${roundLocked ? '<span class="pair-lock">зафіксовано</span>' : ""}
+            </div>
+            <div class="pair-actions pair-actions--micromatch">
+              <div class="micromatch-row">
+                <span class="micromatch-row__label">Партія 1</span>
+                <div class="result-toggle" role="group" aria-label="Результат партії 1">
+                  ${buildMicromatchGameButton(index, pair.board, 0, games[0], "1-0", "W", "Білі перемогли", roundLocked)}
+                  ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0.5-0.5", "D", "Нічия", roundLocked)}
+                  ${buildMicromatchGameButton(index, pair.board, 0, games[0], "0-1", "L", "Чорні перемогли", roundLocked)}
                 </div>
               </div>
-            </div>`;
-        })
-        .join("");
+              <div class="micromatch-row">
+                <span class="micromatch-row__label">Партія 2</span>
+                <div class="result-toggle" role="group" aria-label="Результат партії 2">
+                  ${buildMicromatchGameButton(index, pair.board, 1, games[1], "1-0", "W", "Білі перемогли", roundLocked)}
+                  ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0.5-0.5", "D", "Нічия", roundLocked)}
+                  ${buildMicromatchGameButton(index, pair.board, 1, games[1], "0-1", "L", "Чорні перемогли", roundLocked)}
+                </div>
+              </div>
+              <div class="micromatch-summary ${pairResultClass}">Малі очки: ( ${whiteSmall} : ${blackSmall} )</div>
+            </div>
+          </div>`;
+      }
 
-      return `<h3>Тур ${round.round}</h3>${pairs}`;
+      return `
+        <div class="pair-card pair-card--row">
+          <div class="pair-main">
+            <span class="pair-board">Дошка ${pair.board}</span>
+            <span class="pair-vs">${escapeHtml(whiteName)} - ${escapeHtml(blackName)}</span>
+            ${roundLocked ? '<span class="pair-lock">зафіксовано</span>' : ""}
+          </div>
+          <div class="pair-actions">
+            <div class="result-toggle" role="group" aria-label="Результат партії">
+              ${buildPairResultButton(index, pair.board, pair.result, "1-0", "W", "Білі перемогли", roundLocked)}
+              ${buildPairResultButton(index, pair.board, pair.result, "0.5-0.5", "D", "Нічия", roundLocked)}
+              ${buildPairResultButton(index, pair.board, pair.result, "0-1", "L", "Чорні перемогли", roundLocked)}
+            </div>
+          </div>
+        </div>`;
     })
     .join("");
 
-  els.pairings.innerHTML = blocks;
+  const roundTabs = roundsWithIndex
+    .map(({ round: tournamentRound }) => Number(tournamentRound.round))
+    .filter((roundNumber) => Number.isInteger(roundNumber) && roundNumber > 0)
+    .sort((a, b) => a - b)
+    .map(
+      (roundNumber) => `
+      <button
+        type="button"
+        class="subtab-btn${roundNumber === Number(round.round) ? " active" : ""}"
+        data-action="set-round-view"
+        data-round="${roundNumber}"
+      >
+        Тур ${roundNumber}
+      </button>`
+    )
+    .join("");
+
+  els.pairings.innerHTML = `
+    <div class="rounds-tabs" role="tablist" aria-label="Вкладки турів">${roundTabs}</div>
+    <div class="rounds-pane">
+      <h3 class="rounds-pane__title">Тур ${round.round}</h3>
+      ${pairs || '<div class="pair-card">Для цього туру поки немає пар.</div>'}
+    </div>`;
 }
 
 function renderManualPairingPanel() {
@@ -632,7 +679,9 @@ function printCurrentRound() {
     return;
   }
 
-  const currentRound = t.rounds[t.rounds.length - 1];
+  const selectedRoundNumber = getSelectedRoundNumberForView(t);
+  const currentRound =
+    t.rounds.find((round) => Number(round.round) === Number(selectedRoundNumber)) || t.rounds[t.rounds.length - 1];
   if (!currentRound) {
     alert("Не вдалося знайти поточний тур.");
     return;

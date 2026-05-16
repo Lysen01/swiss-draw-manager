@@ -526,6 +526,15 @@ function bindEvents() {
     }
     generateNextRound();
   });
+  if (els.generateAllRoundsBtn) {
+    els.generateAllRoundsBtn.addEventListener("click", () => {
+      if (!canManageAdminUi()) {
+        alert("Режим перегляду: генерація турів доступна лише адміністратору.");
+        return;
+      }
+      generateAllRoundRobinRounds();
+    });
+  }
   els.manualRoundBtn.addEventListener("click", () => {
     if (!canManageAdminUi()) {
       alert("Режим перегляду: ручне формування туру доступне лише адміністратору.");
@@ -948,7 +957,21 @@ function bindEvents() {
 
   els.pairings.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
-    if (!btn || btn.disabled) {
+    if (!btn) {
+      return;
+    }
+
+    if (btn.dataset.action === "set-round-view") {
+      const roundNumber = Number(btn.dataset.round || "");
+      if (!Number.isInteger(roundNumber) || roundNumber < 1) {
+        return;
+      }
+      selectedTournamentRoundView = roundNumber;
+      renderRounds();
+      return;
+    }
+
+    if (btn.disabled) {
       return;
     }
 

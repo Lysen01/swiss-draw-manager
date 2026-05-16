@@ -106,6 +106,45 @@ function generateNextRound() {
   saveAndRender();
 }
 
+function generateAllRoundRobinRounds() {
+  const t = state.currentTournament;
+
+  if (!t || t.format !== "round_robin") {
+    alert("Повна генерація доступна лише для кругової системи.");
+    return;
+  }
+
+  if (t.players.length < 2) {
+    alert("Потрібно щонайменше 2 гравці.");
+    return;
+  }
+
+  if (t.rounds.length > 0 || t.currentRound > 0) {
+    alert("Повну сітку можна згенерувати тільки до старту, коли ще немає турів.");
+    return;
+  }
+
+  const maxRounds = getMaxRoundsByFormat("round_robin", t.players.length);
+  if (maxRounds === 0) {
+    alert("Для кругової системи потрібно щонайменше 2 гравці.");
+    return;
+  }
+
+  t.rounds = [];
+  for (let roundNumber = 1; roundNumber <= maxRounds; roundNumber += 1) {
+    const pairings = roundRobinPairRound(t, roundNumber);
+    t.rounds.push({ round: roundNumber, pairings });
+  }
+
+  t.roundsCount = maxRounds;
+  t.currentRound = maxRounds;
+  selectedTournamentRoundView = 1;
+  manualRoundBuilderOpen = false;
+  t.updatedAt = new Date().toISOString();
+
+  saveAndRender();
+}
+
 function createManualRoundFromForm() {
   const t = state.currentTournament;
 
