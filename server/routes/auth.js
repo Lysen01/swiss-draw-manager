@@ -1,7 +1,14 @@
 const express = require('express');
 const { query } = require('../lib/db');
 const { asSafeString, asUuidOrNull } = require('../lib/validators');
-const { normalizeEmail, hashPassword, verifyPassword, createSessionForUser, removeSessionByToken } = require('../lib/auth');
+const {
+  normalizeEmail,
+  hashPassword,
+  verifyPassword,
+  createSessionForUser,
+  removeSessionByToken,
+  isCompromisedDefaultAdminCredentials,
+} = require('../lib/auth');
 const { requireAuth, requireRoles } = require('../middleware/auth');
 
 const router = express.Router();
@@ -26,6 +33,9 @@ router.post('/login', async (req, res, next) => {
     const password = String(req.body.password || '');
     if (!email || !password) {
       return res.status(400).json({ error: 'Email та пароль обовʼязкові' });
+    }
+    if (isCompromisedDefaultAdminCredentials(email, password)) {
+      return res.status(401).json({ error: 'Невірний email або пароль' });
     }
 
     const result = await query(
@@ -101,6 +111,9 @@ router.post('/users', requireRoles(['super_admin']), async (req, res, next) => {
     if (!email || !password || password.length < 8) {
       return res.status(400).json({ error: 'Потрібні email та пароль (мінімум 8 символів)' });
     }
+    if (isCompromisedDefaultAdminCredentials(email, password)) {
+      return res.status(400).json({ error: 'Небезпечна комбінація email/пароля заборонена' });
+    }
 
     const salt = require('crypto').randomBytes(16).toString('hex');
     const passwordHash = hashPassword(password, salt);
@@ -122,4 +135,3 @@ router.post('/users', requireRoles(['super_admin']), async (req, res, next) => {
 });
 
 module.exports = router;
-

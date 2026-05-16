@@ -4,7 +4,7 @@ const express = require('express');
 const path = require('path');
 const { query, closePool } = require('./lib/db');
 const { ensureSchema } = require('./lib/schema');
-const { ensureDefaultSuperAdmin } = require('./lib/auth');
+const { hardenCompromisedDefaultAdmin, ensureDefaultSuperAdmin } = require('./lib/auth');
 const { attachAuthUser } = require('./middleware/auth');
 const playersRouter = require('./routes/players');
 const clubsRouter = require('./routes/clubs');
@@ -107,6 +107,7 @@ async function start() {
   }
 
   await ensureSchema();
+  await hardenCompromisedDefaultAdmin();
   await ensureDefaultSuperAdmin();
 
   app.listen(PORT, '0.0.0.0', () => {
